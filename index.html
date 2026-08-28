@@ -442,28 +442,67 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 // window.storage (превью в Claude) или временная память (без сохранения).
 
 const CLOUD_CHUNK_SIZE = 3500; // с запасом от лимита Telegram в 4096 символов на значение
+const CLOUD_TIMEOUT_MS = 3500; // если CloudStorage не ответил за это время — считаем недоступным
 const memoryFallback = {};
+let cloudBroken = false; // выставляется в true, если CloudStorage завис/не ответил хотя бы раз
+let cloudBrokenNotified = false;
 
-function hasTelegramCloud(){
-  return !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.CloudStorage);
+function notifyCloudBrokenOnce(){
+  if(cloudBrokenNotified) return;
+  cloudBrokenNotified = true;
+  try{ showToast('⚠️ Облако Telegram не отвечает — данные сохранятся только в этой сессии'); }catch(e){}
 }
 
-function tgCloudGet(key){
+// Оборачивает промис таймаутом: если за ms мс не пришёл ответ — резолвим timeoutValue,
+// а не ждём вечно. Без этого зависший callback в некоторых версиях Telegram
+// намертво блокирует весь экран без единой ошибки в консоли.
+function withTimeout(promise, ms, timeoutValue){
   return new Promise((resolve) => {
-    window.Telegram.WebApp.CloudStorage.getItem(key, (err, value) => {
-      resolve(err || !value ? null : value);
+    let settled = false;
+    const timer = setTimeout(() => {
+      if(!settled){ settled = true; cloudBroken = true; notifyCloudBrokenOnce(); resolve(timeoutValue); }
+    }, ms);
+    promise.then((v) => {
+      if(!settled){ settled = true; clearTimeout(timer); resolve(v); }
+    }).catch(() => {
+      if(!settled){ settled = true; clearTimeout(timer); cloudBroken = true; notifyCloudBrokenOnce(); resolve(timeoutValue); }
     });
   });
 }
-function tgCloudSet(key, value){
-  return new Promise((resolve) => {
-    window.Telegram.WebApp.CloudStorage.setItem(key, value, (err) => resolve(!err));
+
+function hasTelegramCloud(){
+  const wa = window.Telegram && window.Telegram.WebApp;
+  if(!wa || !wa.CloudStorage) return false;
+  if(cloudBroken) return false; // раз уже зависал в этой сессии — больше не пробуем, работаем локально
+  if(wa.isVersionAtLeast && !wa.isVersionAtLeast('6.9')) return false; // CloudStorage появился в Bot API 6.9
+  return true;
+}
+
+function tgCloudGet(key){
+  const p = new Promise((resolve) => {
+    try{
+      window.Telegram.WebApp.CloudStorage.getItem(key, (err, value) => {
+        resolve(err || !value ? null : value);
+      });
+    }catch(e){ resolve(null); }
   });
+  return withTimeout(p, CLOUD_TIMEOUT_MS, null);
+}
+function tgCloudSet(key, value){
+  const p = new Promise((resolve) => {
+    try{
+      window.Telegram.WebApp.CloudStorage.setItem(key, value, (err) => resolve(!err));
+    }catch(e){ resolve(false); }
+  });
+  return withTimeout(p, CLOUD_TIMEOUT_MS, false);
 }
 function tgCloudRemove(key){
-  return new Promise((resolve) => {
-    window.Telegram.WebApp.CloudStorage.removeItem(key, (err) => resolve(!err));
+  const p = new Promise((resolve) => {
+    try{
+      window.Telegram.WebApp.CloudStorage.removeItem(key, (err) => resolve(!err));
+    }catch(e){ resolve(false); }
   });
+  return withTimeout(p, CLOUD_TIMEOUT_MS, false);
 }
 
 async function rawGet(key){
@@ -561,9 +600,23 @@ $('btn-register').addEventListener('click', async () => {
   const fio = $('reg-fio').value.trim();
   const factory = $('reg-factory').value.trim();
   if(!fio || !factory){ showToast('Заполните оба поля'); return; }
+
+  const btn = $('btn-register');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Сохраняем...';
+
   PROFILE = { fio, factory };
-  await saveJSON('profile', PROFILE);
-  await init();
+  try{
+    await saveJSON('profile', PROFILE);
+    await init();
+  }catch(e){
+    showToast('Не удалось сохранить, но можно продолжить');
+    await init(); // всё равно пробуем открыть приложение — профиль уже в памяти
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
 });
 
 $('btn-edit-profile').addEventListener('click', () => {
