@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Учёт деталей</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   :root{
     --accent: #3390EC;
@@ -434,15 +435,102 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=> switchTab(btn.getAttribute('data-tab')));
 });
 
-// ---------- Storage ----------
-async function loadJSON(key, fallback){
-  try{ const res = await window.storage.get(key, false); return res ? JSON.parse(res.value) : fallback; }
-  catch(e){ return fallback; }
+// ---------- Storage: Telegram CloudStorage (с запасными вариантами) ----------
+// В реальном Telegram данные хранятся в CloudStorage — встроенном бесплатном
+// хранилище, привязанном к аккаунту пользователя. Если приложение открыто не
+// в Telegram (например, при тестировании здесь), используется то, что доступно:
+// window.storage (превью в Claude) или временная память (без сохранения).
+
+const CLOUD_CHUNK_SIZE = 3500; // с запасом от лимита Telegram в 4096 символов на значение
+const memoryFallback = {};
+
+function hasTelegramCloud(){
+  return !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.CloudStorage);
 }
-async function saveJSON(key, value){ await window.storage.set(key, JSON.stringify(value), false); }
+
+function tgCloudGet(key){
+  return new Promise((resolve) => {
+    window.Telegram.WebApp.CloudStorage.getItem(key, (err, value) => {
+      resolve(err || !value ? null : value);
+    });
+  });
+}
+function tgCloudSet(key, value){
+  return new Promise((resolve) => {
+    window.Telegram.WebApp.CloudStorage.setItem(key, value, (err) => resolve(!err));
+  });
+}
+function tgCloudRemove(key){
+  return new Promise((resolve) => {
+    window.Telegram.WebApp.CloudStorage.removeItem(key, (err) => resolve(!err));
+  });
+}
+
+async function rawGet(key){
+  if(hasTelegramCloud()) return await tgCloudGet(key);
+  if(window.storage){
+    try{ const res = await window.storage.get(key, false); return res ? res.value : null; }
+    catch(e){ return null; }
+  }
+  return (key in memoryFallback) ? memoryFallback[key] : null;
+}
+async function rawSet(key, value){
+  if(hasTelegramCloud()) return await tgCloudSet(key, value);
+  if(window.storage){ await window.storage.set(key, value, false); return true; }
+  memoryFallback[key] = value;
+  return true;
+}
+async function rawRemove(key){
+  if(hasTelegramCloud()) return await tgCloudRemove(key);
+  if(window.storage){ try{ await window.storage.delete(key, false); }catch(e){} return true; }
+  delete memoryFallback[key];
+  return true;
+}
+
+// Значения бьются на чанки по CLOUD_CHUNK_SIZE символов, чтобы не упереться
+// в лимит длины одного значения в CloudStorage — так спокойно растут списки
+// записей, деталей и работников.
+async function saveJSON(key, value){
+  const json = JSON.stringify(value);
+  const newCount = Math.max(1, Math.ceil(json.length / CLOUD_CHUNK_SIZE));
+
+  const oldCountRaw = await rawGet(key + '__n');
+  const oldCount = oldCountRaw ? (parseInt(oldCountRaw, 10) || 0) : 0;
+
+  for(let i=0; i<newCount; i++){
+    await rawSet(key + '__' + i, json.slice(i*CLOUD_CHUNK_SIZE, (i+1)*CLOUD_CHUNK_SIZE));
+  }
+  await rawSet(key + '__n', String(newCount));
+  for(let i=newCount; i<oldCount; i++){ await rawRemove(key + '__' + i); }
+}
+
+async function loadJSON(key, fallback){
+  const countRaw = await rawGet(key + '__n');
+  if(!countRaw) return fallback;
+  const count = parseInt(countRaw, 10) || 0;
+  let json = '';
+  for(let i=0; i<count; i++){ json += (await rawGet(key + '__' + i)) || ''; }
+  if(!json) return fallback;
+  try{ return JSON.parse(json); } catch(e){ return fallback; }
+}
+
+function initTelegramEnv(){
+  if(hasTelegramCloud()){
+    const wa = window.Telegram.WebApp;
+    try{ wa.ready(); wa.expand(); }catch(e){}
+    try{ wa.setHeaderColor('#3390EC'); }catch(e){}
+    try{ wa.setBackgroundColor('#F0F1F3'); }catch(e){}
+  }else if(!window.storage){
+    const banner = document.createElement('div');
+    banner.textContent = '🔧 Демо-режим (не в Telegram): данные сохранятся только до закрытия вкладки';
+    banner.style.cssText = 'background:#FFF4CC;color:#7A5B00;font-size:11.5px;text-align:center;padding:6px 10px;';
+    document.body.prepend(banner);
+  }
+}
 
 // ---------- Init ----------
 async function init(){
+  initTelegramEnv();
   PROFILE = await loadJSON('profile', null);
   if(!PROFILE){ showRoot('register'); return; }
   ENTRIES = await loadJSON('entries', []);
