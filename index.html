@@ -11,6 +11,10 @@
     --accent-dark: #2679C9;
     --whatsapp: #25D366;
     --whatsapp-dark: #1DA851;
+    --telegram: #229ED9;
+    --telegram-dark: #1B87BD;
+    --vk: #0077FF;
+    --vk-dark: #0062D1;
     --bg: #F0F1F3;
     --card: #FFFFFF;
     --text: #1C1C1E;
@@ -111,6 +115,10 @@
   .btn-secondary{ background:#fff; color:var(--accent); border:1.5px solid var(--accent); }
   .btn-whatsapp{ background:var(--whatsapp); color:#fff; }
   .btn-whatsapp:active{ background:var(--whatsapp-dark); }
+  .btn-telegram{ background:var(--telegram); color:#fff; }
+  .btn-telegram:active{ background:var(--telegram-dark); }
+  .btn-vk{ background:var(--vk); color:#fff; }
+  .btn-vk:active{ background:var(--vk-dark); }
   .btn[disabled]{ opacity:.5; cursor:not-allowed; }
 
   .section-title{
@@ -1039,12 +1047,12 @@ function buildBrigadeReport(dateStr){
       <button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button>
       <button class="btn btn-primary" id="btn-print">🖨 Печать / PDF</button>
       <button class="btn btn-whatsapp" id="btn-report-whatsapp">📤 WhatsApp</button>
+      <button class="btn btn-telegram" id="btn-report-telegram">✈️ Telegram</button>
+      <button class="btn btn-vk" id="btn-report-vk">VK</button>
     `;
     $('report-output').appendChild(actions);
 
-    $('btn-print').addEventListener('click', () => window.print());
-    $('btn-download-file').addEventListener('click', () => downloadBrigadeReport(byCategory, categories, total, dateStr));
-    $('btn-report-whatsapp').addEventListener('click', () => {
+    const buildShareText = () => {
       let text = `📋 Выписка по цеху\n`;
       text += `Завод/цех: ${PROFILE.factory}\n`;
       text += `Дата: ${formatDateRu(dateStr)}\n\n`;
@@ -1056,8 +1064,14 @@ function buildBrigadeReport(dateStr){
       });
       text += `———————————————\n`;
       text += `Итого по бригаде: ${total} шт`;
-      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    });
+      return text;
+    };
+
+    $('btn-print').addEventListener('click', () => window.print());
+    $('btn-download-file').addEventListener('click', () => downloadBrigadeReport(byCategory, categories, total, dateStr));
+    $('btn-report-whatsapp').addEventListener('click', () => shareToWhatsApp(buildShareText()));
+    $('btn-report-telegram').addEventListener('click', () => shareToTelegram(buildShareText()));
+    $('btn-report-vk').addEventListener('click', () => shareToVK(buildShareText()));
   }
 }
 
@@ -1169,12 +1183,12 @@ function buildPersonalReport(fromDate, toDate, periodLabel, showDailyBreakdown){
       <button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button>
       <button class="btn btn-primary" id="btn-print">🖨 Печать / PDF</button>
       <button class="btn btn-whatsapp" id="btn-report-whatsapp">📤 WhatsApp</button>
+      <button class="btn btn-telegram" id="btn-report-telegram">✈️ Telegram</button>
+      <button class="btn btn-vk" id="btn-report-vk">VK</button>
     `;
     $('report-output').appendChild(actions);
 
-    $('btn-print').addEventListener('click', () => window.print());
-    $('btn-download-file').addEventListener('click', () => downloadPersonalReport(byCategory, categories, total, periodLabel, byDate, workDates, showDailyBreakdown));
-    $('btn-report-whatsapp').addEventListener('click', () => {
+    const buildShareText = () => {
       let text = `📄 Моя выписка о выполненных работах\n`;
       text += `Ф.И.О.: ${PROFILE.fio}\n`;
       text += `Завод/цех: ${PROFILE.factory}\n`;
@@ -1198,8 +1212,14 @@ function buildPersonalReport(fromDate, toDate, periodLabel, showDailyBreakdown){
       });
       text += `———————————————\n`;
       text += `Итого: ${total} шт`;
-      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    });
+      return text;
+    };
+
+    $('btn-print').addEventListener('click', () => window.print());
+    $('btn-download-file').addEventListener('click', () => downloadPersonalReport(byCategory, categories, total, periodLabel, byDate, workDates, showDailyBreakdown));
+    $('btn-report-whatsapp').addEventListener('click', () => shareToWhatsApp(buildShareText()));
+    $('btn-report-telegram').addEventListener('click', () => shareToTelegram(buildShareText()));
+    $('btn-report-vk').addEventListener('click', () => shareToVK(buildShareText()));
   }
 }
 
@@ -1318,12 +1338,12 @@ function buildWorkerReport(worker, fromDate, toDate, periodLabel){
       <button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button>
       <button class="btn btn-primary" id="btn-print">🖨 Печать / PDF</button>
       <button class="btn btn-whatsapp" id="btn-report-whatsapp">📤 WhatsApp</button>
+      <button class="btn btn-telegram" id="btn-report-telegram">✈️ Telegram</button>
+      <button class="btn btn-vk" id="btn-report-vk">VK</button>
     `;
     $('report-output').appendChild(actions);
 
-    $('btn-print').addEventListener('click', () => window.print());
-    $('btn-download-file').addEventListener('click', () => downloadWorkerReport(worker, byCategory, categories, total, periodLabel, byDate, workDates));
-    $('btn-report-whatsapp').addEventListener('click', () => {
+    const buildShareText = () => {
       let text = `📄 Выписка по работнику\n`;
       text += `Работник: ${worker}\n`;
       text += `Завод/цех: ${PROFILE.factory}\n`;
@@ -1345,8 +1365,14 @@ function buildWorkerReport(worker, fromDate, toDate, periodLabel){
       });
       text += `———————————————\n`;
       text += `Итого: ${total} шт`;
-      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    });
+      return text;
+    };
+
+    $('btn-print').addEventListener('click', () => window.print());
+    $('btn-download-file').addEventListener('click', () => downloadWorkerReport(worker, byCategory, categories, total, periodLabel, byDate, workDates));
+    $('btn-report-whatsapp').addEventListener('click', () => shareToWhatsApp(buildShareText()));
+    $('btn-report-telegram').addEventListener('click', () => shareToTelegram(buildShareText()));
+    $('btn-report-vk').addEventListener('click', () => shareToVK(buildShareText()));
   }
 }
 
@@ -1389,6 +1415,23 @@ function downloadWorkerReport(worker, byCategory, categories, total, periodLabel
 }
 
 // ---------- Utils ----------
+function shareToWhatsApp(text){
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+}
+function shareToTelegram(text){
+  const url = `https://t.me/share/url?url=&text=${encodeURIComponent(text)}`;
+  if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink){
+    window.Telegram.WebApp.openTelegramLink(url);
+  }else{
+    window.open(url, '_blank');
+  }
+}
+function shareToVK(text){
+  // У VK нет отдельного веб-интента «отправить текст сообщением» без ссылки —
+  // используем стандартный диалог репоста/публикации с текстом в заголовке.
+  const url = `https://vk.com/share.php?title=${encodeURIComponent(text)}`;
+  window.open(url, '_blank');
+}
 function toISODate(d){ return d.toISOString().slice(0,10); }
 function formatDateRu(isoDate){ const [y,m,d] = isoDate.split('-'); return `${d}.${m}.${y}`; }
 function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
