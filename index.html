@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Учёт деталей</title>
+<style>
+  :root{
+    --accent: #3390EC;
+    --accent-dark: #2679C9;
+    --whatsapp: #25D366;
+    --whatsapp-dark: #1DA851;
+    --bg: #F0F1F3;
+    --card: #FFFFFF;
+    --text: #1C1C1E;
+    --text-secondary: #8E8E93;
+    --border: #E4E5E7;
+    --danger: #E5484D;
+    --radius: 14px;
+    --mono: 'SF Mono', 'Roboto Mono', Consolas, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color:var(--text);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+  }
+  #app{
+    width:100%; max-width:480px; min-height:100vh;
+    background:var(--bg); display:flex; flex-direction:column; position:relative;
+  }
+
+  .topbar{
+    background:var(--accent); color:#fff; padding:14px 16px;
+    position:sticky; top:0; z-index:20; box-shadow:0 2px 8px rgba(0,0,0,.08);
+  }
+  .topbar-row{ display:flex; align-items:center; justify-content:space-between; }
+  .topbar-title{ font-size:17px; font-weight:600; }
+  .topbar-sub{ font-size:12.5px; opacity:.85; margin-top:2px; }
+  .icon-btn{
+    background:rgba(255,255,255,.18); border:none; color:#fff;
+    width:32px;height:32px; border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer; font-size:16px; flex-shrink:0;
+  }
+  .icon-btn:active{ background:rgba(255,255,255,.3); }
+
+  .content{ flex:1; padding:16px; padding-bottom:90px; }
+
+  .card{
+    background:var(--card); border-radius:var(--radius); padding:16px;
+    margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.04); border:1px solid var(--border);
+  }
+
+  .field{ margin-bottom:14px; }
+  .field:last-child{ margin-bottom:0; }
+  .field label{ display:block; font-size:13px; color:var(--text-secondary); margin-bottom:6px; font-weight:500; }
+  .field input, .field select{
+    width:100%; padding:12px 14px; border:1.5px solid var(--border); border-radius:10px;
+    font-size:16px; background:#FAFAFA; color:var(--text); outline:none;
+    transition:border-color .15s; font-family:inherit; appearance:none; -webkit-appearance:none;
+  }
+  .field select{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238E8E93'><path d='M7 10l5 5 5-5z'/></svg>");
+    background-repeat:no-repeat; background-position:right 12px center; background-size:20px; padding-right:38px;
+  }
+  .field input:focus, .field select:focus{ border-color:var(--accent); background-color:#fff; }
+  .field-row{ display:flex; gap:10px; }
+  .field-row .field{ flex:1; }
+  .select-with-btn{ display:flex; gap:8px; }
+  .select-with-btn select, .select-with-btn input{ flex:1; }
+  .add-btn{
+    flex-shrink:0; width:44px; border-radius:10px; border:1.5px solid var(--accent);
+    background:#fff; color:var(--accent); font-size:20px; font-weight:600; cursor:pointer;
+  }
+  .add-panel{
+    display:none; gap:8px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);
+  }
+  .add-panel.open{ display:flex; }
+  .add-panel input{ flex:1; }
+  .add-panel button.save-btn{
+    flex-shrink:0; padding:0 14px; border-radius:10px; border:none; background:var(--accent); color:#fff; font-weight:600; cursor:pointer;
+  }
+  .manage-details{ margin-top:12px; }
+  .manage-details summary{ font-size:12.5px; color:var(--accent); cursor:pointer; list-style:none; }
+  .manage-details summary::-webkit-details-marker{ display:none; }
+  .manage-block{ margin-top:12px; }
+  .manage-block-title{ font-size:11.5px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; margin-bottom:6px; }
+  .chip-list{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .chip{
+    display:flex; align-items:center; gap:5px; background:#F4F4F5; border:1px solid var(--border);
+    border-radius:16px; padding:5px 6px 5px 12px; font-size:12.5px;
+  }
+  .chip button{
+    background:none; border:none; color:var(--text-secondary); font-size:14px; cursor:pointer;
+    width:18px; height:18px; display:flex; align-items:center; justify-content:center;
+  }
+
+  .btn{
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    width:100%; padding:13px 16px; border-radius:12px; border:none;
+    font-size:15.5px; font-weight:600; cursor:pointer; font-family:inherit;
+  }
+  .btn-primary{ background:var(--accent); color:#fff; }
+  .btn-primary:active{ background:var(--accent-dark); }
+  .btn-secondary{ background:#fff; color:var(--accent); border:1.5px solid var(--accent); }
+  .btn-whatsapp{ background:var(--whatsapp); color:#fff; }
+  .btn-whatsapp:active{ background:var(--whatsapp-dark); }
+  .btn[disabled]{ opacity:.5; cursor:not-allowed; }
+
+  .section-title{
+    font-size:13px; font-weight:600; color:var(--text-secondary);
+    text-transform:uppercase; letter-spacing:.3px; margin:20px 0 8px 4px;
+  }
+  .section-title:first-child{ margin-top:0; }
+
+  .worker-block{ margin-bottom:4px; }
+  .worker-header{ display:flex; align-items:center; justify-content:space-between; padding:0 4px; margin:14px 0 6px; }
+  .worker-name{ font-size:14.5px; font-weight:700; color:var(--text); }
+  .worker-name .avatar{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:20px; height:20px; border-radius:50%; background:var(--accent);
+    color:#fff; font-size:10.5px; font-weight:700; margin-right:6px; vertical-align:-4px;
+  }
+  .worker-subtotal{ font-family:var(--mono); font-size:13px; color:var(--text-secondary); }
+
+  .entry-row{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:12px 14px; margin-bottom:8px;
+  }
+  .entry-info{ flex:1; min-width:0; }
+  .entry-part{ font-size:15px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .entry-meta{ font-size:12px; color:var(--text-secondary); margin-top:2px; }
+  .entry-qty{ font-family:var(--mono); font-size:17px; font-weight:700; color:var(--accent); margin-left:10px; white-space:nowrap; }
+  .entry-del{ background:none; border:none; color:var(--text-secondary); font-size:18px; padding:4px 8px; margin-left:6px; cursor:pointer; }
+
+  .empty-state{ text-align:center; padding:32px 20px; color:var(--text-secondary); }
+  .empty-state .emoji{ font-size:32px; margin-bottom:8px; }
+  .empty-state .msg{ font-size:14px; line-height:1.5; }
+
+  .day-total-bar{
+    display:flex; align-items:center; justify-content:space-between;
+    background:#EAF3FE; border:1px solid #CFE4FB; border-radius:12px;
+    padding:12px 16px; margin:16px 0;
+  }
+  .day-total-bar .label{ font-size:13.5px; color:var(--accent-dark); font-weight:600; }
+  .day-total-bar .val{ font-family:var(--mono); font-size:19px; font-weight:800; color:var(--accent-dark); }
+
+  .tabbar{
+    position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+    width:100%; max-width:480px; background:#fff; border-top:1px solid var(--border);
+    display:flex; padding-bottom:env(safe-area-inset-bottom); z-index:15;
+  }
+  .tab-btn{
+    flex:1; background:none; border:none; padding:9px 4px 8px;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    color:var(--text-secondary); font-family:inherit; cursor:pointer;
+  }
+  .tab-btn .tab-icon{ font-size:20px; line-height:1; }
+  .tab-btn .tab-label{ font-size:11px; font-weight:600; }
+  .tab-btn.active{ color:var(--accent); }
+
+  .reg-wrap{ padding:40px 20px; display:flex; flex-direction:column; align-items:center; }
+  .reg-logo{
+    width:64px;height:64px; border-radius:18px; background:var(--accent);
+    display:flex;align-items:center;justify-content:center; font-size:30px; margin-bottom:16px; color:#fff;
+  }
+  .reg-title{ font-size:20px; font-weight:700; margin-bottom:4px; text-align:center; }
+  .reg-sub{ font-size:14px; color:var(--text-secondary); text-align:center; margin-bottom:28px; }
+  .reg-card{ width:100%; }
+
+  .seg-control{ display:flex; gap:6px; background:#F0F1F3; border-radius:12px; padding:4px; }
+  .seg-btn{
+    flex:1; border:none; background:none; padding:9px 6px; border-radius:9px;
+    font-size:12px; font-weight:600; color:var(--text-secondary); cursor:pointer; font-family:inherit;
+    line-height:1.25;
+  }
+  .seg-btn.active{ background:#fff; color:var(--accent); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+
+  .report-doc{ background:#fff; border-radius:var(--radius); padding:20px 18px; border:1px solid var(--border); }
+  .report-doc h2{ font-size:16px; margin:0 0 2px; text-align:center; }
+  .report-doc .report-meta{ font-size:12.5px; color:var(--text-secondary); text-align:center; margin-bottom:16px; }
+  .report-doc .report-field{ display:flex; justify-content:space-between; font-size:13.5px; padding:6px 0; border-bottom:1px dashed var(--border); }
+  .report-doc .report-field span:first-child{ color:var(--text-secondary); }
+  .report-section-title{
+    font-size:11.5px; font-weight:700; color:var(--text-secondary); text-transform:uppercase;
+    letter-spacing:.3px; margin:16px 0 2px;
+  }
+  table.report-table{ width:100%; border-collapse:collapse; margin-top:14px; font-size:13.5px; }
+  table.report-table th{ text-align:left; font-size:11.5px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.2px; padding:7px 4px; border-bottom:1.5px solid var(--text); }
+  table.report-table td{ padding:8px 4px; border-bottom:1px solid var(--border); }
+  table.report-table td.qty{ font-family:var(--mono); font-weight:700; text-align:right; }
+  table.report-table tr.cat-row td{
+    background:#F4F4F5; font-weight:700; font-size:12px; text-transform:uppercase;
+    letter-spacing:.3px; color:var(--accent-dark); padding-top:10px; padding-bottom:6px; border-bottom:1px solid var(--border);
+  }
+  .report-total{ display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:12px; border-top:2px solid var(--text); font-weight:700; font-size:15px; }
+  .report-total .val{ font-family:var(--mono); color:var(--accent); font-size:18px; }
+  .report-actions{ display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+  .report-actions .btn{ flex:1; min-width:130px; }
+
+  @media print{
+    body *{ visibility:hidden; }
+    .report-doc, .report-doc *{ visibility:visible; }
+    .report-doc{ position:absolute; top:0; left:0; width:100%; border:none; }
+  }
+
+  .toast{
+    position:fixed; bottom:78px; left:50%; transform:translateX(-50%);
+    background:#1C1C1E; color:#fff; padding:10px 18px; border-radius:20px;
+    font-size:13.5px; z-index:100; opacity:0; transition:opacity .25s, bottom .25s;
+    pointer-events:none; white-space:nowrap;
+  }
+  .toast.show{ opacity:1; bottom:88px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <div id="view-register" style="display:none;">
+    <div class="reg-wrap">
+      <div class="reg-logo">🏭</div>
+      <div class="reg-title">Учёт выработки</div>
+      <div class="reg-sub">Укажите свои данные — они сохранятся,<br>и при следующем входе вводить их не нужно</div>
+      <div class="card reg-card">
+        <div class="field">
+          <label>Фамилия Имя Отчество</label>
+          <input type="text" id="reg-fio" placeholder="Иванов Иван Иванович" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Наименование завода / цеха</label>
+          <input type="text" id="reg-factory" placeholder="ООО «Металлист», цех №3" autocomplete="off">
+        </div>
+        <div class="field" style="margin-top:4px;">
+          <button class="btn btn-primary" id="btn-register">Продолжить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-main" style="display:none;">
+
+    <div class="topbar">
+      <div class="topbar-row">
+        <div>
+          <div class="topbar-title" id="home-fio">—</div>
+          <div class="topbar-sub" id="home-factory">—</div>
+        </div>
+        <button class="icon-btn" id="btn-edit-profile" title="Изменить профиль">✎</button>
+      </div>
+    </div>
+
+    <!-- ========== ВВОД ========== -->
+    <div id="tab-entry" class="content">
+      <div class="field" style="margin-bottom:16px;">
+        <label>Дата</label>
+        <input type="date" id="entry-date">
+      </div>
+
+      <div class="section-title">Новая запись</div>
+      <div class="card">
+        <div class="field">
+          <label>Категория</label>
+          <div class="select-with-btn">
+            <select id="in-cat-select"></select>
+            <button class="add-btn" id="btn-toggle-add-cat" title="Добавить категорию">+</button>
+          </div>
+          <div class="add-panel" id="add-cat-panel">
+            <input type="text" id="in-new-cat" placeholder="Новая категория">
+            <button class="save-btn" id="btn-save-cat">Сохранить</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Наименование детали</label>
+          <div class="select-with-btn">
+            <select id="in-part-select"></select>
+            <button class="add-btn" id="btn-toggle-add-part" title="Добавить деталь">+</button>
+          </div>
+          <div class="add-panel" id="add-part-panel">
+            <input type="text" id="in-new-part" placeholder="Новая деталь">
+            <button class="save-btn" id="btn-save-part">Сохранить</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Количество, шт</label>
+          <input type="number" id="in-qty" placeholder="0" min="1" inputmode="numeric">
+        </div>
+        <button class="btn btn-primary" id="btn-add">+ Добавить запись</button>
+
+        <details class="manage-details">
+          <summary>Управлять категориями и деталями</summary>
+          <div class="manage-block">
+            <div class="manage-block-title">Категории</div>
+            <div class="chip-list" id="cat-chip-list"></div>
+            <div class="manage-block-title">Детали</div>
+            <div class="chip-list" id="part-chip-list"></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="section-title">Мои записи за дату</div>
+      <div id="entries-list"></div>
+
+      <div class="day-total-bar">
+        <span class="label">Итого за дату, шт</span>
+        <span class="val" id="day-total">0</span>
+      </div>
+    </div>
+
+    <!-- ========== БРИГАДА ========== -->
+    <div id="tab-team" class="content" style="display:none;">
+      <div class="field" style="margin-bottom:16px;">
+        <label>Дата (смена)</label>
+        <input type="date" id="team-date">
+      </div>
+
+      <div class="section-title">Работники бригады</div>
+      <div class="card">
+        <div class="select-with-btn">
+          <input type="text" id="in-new-worker" placeholder="ФИО работника">
+          <button class="add-btn" id="btn-add-worker" title="Добавить работника">+</button>
+        </div>
+        <div class="chip-list" id="worker-chip-list" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="section-title">Сдельная запись</div>
+      <div class="card">
+        <div class="field">
+          <label>Работник</label>
+          <select id="in-worker-select"></select>
+        </div>
+        <div class="field">
+          <label>Категория</label>
+          <select id="team-cat-select"></select>
+        </div>
+        <div class="field">
+          <label>Наименование детали</label>
+          <select id="team-part-select"></select>
+        </div>
+        <div class="field">
+          <label>Количество, шт</label>
+          <input type="number" id="in-team-qty" placeholder="0" min="1" inputmode="numeric">
+        </div>
+        <button class="btn btn-primary" id="btn-team-add">+ Добавить запись</button>
+      </div>
+
+      <div class="section-title">Данные за смену</div>
+      <div id="team-list"></div>
+
+      <div class="day-total-bar">
+        <span class="label">Итого по бригаде, шт</span>
+        <span class="val" id="team-day-total">0</span>
+      </div>
+    </div>
+
+    <!-- ========== ОТЧЁТ ========== -->
+    <div id="tab-report" class="content" style="display:none;">
+      <div class="card">
+        <div class="field">
+          <label>Тип отчёта</label>
+          <div class="seg-control" id="report-mode">
+            <button class="seg-btn active" data-mode="brigade">Бригада за смену</button>
+            <button class="seg-btn" data-mode="day">Моя сделка — день</button>
+            <button class="seg-btn" data-mode="month">Моя сделка — месяц</button>
+          </div>
+        </div>
+        <div class="field" id="rep-date-field">
+          <label>Дата отчёта</label>
+          <input type="date" id="rep-date">
+        </div>
+        <div class="field" id="rep-month-field" style="display:none;">
+          <label>Месяц</label>
+          <input type="month" id="rep-month">
+        </div>
+        <button class="btn btn-secondary" id="btn-build-report">Сформировать выписку для мастера</button>
+      </div>
+      <div id="report-output"></div>
+    </div>
+
+    <div class="tabbar">
+      <button class="tab-btn active" data-tab="entry">
+        <span class="tab-icon">📝</span><span class="tab-label">Ввод</span>
+      </button>
+      <button class="tab-btn" data-tab="team">
+        <span class="tab-icon">👥</span><span class="tab-label">Бригада</span>
+      </button>
+      <button class="tab-btn" data-tab="report">
+        <span class="tab-icon">📄</span><span class="tab-label">Отчёт</span>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let PROFILE = null;
+let ENTRIES = [];       // { id, ts, date, time, category, part, qty }
+let TEAM_ENTRIES = [];  // { id, ts, date, time, worker, category, part, qty }
+let CATEGORIES = [];    // ["Механическая обработка", ...]
+let CATALOG = [];       // [{ name, category }]
+let WORKERS = [];       // ["Иванов Иван Иванович", ...]
+
+function showToast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+function showRoot(name){
+  $('view-register').style.display = name === 'register' ? 'block' : 'none';
+  $('view-main').style.display = name === 'main' ? 'block' : 'none';
+}
+
+function switchTab(name){
+  ['entry','team','report'].forEach(t=>{
+    $('tab-'+t).style.display = (t===name) ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab-btn').forEach(b=>{
+    b.classList.toggle('active', b.getAttribute('data-tab')===name);
+  });
+  if(name === 'team') renderTeam();
+}
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=> switchTab(btn.getAttribute('data-tab')));
+});
+
+// ---------- Storage ----------
+async function loadJSON(key, fallback){
+  try{ const res = await window.storage.get(key, false); return res ? JSON.parse(res.value) : fallback; }
+  catch(e){ return fallback; }
+}
+async function saveJSON(key, value){ await window.storage.set(key, JSON.stringify(value), false); }
+
+// ---------- Init ----------
+async function init(){
+  PROFILE = await loadJSON('profile', null);
+  if(!PROFILE){ showRoot('register'); return; }
+  ENTRIES = await loadJSON('entries', []);
+  TEAM_ENTRIES = await loadJSON('team_entries', []);
+  CATEGORIES = await loadJSON('categories', []);
+  CATALOG = await loadJSON('parts_catalog', []);
+  WORKERS = await loadJSON('workers', []);
+
+  $('home-fio').textContent = PROFILE.fio;
+  $('home-factory').textContent = PROFILE.factory;
+  $('entry-date').value = toISODate(new Date());
+  $('team-date').value = toISODate(new Date());
+  $('rep-date').value = toISODate(new Date());
+  $('rep-month').value = toISODate(new Date()).slice(0,7);
+
+  refreshAllCategorySelects();
+  refreshAllPartSelects();
+  refreshWorkerSelect();
+  renderManageChips();
+  renderWorkerChips();
+  renderEntries();
+
+  showRoot('main');
+  switchTab('entry');
+}
+
+$('btn-register').addEventListener('click', async () => {
+  const fio = $('reg-fio').value.trim();
+  const factory = $('reg-factory').value.trim();
+  if(!fio || !factory){ showToast('Заполните оба поля'); return; }
+  PROFILE = { fio, factory };
+  await saveJSON('profile', PROFILE);
+  await init();
+});
+
+$('btn-edit-profile').addEventListener('click', () => {
+  $('reg-fio').value = PROFILE.fio;
+  $('reg-factory').value = PROFILE.factory;
+  showRoot('register');
+});
+
+// ---------- Категории и детали (общий каталог) ----------
+function refreshAllCategorySelects(){
+  [$('in-cat-select'), $('team-cat-select')].forEach(sel => {
+    const prev = sel.value;
+    if(CATEGORIES.length === 0){
+      sel.innerHTML = `<option value="">Сначала добавьте категорию</option>`;
+    }else{
+      sel.innerHTML = CATEGORIES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      if(CATEGORIES.includes(prev)) sel.value = prev;
+    }
+  });
+}
+
+function refreshPartSelect(selectEl, category){
+  const parts = CATALOG.filter(p => p.category === category);
+  if(!category || parts.length === 0){
+    selectEl.innerHTML = `<option value="">Нет деталей в категории</option>`;
+  }else{
+    selectEl.innerHTML = parts.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join('');
+  }
+}
+function refreshAllPartSelects(){
+  refreshPartSelect($('in-part-select'), $('in-cat-select').value);
+  refreshPartSelect($('team-part-select'), $('team-cat-select').value);
+}
+
+$('in-cat-select').addEventListener('change', () => refreshPartSelect($('in-part-select'), $('in-cat-select').value));
+$('team-cat-select').addEventListener('change', () => refreshPartSelect($('team-part-select'), $('team-cat-select').value));
+
+$('btn-toggle-add-cat').addEventListener('click', () => { $('add-cat-panel').classList.toggle('open'); $('in-new-cat').focus(); });
+$('btn-toggle-add-part').addEventListener('click', () => {
+  if(!$('in-cat-select').value){ showToast('Сначала выберите или добавьте категорию'); return; }
+  $('add-part-panel').classList.toggle('open'); $('in-new-part').focus();
+});
+
+$('btn-save-cat').addEventListener('click', async () => {
+  const name = $('in-new-cat').value.trim();
+  if(!name){ showToast('Введите название категории'); return; }
+  if(CATEGORIES.includes(name)){ showToast('Такая категория уже есть'); return; }
+  CATEGORIES.push(name);
+  await saveJSON('categories', CATEGORIES);
+  $('in-new-cat').value = '';
+  $('add-cat-panel').classList.remove('open');
+  refreshAllCategorySelects();
+  $('in-cat-select').value = name;
+  refreshAllPartSelects();
+  renderManageChips();
+  showToast('Категория добавлена');
+});
+
+$('btn-save-part').addEventListener('click', async () => {
+  const category = $('in-cat-select').value;
+  const name = $('in-new-part').value.trim();
+  if(!category){ showToast('Сначала выберите категорию'); return; }
+  if(!name){ showToast('Введите наименование детали'); return; }
+  if(CATALOG.some(p => p.category === category && p.name === name)){ showToast('Такая деталь уже есть в этой категории'); return; }
+  CATALOG.push({ name, category });
+  await saveJSON('parts_catalog', CATALOG);
+  $('in-new-part').value = '';
+  $('add-part-panel').classList.remove('open');
+  refreshPartSelect($('in-part-select'), category);
+  $('in-part-select').value = name;
+  renderManageChips();
+  showToast('Деталь добавлена');
+});
+
+function renderManageChips(){
+  const catWrap = $('cat-chip-list');
+  catWrap.innerHTML = CATEGORIES.length ? CATEGORIES.map(c => `
+    <span class="chip">${escapeHtml(c)}<button data-cat="${escapeHtml(c)}" title="Удалить категорию">✕</button></span>
+  `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет категорий</span>`;
+  catWrap.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cat = btn.getAttribute('data-cat');
+      CATEGORIES = CATEGORIES.filter(c => c !== cat);
+      CATALOG = CATALOG.filter(p => p.category !== cat);
+      await saveJSON('categories', CATEGORIES);
+      await saveJSON('parts_catalog', CATALOG);
+      refreshAllCategorySelects();
+      refreshAllPartSelects();
+      renderManageChips();
+      showToast('Категория удалена вместе с её деталями');
+    });
+  });
+
+  const partWrap = $('part-chip-list');
+  partWrap.innerHTML = CATALOG.length ? CATALOG.map(p => `
+    <span class="chip">${escapeHtml(p.category)} · ${escapeHtml(p.name)}<button data-name="${escapeHtml(p.name)}" data-cat="${escapeHtml(p.category)}" title="Удалить деталь">✕</button></span>
+  `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет деталей</span>`;
+  partWrap.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const name = btn.getAttribute('data-name');
+      const cat = btn.getAttribute('data-cat');
+      CATALOG = CATALOG.filter(p => !(p.name === name && p.category === cat));
+      await saveJSON('parts_catalog', CATALOG);
+      refreshAllPartSelects();
+      renderManageChips();
+      showToast('Деталь удалена');
+    });
+  });
+}
+
+// ---------- ВВОД: собственные записи ----------
+function renderEntries(){
+  const dateStr = $('entry-date').value || toISODate(new Date());
+  const list = $('entries-list');
+  const dayEntries = ENTRIES.filter(e => e.date === dateStr).sort((a,b)=> b.ts - a.ts);
+  const total = dayEntries.reduce((s,e)=> s + e.qty, 0);
+  $('day-total').textContent = total;
+
+  if(dayEntries.length === 0){
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="emoji">🗂️</div>
+        <div class="msg">На эту дату записей нет.<br>Выберите категорию и деталь выше.</div>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = '';
+  dayEntries.forEach(e => {
+    const row = document.createElement('div');
+    row.className = 'entry-row';
+    row.innerHTML = `
+      <div class="entry-info">
+        <div class="entry-part">${escapeHtml(e.part)}</div>
+        <div class="entry-meta">${escapeHtml(e.category)} · ${e.time}</div>
+      </div>
+      <div class="entry-qty">${e.qty}</div>
+      <button class="entry-del" data-id="${e.id}" title="Удалить">🗑</button>
+    `;
+    list.appendChild(row);
+  });
+
+  list.querySelectorAll('.entry-del').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      ENTRIES = ENTRIES.filter(e => String(e.id) !== btn.getAttribute('data-id'));
+      await saveJSON('entries', ENTRIES);
+      renderEntries();
+      showToast('Запись удалена');
+    });
+  });
+}
+$('entry-date').addEventListener('change', renderEntries);
+
+$('btn-add').addEventListener('click', async () => {
+  const category = $('in-cat-select').value;
+  const part = $('in-part-select').value;
+  const qty = parseInt($('in-qty').value, 10);
+  if(!category){ showToast('Выберите категорию'); return; }
+  if(!part){ showToast('Выберите деталь'); return; }
+  if(!qty || qty <= 0){ showToast('Укажите количество'); return; }
+
+  const dateStr = $('entry-date').value || toISODate(new Date());
+  const now = new Date();
+  ENTRIES.push({
+    id: Date.now(), ts: now.getTime(), category, part, qty,
+    date: dateStr,
+    time: now.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'})
+  });
+  await saveJSON('entries', ENTRIES);
+  $('in-qty').value = '';
+  renderEntries();
+  showToast('Запись добавлена');
+});
+
+// ---------- БРИГАДА ----------
+function refreshWorkerSelect(){
+  const sel = $('in-worker-select');
+  const prev = sel.value;
+  if(WORKERS.length === 0){
+    sel.innerHTML = `<option value="">Сначала добавьте работника</option>`;
+  }else{
+    sel.innerHTML = WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+    if(WORKERS.includes(prev)) sel.value = prev;
+  }
+}
+
+function renderWorkerChips(){
+  const wrap = $('worker-chip-list');
+  wrap.innerHTML = WORKERS.length ? WORKERS.map(w => `
+    <span class="chip">${escapeHtml(w)}<button data-worker="${escapeHtml(w)}" title="Удалить">✕</button></span>
+  `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет работников</span>`;
+  wrap.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const w = btn.getAttribute('data-worker');
+      WORKERS = WORKERS.filter(x => x !== w);
+      await saveJSON('workers', WORKERS);
+      refreshWorkerSelect();
+      renderWorkerChips();
+      showToast('Работник удалён из списка');
+    });
+  });
+}
+
+$('btn-add-worker').addEventListener('click', async () => {
+  const name = $('in-new-worker').value.trim();
+  if(!name){ showToast('Введите ФИО работника'); return; }
+  if(WORKERS.includes(name)){ showToast('Такой работник уже есть'); return; }
+  WORKERS.push(name);
+  await saveJSON('workers', WORKERS);
+  $('in-new-worker').value = '';
+  refreshWorkerSelect();
+  renderWorkerChips();
+  showToast('Работник добавлен');
+});
+
+function renderTeam(){
+  const dateStr = $('team-date').value || toISODate(new Date());
+  const list = $('team-list');
+  const dayEntries = TEAM_ENTRIES.filter(e => e.date === dateStr).sort((a,b)=> a.ts - b.ts);
+
+  const total = dayEntries.reduce((s,e)=> s + e.qty, 0);
+  $('team-day-total').textContent = total;
+
+  if(dayEntries.length === 0){
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="emoji">👥</div>
+        <div class="msg">За эту смену записей нет.<br>Добавьте работника и деталь выше.</div>
+      </div>`;
+    return;
+  }
+
+  const byWorker = {};
+  dayEntries.forEach(e => { (byWorker[e.worker] = byWorker[e.worker] || []).push(e); });
+
+  list.innerHTML = '';
+  Object.keys(byWorker).forEach(worker => {
+    const items = byWorker[worker];
+    const subtotal = items.reduce((s,e)=> s + e.qty, 0);
+    const initials = worker.trim().split(/\s+/).map(p=>p[0]).slice(0,2).join('').toUpperCase();
+    const block = document.createElement('div');
+    block.className = 'worker-block';
+    block.innerHTML = `
+      <div class="worker-header">
+        <div class="worker-name"><span class="avatar">${initials}</span>${escapeHtml(worker)}</div>
+        <div class="worker-subtotal">${subtotal} шт</div>
+      </div>
+    `;
+    items.forEach(e => {
+      const row = document.createElement('div');
+      row.className = 'entry-row';
+      row.innerHTML = `
+        <div class="entry-info">
+          <div class="entry-part">${escapeHtml(e.part)}</div>
+          <div class="entry-meta">${escapeHtml(e.category)} · ${e.time}</div>
+        </div>
+        <div class="entry-qty">${e.qty}</div>
+        <button class="entry-del" data-id="${e.id}" title="Удалить">🗑</button>
+      `;
+      block.appendChild(row);
+    });
+    list.appendChild(block);
+  });
+
+  list.querySelectorAll('.entry-del').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      TEAM_ENTRIES = TEAM_ENTRIES.filter(e => String(e.id) !== btn.getAttribute('data-id'));
+      await saveJSON('team_entries', TEAM_ENTRIES);
+      renderTeam();
+      showToast('Запись удалена');
+    });
+  });
+}
+$('team-date').addEventListener('change', renderTeam);
+
+$('btn-team-add').addEventListener('click', async () => {
+  const worker = $('in-worker-select').value;
+  const category = $('team-cat-select').value;
+  const part = $('team-part-select').value;
+  const qty = parseInt($('in-team-qty').value, 10);
+  if(!worker){ showToast('Выберите работника'); return; }
+  if(!category){ showToast('Выберите категорию'); return; }
+  if(!part){ showToast('Выберите деталь'); return; }
+  if(!qty || qty <= 0){ showToast('Укажите количество'); return; }
+
+  const dateStr = $('team-date').value || toISODate(new Date());
+  const now = new Date();
+  TEAM_ENTRIES.push({
+    id: Date.now(), ts: now.getTime(), worker, category, part, qty,
+    date: dateStr,
+    time: now.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'})
+  });
+  await saveJSON('team_entries', TEAM_ENTRIES);
+  $('in-team-qty').value = '';
+  renderTeam();
+  showToast('Запись добавлена');
+});
+
+// ---------- ОТЧЁТ: переключение режима ----------
+let REPORT_MODE = 'brigade';
+const REPORT_BTN_LABELS = {
+  brigade: 'Сформировать выписку для мастера',
+  day: 'Сформировать мою выписку за день',
+  month: 'Сформировать мою выписку за месяц'
+};
+document.querySelectorAll('#report-mode .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    REPORT_MODE = btn.getAttribute('data-mode');
+    document.querySelectorAll('#report-mode .seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+    $('rep-date-field').style.display = (REPORT_MODE === 'month') ? 'none' : 'block';
+    $('rep-month-field').style.display = (REPORT_MODE === 'month') ? 'block' : 'none';
+    $('btn-build-report').textContent = REPORT_BTN_LABELS[REPORT_MODE];
+    $('report-output').innerHTML = '';
+  });
+});
+
+$('btn-build-report').addEventListener('click', () => {
+  if(REPORT_MODE === 'brigade'){
+    buildBrigadeReport($('rep-date').value || toISODate(new Date()));
+  }else if(REPORT_MODE === 'day'){
+    const d = $('rep-date').value || toISODate(new Date());
+    buildPersonalReport(d, d, formatDateRu(d), false);
+  }else{
+    const monthVal = $('rep-month').value || toISODate(new Date()).slice(0,7); // YYYY-MM
+    const [y,m] = monthVal.split('-').map(Number);
+    const from = `${monthVal}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${monthVal}-${String(lastDay).padStart(2,'0')}`;
+    const monthLabel = new Date(y, m-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
+    buildPersonalReport(from, to, monthLabel, true);
+  }
+});
+
+// ---------- ОТЧЁТ ДЛЯ МАСТЕРА (бригада за смену, без ФИО) ----------
+function buildBrigadeReport(dateStr){
+  // объединяем собственные записи и записи бригады, ФИО игнорируем
+  const combined = [
+    ...ENTRIES.filter(e => e.date === dateStr),
+    ...TEAM_ENTRIES.filter(e => e.date === dateStr)
+  ];
+
+  const byKey = {};
+  combined.forEach(e => {
+    const key = e.category + '||' + e.part;
+    if(!byKey[key]) byKey[key] = { category: e.category, part: e.part, qty: 0 };
+    byKey[key].qty += e.qty;
+  });
+
+  const byCategory = {};
+  Object.values(byKey).forEach(row => {
+    (byCategory[row.category] = byCategory[row.category] || []).push(row);
+  });
+  const categories = Object.keys(byCategory).sort((a,b)=> a.localeCompare(b,'ru'));
+
+  const total = Object.values(byKey).reduce((s,r)=> s + r.qty, 0);
+
+  let rowsHtml = '';
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    rowsHtml += `<tr class="cat-row"><td>${escapeHtml(cat)}</td><td style="text-align:right;">${catTotal} шт</td></tr>`;
+    byCategory[cat].sort((a,b)=> b.qty - a.qty).forEach(r => {
+      rowsHtml += `<tr><td>${escapeHtml(r.part)}</td><td class="qty">${r.qty}</td></tr>`;
+    });
+  });
+  if(categories.length === 0){
+    rowsHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за эту дату</td></tr>`;
+  }
+
+  $('report-output').innerHTML = `
+    <div class="report-doc" id="report-doc">
+      <h2>Выписка по цеху</h2>
+      <div class="report-meta">Сформировано: ${new Date().toLocaleDateString('ru-RU')}</div>
+      <div class="report-field"><span>Завод / цех</span><span>${escapeHtml(PROFILE.factory)}</span></div>
+      <div class="report-field"><span>Дата</span><span>${formatDateRu(dateStr)}</span></div>
+      <table class="report-table">
+        <thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="report-total"><span>Итого по бригаде, шт</span><span class="val">${total}</span></div>
+    </div>
+  `;
+
+  if(categories.length > 0){
+    const actions = document.createElement('div');
+    actions.className = 'report-actions';
+    actions.innerHTML = `
+      <button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button>
+      <button class="btn btn-primary" id="btn-print">🖨 Печать / PDF</button>
+      <button class="btn btn-whatsapp" id="btn-report-whatsapp">📤 WhatsApp</button>
+    `;
+    $('report-output').appendChild(actions);
+
+    $('btn-print').addEventListener('click', () => window.print());
+    $('btn-download-file').addEventListener('click', () => downloadBrigadeReport(byCategory, categories, total, dateStr));
+    $('btn-report-whatsapp').addEventListener('click', () => {
+      let text = `📋 Выписка по цеху\n`;
+      text += `Завод/цех: ${PROFILE.factory}\n`;
+      text += `Дата: ${formatDateRu(dateStr)}\n\n`;
+      categories.forEach(cat => {
+        const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+        text += `🔧 ${cat} — ${catTotal} шт\n`;
+        byCategory[cat].forEach(r => { text += `   • ${r.part}: ${r.qty} шт\n`; });
+        text += `\n`;
+      });
+      text += `———————————————\n`;
+      text += `Итого по бригаде: ${total} шт`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    });
+  }
+}
+
+function downloadBrigadeReport(byCategory, categories, total, dateStr){
+  let text = 'ВЫПИСКА ПО ЦЕХУ\r\n';
+  text += `Сформировано: ${new Date().toLocaleDateString('ru-RU')}\r\n`;
+  text += `Завод/цех: ${PROFILE.factory}\r\n`;
+  text += `Дата: ${formatDateRu(dateStr)}\r\n`;
+  text += '----------------------------------------\r\n';
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    text += `\r\n${cat.toUpperCase()} — Итого: ${catTotal} шт\r\n`;
+    byCategory[cat].forEach(r => { text += `  ${r.part}\t${r.qty}\r\n`; });
+  });
+  text += '\r\n----------------------------------------\r\n';
+  text += `ИТОГО ПО БРИГАДЕ: ${total} шт.\r\n`;
+
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Выписка_${PROFILE.factory.replace(/[\s«»]+/g,'_')}_${dateStr}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Файл скачан');
+}
+
+// ---------- МОЯ ВЫПИСКА (день / месяц, только собственные записи, с ФИО) ----------
+function buildPersonalReport(fromDate, toDate, periodLabel, showDailyBreakdown){
+  const own = ENTRIES.filter(e => e.date >= fromDate && e.date <= toDate);
+
+  const byKey = {};
+  own.forEach(e => {
+    const key = e.category + '||' + e.part;
+    if(!byKey[key]) byKey[key] = { category: e.category, part: e.part, qty: 0 };
+    byKey[key].qty += e.qty;
+  });
+
+  const byCategory = {};
+  Object.values(byKey).forEach(row => {
+    (byCategory[row.category] = byCategory[row.category] || []).push(row);
+  });
+  const categories = Object.keys(byCategory).sort((a,b)=> a.localeCompare(b,'ru'));
+  const total = Object.values(byKey).reduce((s,r)=> s + r.qty, 0);
+
+  // разбивка по рабочим датам (сменам)
+  const byDate = {};
+  own.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
+  const workDates = Object.keys(byDate).sort();
+
+  let dailyHtml = '';
+  if(showDailyBreakdown){
+    workDates.forEach(date => {
+      const items = byDate[date].sort((a,b)=> a.ts - b.ts);
+      const dayTotal = items.reduce((s,e)=> s + e.qty, 0);
+      dailyHtml += `<tr class="cat-row"><td>${formatDateRu(date)}</td><td style="text-align:right;">${dayTotal} шт</td></tr>`;
+      items.forEach(e => {
+        dailyHtml += `<tr><td>${escapeHtml(e.category)} — ${escapeHtml(e.part)}</td><td class="qty">${e.qty}</td></tr>`;
+      });
+    });
+    if(workDates.length === 0){
+      dailyHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
+    }
+  }
+
+  let rowsHtml = '';
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    rowsHtml += `<tr class="cat-row"><td>${escapeHtml(cat)}</td><td style="text-align:right;">${catTotal} шт</td></tr>`;
+    byCategory[cat].sort((a,b)=> b.qty - a.qty).forEach(r => {
+      rowsHtml += `<tr><td>${escapeHtml(r.part)}</td><td class="qty">${r.qty}</td></tr>`;
+    });
+  });
+  if(categories.length === 0){
+    rowsHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
+  }
+
+  const dailySectionHtml = showDailyBreakdown ? `
+      <div class="report-section-title">Разбивка по сменам</div>
+      <table class="report-table">
+        <thead><tr><th>Дата / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
+        <tbody>${dailyHtml}</tbody>
+      </table>
+      <div class="report-section-title" style="margin-top:18px;">Итого по категориям за период</div>
+  ` : '';
+
+  $('report-output').innerHTML = `
+    <div class="report-doc" id="report-doc">
+      <h2>Моя выписка о выполненных работах</h2>
+      <div class="report-meta">Сформировано: ${new Date().toLocaleDateString('ru-RU')}</div>
+      <div class="report-field"><span>Ф.И.О.</span><span>${escapeHtml(PROFILE.fio)}</span></div>
+      <div class="report-field"><span>Завод / цех</span><span>${escapeHtml(PROFILE.factory)}</span></div>
+      <div class="report-field"><span>Период</span><span>${periodLabel}</span></div>
+      ${dailySectionHtml}
+      <table class="report-table">
+        <thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="report-total"><span>Итого изготовлено, шт</span><span class="val">${total}</span></div>
+    </div>
+  `;
+
+  if(categories.length > 0){
+    const actions = document.createElement('div');
+    actions.className = 'report-actions';
+    actions.innerHTML = `
+      <button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button>
+      <button class="btn btn-primary" id="btn-print">🖨 Печать / PDF</button>
+      <button class="btn btn-whatsapp" id="btn-report-whatsapp">📤 WhatsApp</button>
+    `;
+    $('report-output').appendChild(actions);
+
+    $('btn-print').addEventListener('click', () => window.print());
+    $('btn-download-file').addEventListener('click', () => downloadPersonalReport(byCategory, categories, total, periodLabel, byDate, workDates, showDailyBreakdown));
+    $('btn-report-whatsapp').addEventListener('click', () => {
+      let text = `📄 Моя выписка о выполненных работах\n`;
+      text += `Ф.И.О.: ${PROFILE.fio}\n`;
+      text += `Завод/цех: ${PROFILE.factory}\n`;
+      text += `Период: ${periodLabel}\n\n`;
+      if(showDailyBreakdown){
+        text += `— Разбивка по сменам —\n\n`;
+        workDates.forEach(date => {
+          const items = byDate[date].sort((a,b)=> a.ts - b.ts);
+          const dayTotal = items.reduce((s,e)=> s + e.qty, 0);
+          text += `📅 ${formatDateRu(date)} — ${dayTotal} шт\n`;
+          items.forEach(e => { text += `   • ${e.category} — ${e.part}: ${e.qty} шт\n`; });
+          text += `\n`;
+        });
+        text += `— Итого по категориям —\n\n`;
+      }
+      categories.forEach(cat => {
+        const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+        text += `🔧 ${cat} — ${catTotal} шт\n`;
+        byCategory[cat].forEach(r => { text += `   • ${r.part}: ${r.qty} шт\n`; });
+        text += `\n`;
+      });
+      text += `———————————————\n`;
+      text += `Итого: ${total} шт`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    });
+  }
+}
+
+function downloadPersonalReport(byCategory, categories, total, periodLabel, byDate, workDates, showDailyBreakdown){
+  let text = 'МОЯ ВЫПИСКА О ВЫПОЛНЕННЫХ РАБОТАХ\r\n';
+  text += `Сформировано: ${new Date().toLocaleDateString('ru-RU')}\r\n`;
+  text += `Ф.И.О.: ${PROFILE.fio}\r\n`;
+  text += `Завод/цех: ${PROFILE.factory}\r\n`;
+  text += `Период: ${periodLabel}\r\n`;
+  text += '----------------------------------------\r\n';
+
+  if(showDailyBreakdown){
+    text += '\r\nРАЗБИВКА ПО СМЕНАМ\r\n';
+    workDates.forEach(date => {
+      const items = byDate[date].sort((a,b)=> a.ts - b.ts);
+      const dayTotal = items.reduce((s,e)=> s + e.qty, 0);
+      text += `\r\n${formatDateRu(date)} — Итого: ${dayTotal} шт\r\n`;
+      items.forEach(e => { text += `  ${e.category} — ${e.part}\t${e.qty}\r\n`; });
+    });
+    text += '\r\n----------------------------------------\r\n';
+    text += 'ИТОГО ПО КАТЕГОРИЯМ ЗА ПЕРИОД\r\n';
+  }
+
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    text += `\r\n${cat.toUpperCase()} — Итого: ${catTotal} шт\r\n`;
+    byCategory[cat].forEach(r => { text += `  ${r.part}\t${r.qty}\r\n`; });
+  });
+  text += '\r\n----------------------------------------\r\n';
+  text += `ИТОГО: ${total} шт.\r\n`;
+
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Моя_выписка_${PROFILE.fio.replace(/\s+/g,'_')}_${periodLabel.replace(/\s+/g,'_')}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Файл скачан');
+}
+
+// ---------- Utils ----------
+function toISODate(d){ return d.toISOString().slice(0,10); }
+function formatDateRu(isoDate){ const [y,m,d] = isoDate.split('-'); return `${d}.${m}.${y}`; }
+function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+
+init();
+</script>
+
+</body>
+</html>
