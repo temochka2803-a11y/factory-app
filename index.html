@@ -702,8 +702,41 @@ async function init(){
   renderWorkerChips();
   renderEntries();
 
+  applyRolePermissions();
+
   showRoot('main');
   switchTab('entry');
+}
+
+// ---------- Права доступа: мастер (создал бригаду) vs присоединившийся работник ----------
+function isOwner(){
+  return !!(PROFILE && PROFILE.isOwner);
+}
+
+function applyRolePermissions(){
+  const owner = isOwner();
+
+  // Вкладка «Бригада» (роль-менеджмент, записи за других) — только у мастера
+  const teamTabBtn = document.querySelector('.tab-btn[data-tab="team"]');
+  if(teamTabBtn) teamTabBtn.style.display = owner ? 'flex' : 'none';
+
+  // Добавление/удаление категорий и деталей — только у мастера.
+  // Сами селекты остаются доступны всем, чтобы можно было выбрать деталь для своей записи.
+  $('btn-toggle-add-cat').style.display = owner ? 'flex' : 'none';
+  $('btn-toggle-add-part').style.display = owner ? 'flex' : 'none';
+  const manageDetails = document.querySelector('.manage-details');
+  if(manageDetails) manageDetails.style.display = owner ? 'block' : 'none';
+
+  // В отчёте у присоединившегося работника остаются только «свои» режимы
+  const brigadeBtn = document.querySelector('#report-mode .seg-btn[data-mode="brigade"]');
+  const workerBtn = document.querySelector('#report-mode .seg-btn[data-mode="worker"]');
+  if(brigadeBtn) brigadeBtn.style.display = owner ? 'block' : 'none';
+  if(workerBtn) workerBtn.style.display = owner ? 'block' : 'none';
+
+  if(!owner){
+    const dayBtn = document.querySelector('#report-mode .seg-btn[data-mode="day"]');
+    if(dayBtn) dayBtn.click();
+  }
 }
 
 // ---------- Регистрация: создать бригаду / присоединиться по коду ----------
@@ -849,6 +882,7 @@ $('btn-toggle-add-part').addEventListener('click', () => {
 });
 
 $('btn-save-cat').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Категории может менять только мастер бригады'); return; }
   const name = $('in-new-cat').value.trim();
   if(!name){ showToast('Введите название категории'); return; }
   if(CATEGORIES.includes(name)){ showToast('Такая категория уже есть'); return; }
@@ -864,6 +898,7 @@ $('btn-save-cat').addEventListener('click', async () => {
 });
 
 $('btn-save-part').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Детали может менять только мастер бригады'); return; }
   const category = $('in-cat-select').value;
   const name = $('in-new-part').value.trim();
   if(!category){ showToast('Сначала выберите категорию'); return; }
@@ -886,6 +921,7 @@ function renderManageChips(){
   `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет категорий</span>`;
   catWrap.querySelectorAll('button').forEach(btn => {
     btn.addEventListener('click', async () => {
+      if(!isOwner()){ showToast('Категории может менять только мастер бригады'); return; }
       const cat = btn.getAttribute('data-cat');
       CATEGORIES = CATEGORIES.filter(c => c !== cat);
       CATALOG = CATALOG.filter(p => p.category !== cat);
@@ -904,6 +940,7 @@ function renderManageChips(){
   `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет деталей</span>`;
   partWrap.querySelectorAll('button').forEach(btn => {
     btn.addEventListener('click', async () => {
+      if(!isOwner()){ showToast('Детали может менять только мастер бригады'); return; }
       const name = btn.getAttribute('data-name');
       const cat = btn.getAttribute('data-cat');
       CATALOG = CATALOG.filter(p => !(p.name === name && p.category === cat));
@@ -1001,6 +1038,7 @@ function renderWorkerChips(){
   `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет работников</span>`;
   wrap.querySelectorAll('button').forEach(btn => {
     btn.addEventListener('click', async () => {
+      if(!isOwner()){ showToast('Список работников может менять только мастер бригады'); return; }
       const w = btn.getAttribute('data-worker');
       WORKERS = WORKERS.filter(x => x !== w);
       await fbSet(bp('workers'), WORKERS);
@@ -1012,6 +1050,7 @@ function renderWorkerChips(){
 }
 
 $('btn-add-worker').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Список работников может менять только мастер бригады'); return; }
   const name = $('in-new-worker').value.trim();
   if(!name){ showToast('Введите ФИО работника'); return; }
   if(WORKERS.includes(name)){ showToast('Такой работник уже есть'); return; }
@@ -1057,6 +1096,7 @@ function renderTeam(){
       </div>
     `;
     items.forEach(e => {
+      const canDelete = isOwner() || e.worker === PROFILE.fio;
       const row = document.createElement('div');
       row.className = 'entry-row';
       row.innerHTML = `
@@ -1065,7 +1105,7 @@ function renderTeam(){
           <div class="entry-meta">${escapeHtml(e.category)} · ${e.time}</div>
         </div>
         <div class="entry-qty">${e.qty}</div>
-        <button class="entry-del" data-id="${e.id}" title="Удалить">🗑</button>
+        ${canDelete ? `<button class="entry-del" data-id="${e.id}" title="Удалить">🗑</button>` : ''}
       `;
       block.appendChild(row);
     });
@@ -1075,6 +1115,11 @@ function renderTeam(){
   list.querySelectorAll('.entry-del').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-id');
+      const target = ENTRIES.find(e => e.id === id);
+      if(target && !isOwner() && target.worker !== PROFILE.fio){
+        showToast('Можно удалять только свои записи');
+        return;
+      }
       await fbRemove(bp('entries/' + id));
       ENTRIES = ENTRIES.filter(e => e.id !== id);
       renderTeam();
@@ -1085,6 +1130,7 @@ function renderTeam(){
 $('team-date').addEventListener('change', renderTeam);
 
 $('btn-team-add').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Записи за других работников может вносить только мастер бригады'); return; }
   const worker = $('in-worker-select').value;
   const category = $('team-cat-select').value;
   const part = $('team-part-select').value;
@@ -1143,6 +1189,10 @@ document.querySelectorAll('#report-mode .seg-btn').forEach(btn => {
 });
 
 $('btn-build-report').addEventListener('click', async () => {
+  if(!isOwner() && (REPORT_MODE === 'brigade' || REPORT_MODE === 'worker')){
+    showToast('Этот отчёт доступен только мастеру бригады');
+    return;
+  }
   await refreshBrigadeData();
   if(REPORT_MODE === 'brigade'){
     buildBrigadeReport($('rep-date').value || toISODate(new Date()));
