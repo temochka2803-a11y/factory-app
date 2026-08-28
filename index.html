@@ -177,8 +177,8 @@
 
   .seg-control{ display:flex; gap:6px; background:#F0F1F3; border-radius:12px; padding:4px; }
   .seg-btn{
-    flex:1; border:none; background:none; padding:9px 6px; border-radius:9px;
-    font-size:12px; font-weight:600; color:var(--text-secondary); cursor:pointer; font-family:inherit;
+    flex:1; border:none; background:none; padding:9px 4px 8px; border-radius:9px;
+    font-size:10.5px; font-weight:600; color:var(--text-secondary); cursor:pointer; font-family:inherit;
     line-height:1.25;
   }
   .seg-btn.active{ background:#fff; color:var(--accent); box-shadow:0 1px 3px rgba(0,0,0,.08); }
@@ -369,7 +369,12 @@
             <button class="seg-btn active" data-mode="brigade">Бригада за смену</button>
             <button class="seg-btn" data-mode="day">Моя сделка — день</button>
             <button class="seg-btn" data-mode="month">Моя сделка — месяц</button>
+            <button class="seg-btn" data-mode="worker">Работник — месяц</button>
           </div>
+        </div>
+        <div class="field" id="rep-worker-field" style="display:none;">
+          <label>Работник</label>
+          <select id="rep-worker-select"></select>
         </div>
         <div class="field" id="rep-date-field">
           <label>Дата отчёта</label>
@@ -588,6 +593,7 @@ async function init(){
   refreshAllCategorySelects();
   refreshAllPartSelects();
   refreshWorkerSelect();
+      refreshReportWorkerSelect();
   renderManageChips();
   renderWorkerChips();
   renderEntries();
@@ -814,6 +820,7 @@ function renderWorkerChips(){
       WORKERS = WORKERS.filter(x => x !== w);
       await saveJSON('workers', WORKERS);
       refreshWorkerSelect();
+      refreshReportWorkerSelect();
       renderWorkerChips();
       showToast('Работник удалён из списка');
     });
@@ -828,6 +835,7 @@ $('btn-add-worker').addEventListener('click', async () => {
   await saveJSON('workers', WORKERS);
   $('in-new-worker').value = '';
   refreshWorkerSelect();
+      refreshReportWorkerSelect();
   renderWorkerChips();
   showToast('Работник добавлен');
 });
@@ -920,14 +928,29 @@ let REPORT_MODE = 'brigade';
 const REPORT_BTN_LABELS = {
   brigade: 'Сформировать выписку для мастера',
   day: 'Сформировать мою выписку за день',
-  month: 'Сформировать мою выписку за месяц'
+  month: 'Сформировать мою выписку за месяц',
+  worker: 'Сформировать выписку по работнику'
 };
+
+function refreshReportWorkerSelect(){
+  const sel = $('rep-worker-select');
+  const prev = sel.value;
+  if(WORKERS.length === 0){
+    sel.innerHTML = `<option value="">Сначала добавьте работника во вкладке «Бригада»</option>`;
+  }else{
+    sel.innerHTML = WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+    if(WORKERS.includes(prev)) sel.value = prev;
+  }
+}
+
 document.querySelectorAll('#report-mode .seg-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     REPORT_MODE = btn.getAttribute('data-mode');
     document.querySelectorAll('#report-mode .seg-btn').forEach(b => b.classList.toggle('active', b === btn));
-    $('rep-date-field').style.display = (REPORT_MODE === 'month') ? 'none' : 'block';
-    $('rep-month-field').style.display = (REPORT_MODE === 'month') ? 'block' : 'none';
+    $('rep-date-field').style.display = (REPORT_MODE === 'brigade' || REPORT_MODE === 'day') ? 'block' : 'none';
+    $('rep-month-field').style.display = (REPORT_MODE === 'month' || REPORT_MODE === 'worker') ? 'block' : 'none';
+    $('rep-worker-field').style.display = (REPORT_MODE === 'worker') ? 'block' : 'none';
+    if(REPORT_MODE === 'worker') refreshReportWorkerSelect();
     $('btn-build-report').textContent = REPORT_BTN_LABELS[REPORT_MODE];
     $('report-output').innerHTML = '';
   });
@@ -939,7 +962,7 @@ $('btn-build-report').addEventListener('click', () => {
   }else if(REPORT_MODE === 'day'){
     const d = $('rep-date').value || toISODate(new Date());
     buildPersonalReport(d, d, formatDateRu(d), false);
-  }else{
+  }else if(REPORT_MODE === 'month'){
     const monthVal = $('rep-month').value || toISODate(new Date()).slice(0,7); // YYYY-MM
     const [y,m] = monthVal.split('-').map(Number);
     const from = `${monthVal}-01`;
@@ -947,6 +970,16 @@ $('btn-build-report').addEventListener('click', () => {
     const to = `${monthVal}-${String(lastDay).padStart(2,'0')}`;
     const monthLabel = new Date(y, m-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
     buildPersonalReport(from, to, monthLabel, true);
+  }else{
+    const worker = $('rep-worker-select').value;
+    if(!worker){ showToast('Выберите работника'); return; }
+    const monthVal = $('rep-month').value || toISODate(new Date()).slice(0,7);
+    const [y,m] = monthVal.split('-').map(Number);
+    const from = `${monthVal}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${monthVal}-${String(lastDay).padStart(2,'0')}`;
+    const monthLabel = new Date(y, m-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
+    buildWorkerReport(worker, from, to, monthLabel);
   }
 });
 
@@ -1203,6 +1236,151 @@ function downloadPersonalReport(byCategory, categories, total, periodLabel, byDa
   const a = document.createElement('a');
   a.href = url;
   a.download = `Моя_выписка_${PROFILE.fio.replace(/\s+/g,'_')}_${periodLabel.replace(/\s+/g,'_')}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Файл скачан');
+}
+
+// ---------- ВЫПИСКА ПО РАБОТНИКУ (месяц, из записей вкладки «Бригада») ----------
+function buildWorkerReport(worker, fromDate, toDate, periodLabel){
+  const items = TEAM_ENTRIES.filter(e => e.worker === worker && e.date >= fromDate && e.date <= toDate);
+
+  const byKey = {};
+  items.forEach(e => {
+    const key = e.category + '||' + e.part;
+    if(!byKey[key]) byKey[key] = { category: e.category, part: e.part, qty: 0 };
+    byKey[key].qty += e.qty;
+  });
+
+  const byCategory = {};
+  Object.values(byKey).forEach(row => {
+    (byCategory[row.category] = byCategory[row.category] || []).push(row);
+  });
+  const categories = Object.keys(byCategory).sort((a,b)=> a.localeCompare(b,'ru'));
+  const total = Object.values(byKey).reduce((s,r)=> s + r.qty, 0);
+
+  const byDate = {};
+  items.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
+  const workDates = Object.keys(byDate).sort();
+
+  let dailyHtml = '';
+  workDates.forEach(date => {
+    const dayItems = byDate[date].sort((a,b)=> a.ts - b.ts);
+    const dayTotal = dayItems.reduce((s,e)=> s + e.qty, 0);
+    dailyHtml += `<tr class="cat-row"><td>${formatDateRu(date)}</td><td style="text-align:right;">${dayTotal} шт</td></tr>`;
+    dayItems.forEach(e => {
+      dailyHtml += `<tr><td>${escapeHtml(e.category)} — ${escapeHtml(e.part)}</td><td class="qty">${e.qty}</td></tr>`;
+    });
+  });
+  if(workDates.length === 0){
+    dailyHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
+  }
+
+  let rowsHtml = '';
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    rowsHtml += `<tr class="cat-row"><td>${escapeHtml(cat)}</td><td style="text-align:right;">${catTotal} шт</td></tr>`;
+    byCategory[cat].sort((a,b)=> b.qty - a.qty).forEach(r => {
+      rowsHtml += `<tr><td>${escapeHtml(r.part)}</td><td class="qty">${r.qty}</td></tr>`;
+    });
+  });
+  if(categories.length === 0){
+    rowsHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
+  }
+
+  $('report-output').innerHTML = `
+    <div class="report-doc" id="report-doc">
+      <h2>Выписка по работнику</h2>
+      <div class="report-meta">Сформировано: ${new Date().toLocaleDateString('ru-RU')}</div>
+      <div class="report-field"><span>Работник</span><span>${escapeHtml(worker)}</span></div>
+      <div class="report-field"><span>Завод / цех</span><span>${escapeHtml(PROFILE.factory)}</span></div>
+      <div class="report-field"><span>Период</span><span>${periodLabel}</span></div>
+      <div class="report-section-title">Разбивка по сменам</div>
+      <table class="report-table">
+        <thead><tr><th>Дата / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
+        <tbody>${dailyHtml}</tbody>
+      </table>
+      <div class="report-section-title" style="margin-top:18px;">Итого по категориям за период</div>
+      <table class="report-table">
+        <thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="report-total"><span>Итого изготовлено, шт</span><span class="val">${total}</span></div>
+    </div>
+  `;
+
+  if(categories.length > 0){
+    const actions = document.createElement('div');
+    actions.className = 'report-actions';
+    actions.innerHTML = `
+      <button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button>
+      <button class="btn btn-primary" id="btn-print">🖨 Печать / PDF</button>
+      <button class="btn btn-whatsapp" id="btn-report-whatsapp">📤 WhatsApp</button>
+    `;
+    $('report-output').appendChild(actions);
+
+    $('btn-print').addEventListener('click', () => window.print());
+    $('btn-download-file').addEventListener('click', () => downloadWorkerReport(worker, byCategory, categories, total, periodLabel, byDate, workDates));
+    $('btn-report-whatsapp').addEventListener('click', () => {
+      let text = `📄 Выписка по работнику\n`;
+      text += `Работник: ${worker}\n`;
+      text += `Завод/цех: ${PROFILE.factory}\n`;
+      text += `Период: ${periodLabel}\n\n`;
+      text += `— Разбивка по сменам —\n\n`;
+      workDates.forEach(date => {
+        const dayItems = byDate[date].sort((a,b)=> a.ts - b.ts);
+        const dayTotal = dayItems.reduce((s,e)=> s + e.qty, 0);
+        text += `📅 ${formatDateRu(date)} — ${dayTotal} шт\n`;
+        dayItems.forEach(e => { text += `   • ${e.category} — ${e.part}: ${e.qty} шт\n`; });
+        text += `\n`;
+      });
+      text += `— Итого по категориям —\n\n`;
+      categories.forEach(cat => {
+        const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+        text += `🔧 ${cat} — ${catTotal} шт\n`;
+        byCategory[cat].forEach(r => { text += `   • ${r.part}: ${r.qty} шт\n`; });
+        text += `\n`;
+      });
+      text += `———————————————\n`;
+      text += `Итого: ${total} шт`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    });
+  }
+}
+
+function downloadWorkerReport(worker, byCategory, categories, total, periodLabel, byDate, workDates){
+  let text = 'ВЫПИСКА ПО РАБОТНИКУ\r\n';
+  text += `Сформировано: ${new Date().toLocaleDateString('ru-RU')}\r\n`;
+  text += `Работник: ${worker}\r\n`;
+  text += `Завод/цех: ${PROFILE.factory}\r\n`;
+  text += `Период: ${periodLabel}\r\n`;
+  text += '----------------------------------------\r\n';
+
+  text += '\r\nРАЗБИВКА ПО СМЕНАМ\r\n';
+  workDates.forEach(date => {
+    const dayItems = byDate[date].sort((a,b)=> a.ts - b.ts);
+    const dayTotal = dayItems.reduce((s,e)=> s + e.qty, 0);
+    text += `\r\n${formatDateRu(date)} — Итого: ${dayTotal} шт\r\n`;
+    dayItems.forEach(e => { text += `  ${e.category} — ${e.part}\t${e.qty}\r\n`; });
+  });
+
+  text += '\r\n----------------------------------------\r\n';
+  text += 'ИТОГО ПО КАТЕГОРИЯМ ЗА ПЕРИОД\r\n';
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    text += `\r\n${cat.toUpperCase()} — Итого: ${catTotal} шт\r\n`;
+    byCategory[cat].forEach(r => { text += `  ${r.part}\t${r.qty}\r\n`; });
+  });
+  text += '\r\n----------------------------------------\r\n';
+  text += `ИТОГО: ${total} шт.\r\n`;
+
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Выписка_${worker.replace(/\s+/g,'_')}_${periodLabel.replace(/\s+/g,'_')}.txt`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
