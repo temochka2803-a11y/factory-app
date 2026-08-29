@@ -109,6 +109,27 @@
     width:18px; height:18px; display:flex; align-items:center; justify-content:center;
   }
 
+  .user-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 4px; border-bottom:1px solid var(--border);
+  }
+  .user-row:last-child{ border-bottom:none; }
+  .user-info{ display:flex; align-items:center; gap:8px; min-width:0; }
+  .user-avatar{
+    width:28px; height:28px; border-radius:50%; background:var(--accent); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:700; flex-shrink:0;
+  }
+  .user-name-wrap{ min-width:0; }
+  .user-name{ font-size:13.5px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .user-tag{
+    display:inline-block; font-size:10px; font-weight:700; color:var(--accent-dark);
+    background:#EAF3FE; border-radius:6px; padding:1px 6px; margin-left:6px; vertical-align:1px;
+  }
+  .user-meta{ font-size:11.5px; color:var(--text-secondary); margin-top:1px; }
+  .user-stat{ text-align:right; flex-shrink:0; }
+  .user-stat .val{ font-family:var(--mono); font-size:14px; font-weight:700; color:var(--accent); }
+  .user-stat .lbl{ font-size:10px; color:var(--text-secondary); }
+
   .btn{
     display:flex; align-items:center; justify-content:center; gap:6px;
     width:100%; padding:13px 16px; border-radius:12px; border:none;
@@ -394,6 +415,11 @@
 
     <!-- ---- ВВОД ---- -->
     <div id="tab-entry" class="content">
+      <details class="manage-details" id="users-panel" style="margin-bottom:16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px;">
+        <summary>👥 Участники бригады (<span id="users-count">0</span>)</summary>
+        <div class="manage-block" id="users-list-view"></div>
+      </details>
+
       <div class="field" style="margin-bottom:16px;">
         <label>Дата</label>
         <input type="date" id="entry-date">
@@ -642,6 +668,29 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Скрытый вход в админ-режим: 5 тапов по имени в шапке -->
+<div id="admin-pin-card" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:250; align-items:center; justify-content:center;">
+  <div class="card" style="width:85%; max-width:320px; margin:0;">
+    <div class="field">
+      <label>Админ-код</label>
+      <input type="password" id="admin-pin-input" placeholder="••••" inputmode="numeric">
+    </div>
+    <button class="btn btn-primary" id="btn-admin-pin-confirm">Войти</button>
+    <button class="btn btn-secondary" id="btn-admin-pin-cancel" style="margin-top:8px;">Отмена</button>
+  </div>
+</div>
+
+<!-- Админ-панель: все бригады и все пользователи бота -->
+<div id="admin-overlay" style="display:none; position:fixed; inset:0; background:var(--bg); z-index:200; max-width:480px; margin:0 auto; overflow-y:auto;">
+  <div class="topbar">
+    <div class="topbar-row">
+      <div class="topbar-title">🛠 Все пользователи бота</div>
+      <button class="icon-btn" id="btn-close-admin">✕</button>
+    </div>
+  </div>
+  <div class="content" id="admin-content"></div>
+</div>
+
 <script>
 const $ = (id) => document.getElementById(id);
 
@@ -710,7 +759,7 @@ async function switchTab(name){
   refreshWorkerSelect();
   renderManageChips();
   renderWorkerChips();
-  if(name === 'entry') renderEntries();
+  if(name === 'entry'){ renderEntries(); renderUsersList(); }
   if(name === 'team') renderTeam();
   if(name === 'schedule'){
     refreshRotWorkerSelect();
@@ -880,6 +929,7 @@ async function init(){
   renderManageChips();
   renderWorkerChips();
   renderEntries();
+  renderUsersList();
 
   applyRolePermissions();
 
@@ -1030,6 +1080,7 @@ $('btn-refresh').addEventListener('click', async () => {
   renderManageChips();
   renderWorkerChips();
   renderEntries();
+  renderUsersList();
   renderTeam();
   showToast('Данные бригады обновлены');
 });
@@ -1139,6 +1190,43 @@ function renderManageChips(){
 }
 
 // ---------- ВВОД: собственные записи (worker = я) ----------
+function renderUsersList(){
+  const wrap = $('users-list-view');
+  const countEl = $('users-count');
+  if(!wrap || !countEl) return;
+
+  countEl.textContent = WORKERS.length;
+
+  if(WORKERS.length === 0){
+    wrap.innerHTML = `<div class="hint" style="margin-top:8px;">В бригаде пока никто не зарегистрирован.</div>`;
+    return;
+  }
+
+  const monthPrefix = toISODate(new Date()).slice(0,7);
+  wrap.innerHTML = WORKERS.map(w => {
+    const own = ENTRIES.filter(e => e.worker === w);
+    const monthQty = own.filter(e => e.date.startsWith(monthPrefix)).reduce((s,e)=> s + e.qty, 0);
+    const last = own.reduce((max,e)=> (!max || e.ts > max.ts) ? e : max, null);
+    const initials = w.trim().split(/\s+/).map(p=>p[0]).slice(0,2).join('').toUpperCase();
+    const isMe = PROFILE && w === PROFILE.fio;
+
+    return `
+      <div class="user-row">
+        <div class="user-info">
+          <div class="user-avatar">${initials}</div>
+          <div class="user-name-wrap">
+            <div class="user-name">${escapeHtml(w)}${isMe ? '<span class="user-tag">Вы</span>' : ''}</div>
+            <div class="user-meta">${last ? 'Была запись: ' + formatDateRu(last.date) : 'Записей ещё не было'}</div>
+          </div>
+        </div>
+        <div class="user-stat">
+          <div class="val">${monthQty}</div>
+          <div class="lbl">шт / мес.</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
 function renderEntries(){
   const dateStr = $('entry-date').value || toISODate(new Date());
   const list = $('entries-list');
@@ -1176,6 +1264,7 @@ function renderEntries(){
       await fbRemove(bp('entries/' + id));
       ENTRIES = ENTRIES.filter(e => e.id !== id);
       renderEntries();
+  renderUsersList();
       showToast('Запись удалена');
     });
   });
@@ -1201,6 +1290,7 @@ $('btn-add').addEventListener('click', async () => {
   if(id){ ENTRIES.push({ id, ...entry }); }
   $('in-qty').value = '';
   renderEntries();
+  renderUsersList();
   showToast('Запись добавлена');
 });
 
@@ -2104,6 +2194,79 @@ function shareToVK(text){
 function toISODate(d){ return d.toISOString().slice(0,10); }
 function formatDateRu(isoDate){ const [y,m,d] = isoDate.split('-'); return `${d}.${m}.${y}`; }
 function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+
+// ---------- Админ-режим: список всех бригад и пользователей бота ----------
+// ВАЖНО: смените этот код на свой собственный секрет перед публикацией.
+const ADMIN_SECRET = "6589";
+
+let adminTapCount = 0;
+let adminTapTimer = null;
+$('home-fio').addEventListener('click', () => {
+  adminTapCount++;
+  clearTimeout(adminTapTimer);
+  adminTapTimer = setTimeout(() => { adminTapCount = 0; }, 1800);
+  if(adminTapCount >= 5){
+    adminTapCount = 0;
+    $('admin-pin-input').value = '';
+    $('admin-pin-card').style.display = 'flex';
+    $('admin-pin-input').focus();
+  }
+});
+
+$('btn-admin-pin-cancel').addEventListener('click', () => {
+  $('admin-pin-card').style.display = 'none';
+});
+
+$('btn-admin-pin-confirm').addEventListener('click', async () => {
+  if($('admin-pin-input').value !== ADMIN_SECRET){ showToast('Неверный код'); return; }
+  $('admin-pin-card').style.display = 'none';
+  await openAdminOverlay();
+});
+
+$('btn-close-admin').addEventListener('click', () => {
+  $('admin-overlay').style.display = 'none';
+});
+
+async function openAdminOverlay(){
+  $('admin-overlay').style.display = 'block';
+  $('admin-content').innerHTML = `<div class="empty-state"><div class="msg">Загрузка...</div></div>`;
+
+  const allBrigades = await fbGet('brigades');
+  if(!allBrigades){
+    $('admin-content').innerHTML = `<div class="empty-state"><div class="emoji">🗂️</div><div class="msg">Пока нет ни одной бригады</div></div>`;
+    return;
+  }
+
+  const codes = Object.keys(allBrigades);
+  const uniqueUsers = new Set();
+  let cardsHtml = '';
+
+  codes.forEach(code => {
+    const b = allBrigades[code] || {};
+    const workers = b.workers || [];
+    workers.forEach(w => uniqueUsers.add(w));
+    const entryCount = b.entries ? Object.keys(b.entries).length : 0;
+
+    cardsHtml += `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">
+          <div style="font-weight:700;font-size:14.5px;">${escapeHtml(b.factory || '(без названия)')}</div>
+        </div>
+        <div class="hint" style="margin-top:0;margin-bottom:10px;">Код: <span style="font-family:var(--mono);">${escapeHtml(code)}</span> · записей: ${entryCount}</div>
+        <div class="chip-list" style="margin-bottom:0;">
+          ${workers.length ? workers.map(w=>`<span class="chip">${escapeHtml(w)}</span>`).join('') : '<span style="font-size:12.5px;color:var(--text-secondary);">Нет участников</span>'}
+        </div>
+      </div>`;
+  });
+
+  $('admin-content').innerHTML = `
+    <div class="day-total-bar" style="margin-bottom:16px;">
+      <span class="label">Бригад / пользователей всего</span>
+      <span class="val">${codes.length} / ${uniqueUsers.size}</span>
+    </div>
+    ${cardsHtml}
+  `;
+}
 
 function initTelegramEnv(){
   if(hasTelegramCloud()){
