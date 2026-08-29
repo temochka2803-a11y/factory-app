@@ -166,6 +166,43 @@
   .day-total-bar .label{ font-size:13.5px; color:var(--accent-dark); font-weight:600; }
   .day-total-bar .val{ font-family:var(--mono); font-size:19px; font-weight:800; color:var(--accent-dark); }
 
+  .sched-legend{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  .sched-legend-item{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-secondary); }
+  .sched-legend-dot{ width:14px; height:14px; border-radius:5px; flex-shrink:0; }
+
+  .sched-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:var(--radius); border:1px solid var(--border); background:#fff; }
+  table.sched-table{ border-collapse:collapse; font-size:12px; }
+  table.sched-table th, table.sched-table td{ padding:0; text-align:center; }
+  table.sched-table th{
+    font-size:10.5px; font-weight:700; color:var(--text-secondary); padding:8px 4px;
+    border-bottom:1.5px solid var(--border); background:#FAFAFA; position:sticky; top:0;
+  }
+  .sched-worker-cell{
+    position:sticky; left:0; background:#FAFAFA; text-align:left !important;
+    padding:10px 12px !important; font-weight:600; font-size:12.5px; white-space:nowrap;
+    border-right:1.5px solid var(--border); z-index:2;
+  }
+  .sched-day-col{ width:34px; min-width:34px; }
+  .sched-cell{
+    width:34px; height:34px; cursor:pointer; border-bottom:1px solid var(--border);
+    border-left:1px solid #F4F4F5;
+  }
+  .sched-cell:not(.owner-editable){ cursor:default; }
+  .sched-badge{
+    width:26px; height:26px; margin:4px auto; border-radius:7px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:800; color:#fff;
+  }
+
+  .sched-my-list{ margin-top:4px; }
+  .sched-my-row{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:11px 14px; margin-bottom:8px;
+  }
+  .sched-my-date{ font-size:14px; font-weight:600; }
+  .sched-my-type{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary); }
+
   .tabbar{
     position:fixed; bottom:0; left:50%; transform:translateX(-50%);
     width:100%; max-width:480px; background:#fff; border-top:1px solid var(--border);
@@ -227,6 +264,28 @@
   .report-total .val{ font-family:var(--mono); color:var(--accent); font-size:18px; }
   .report-actions{ display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
   .report-actions .btn{ flex:1; min-width:130px; }
+
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .cal-weekday{ font-size:10px; font-weight:700; color:var(--text-secondary); text-align:center; padding:4px 0; text-transform:uppercase; }
+  .cal-day{
+    aspect-ratio:1; border-radius:10px; border:1.5px solid var(--border); background:#FAFAFA;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    cursor:pointer; padding:2px; position:relative;
+  }
+  .cal-day.empty{ visibility:hidden; cursor:default; }
+  .cal-day.today{ border-color:var(--accent); }
+  .cal-day.selected{ background:#EAF3FE; border-color:var(--accent); border-width:2px; }
+  .cal-day-num{ font-size:12px; font-weight:600; color:var(--text); }
+  .cal-dots{ display:flex; flex-wrap:wrap; gap:2px; justify-content:center; max-width:100%; }
+  .cal-dot{ width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+
+  .shift-chip{ display:flex; align-items:center; gap:6px; }
+  .shift-dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+  .day-editor-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 0; border-bottom:1px solid var(--border); }
+  .day-editor-row:last-child{ border-bottom:none; }
+  .day-editor-worker{ font-size:14px; font-weight:600; flex:1; min-width:0; }
+  .day-editor-row select{ width:150px; flex-shrink:0; }
 
   @media print{
     body *{ visibility:hidden; }
@@ -437,6 +496,66 @@
       </div>
     </div>
 
+    <!-- ---- ГРАФИК ---- -->
+    <div id="tab-schedule" class="content" style="display:none;">
+      <div class="field" style="margin-bottom:16px;">
+        <label>Месяц</label>
+        <input type="month" id="sched-month">
+      </div>
+
+      <div class="card" id="shift-types-card">
+        <div class="manage-block-title" style="margin-bottom:8px;">Типы смен</div>
+        <div class="chip-list" id="shift-type-chip-list"></div>
+        <div class="select-with-btn">
+          <input type="text" id="in-new-shift-name" placeholder="Название (например, Ночь)">
+          <input type="color" id="in-new-shift-color" value="#3390EC" style="width:44px;flex:0 0 44px;padding:2px;">
+          <button class="add-btn" id="btn-add-shift-type" title="Добавить тип смены">+</button>
+        </div>
+      </div>
+
+      <div class="card" id="rotation-card">
+        <div class="manage-block-title" style="margin-bottom:8px;">Шаблон ротации</div>
+        <div class="field">
+          <label>Работник</label>
+          <select id="rot-worker-select"></select>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Дата начала</label>
+            <input type="date" id="rot-start-date">
+          </div>
+          <div class="field">
+            <label>Тип смены (рабочие дни)</label>
+            <select id="rot-shift-select"></select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Дней в смене</label>
+            <input type="number" id="rot-work-days" placeholder="2" min="1">
+          </div>
+          <div class="field">
+            <label>Дней отдыха</label>
+            <input type="number" id="rot-off-days" placeholder="2" min="0">
+          </div>
+        </div>
+        <div class="hint" style="margin-bottom:10px;">Заполнит выбранный месяц по шаблону: N дней смены, затем M дней отдыха, и так по кругу.</div>
+        <button class="btn btn-primary" id="btn-apply-rotation">Заполнить месяц по шаблону</button>
+      </div>
+
+      <div class="section-title">Календарь</div>
+      <div class="card">
+        <div class="cal-grid" id="cal-weekdays"></div>
+        <div class="cal-grid" id="cal-grid" style="margin-top:6px;"></div>
+      </div>
+
+      <div class="card" id="day-editor-card" style="display:none;">
+        <div class="manage-block-title" id="day-editor-title" style="margin-bottom:8px;"></div>
+        <div id="day-editor-rows"></div>
+        <button class="btn btn-primary" id="btn-save-day-schedule" style="margin-top:12px;">Сохранить</button>
+      </div>
+    </div>
+
     <!-- ---- ОТЧЁТ ---- -->
     <div id="tab-report" class="content" style="display:none;">
       <div class="card">
@@ -472,6 +591,9 @@
       </button>
       <button class="tab-btn" data-tab="team">
         <span class="tab-icon">👥</span><span class="tab-label">Бригада</span>
+      </button>
+      <button class="tab-btn" data-tab="schedule">
+        <span class="tab-icon">📅</span><span class="tab-label">График</span>
       </button>
       <button class="tab-btn" data-tab="report">
         <span class="tab-icon">📄</span><span class="tab-label">Отчёт</span>
@@ -515,6 +637,15 @@ let ENTRIES = [];     // { id, worker, category, part, qty, date, time, ts } —
 let CATEGORIES = [];
 let CATALOG = [];      // [{ name, category }]
 let WORKERS = [];      // ["Иванов Иван Иванович", ...]
+let SHIFT_TYPES = [];  // [{ id, name, color }]
+let SCHEDULE = {};     // { [date]: { [worker]: shiftTypeId } }
+let selectedCalDate = null;
+
+const DEFAULT_SHIFT_TYPES = [
+  { id: 'day',   name: 'День',      color: '#3390EC' },
+  { id: 'night', name: 'Ночь',      color: '#7B5EEA' },
+  { id: 'off',   name: 'Выходной',  color: '#C7C7CC' },
+];
 
 function showToast(msg){
   const t = $('toast');
@@ -531,7 +662,7 @@ function showRoot(name){
 
 async function switchTab(name){
   await refreshBrigadeData();
-  ['entry','team','report'].forEach(t=>{
+  ['entry','team','schedule','report'].forEach(t=>{
     $('tab-'+t).style.display = (t===name) ? 'block' : 'none';
   });
   document.querySelectorAll('.tab-btn').forEach(b=>{
@@ -544,6 +675,12 @@ async function switchTab(name){
   renderWorkerChips();
   if(name === 'entry') renderEntries();
   if(name === 'team') renderTeam();
+  if(name === 'schedule'){
+    refreshRotWorkerSelect();
+    refreshRotShiftSelect();
+    renderShiftTypeChips();
+    renderCalendar();
+  }
 }
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=> switchTab(btn.getAttribute('data-tab')));
@@ -650,16 +787,20 @@ async function generateUniqueCode(){
 
 async function refreshBrigadeData(){
   if(!PROFILE || !firebaseReady) return;
-  const [cats, cat, workers, entriesObj] = await Promise.all([
+  const [cats, cat, workers, entriesObj, shiftTypes, schedule] = await Promise.all([
     fbGet(bp('categories')),
     fbGet(bp('catalog')),
     fbGet(bp('workers')),
     fbGet(bp('entries')),
+    fbGet(bp('shiftTypes')),
+    fbGet(bp('schedule')),
   ]);
   CATEGORIES = cats || [];
   CATALOG = cat || [];
   WORKERS = workers || [];
   ENTRIES = entriesObj ? Object.keys(entriesObj).map(id => ({ id, ...entriesObj[id] })) : [];
+  SHIFT_TYPES = shiftTypes || [];
+  SCHEDULE = schedule || {};
 }
 
 async function ensureInRoster(name){
@@ -694,6 +835,7 @@ async function init(){
   $('team-date').value = toISODate(new Date());
   $('rep-date').value = toISODate(new Date());
   $('rep-month').value = toISODate(new Date()).slice(0,7);
+  $('sched-month').value = toISODate(new Date()).slice(0,7);
 
   refreshAllCategorySelects();
   refreshAllPartSelects();
@@ -733,6 +875,13 @@ function applyRolePermissions(){
   if(brigadeBtn) brigadeBtn.style.display = owner ? 'block' : 'none';
   if(workerBtn) workerBtn.style.display = owner ? 'block' : 'none';
 
+  // Управление типами смен и шаблоном ротации — только у мастера.
+  // Календарь при этом виден всем, чтобы работник мог посмотреть свой график.
+  const shiftTypesCard = $('shift-types-card');
+  const rotationCard = $('rotation-card');
+  if(shiftTypesCard) shiftTypesCard.style.display = owner ? 'block' : 'none';
+  if(rotationCard) rotationCard.style.display = owner ? 'block' : 'none';
+
   if(!owner){
     const dayBtn = document.querySelector('#report-mode .seg-btn[data-mode="day"]');
     if(dayBtn) dayBtn.click();
@@ -766,7 +915,7 @@ $('btn-register').addEventListener('click', async () => {
 
       const code = await generateUniqueCode();
       PROFILE = { fio, factory, code, isOwner: true };
-      await fbSet(`brigades/${code}`, { factory, categories: [], catalog: [], workers: [fio] });
+      await fbSet(`brigades/${code}`, { factory, categories: [], catalog: [], workers: [fio], shiftTypes: DEFAULT_SHIFT_TYPES, schedule: {} });
       await saveLocalProfile(PROFILE);
 
       $('reg-fio').closest('.card').style.display = 'none';
@@ -1153,6 +1302,208 @@ $('btn-team-add').addEventListener('click', async () => {
   renderTeam();
   showToast('Запись добавлена');
 });
+
+// ---------- ГРАФИК СМЕН ----------
+const WEEKDAY_NAMES = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+function shiftTypeById(id){
+  return SHIFT_TYPES.find(t => t.id === id) || null;
+}
+
+async function ensureShiftTypesSeeded(){
+  if(SHIFT_TYPES.length === 0 && isOwner()){
+    SHIFT_TYPES = DEFAULT_SHIFT_TYPES.slice();
+    await fbSet(bp('shiftTypes'), SHIFT_TYPES);
+  }
+}
+
+function renderShiftTypeChips(){
+  const wrap = $('shift-type-chip-list');
+  if(!wrap) return;
+  wrap.innerHTML = SHIFT_TYPES.length ? SHIFT_TYPES.map(t => `
+    <span class="chip"><span class="shift-dot" style="background:${t.color};display:inline-block;"></span>${escapeHtml(t.name)}<button data-id="${escapeHtml(t.id)}" title="Удалить">✕</button></span>
+  `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Нет типов смен</span>`;
+  wrap.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!isOwner()){ showToast('Типы смен может менять только мастер бригады'); return; }
+      const id = btn.getAttribute('data-id');
+      SHIFT_TYPES = SHIFT_TYPES.filter(t => t.id !== id);
+      await fbSet(bp('shiftTypes'), SHIFT_TYPES);
+      renderShiftTypeChips();
+      refreshRotShiftSelect();
+      renderCalendar();
+      showToast('Тип смены удалён');
+    });
+  });
+}
+
+$('btn-add-shift-type').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Типы смен может менять только мастер бригады'); return; }
+  const name = $('in-new-shift-name').value.trim();
+  const color = $('in-new-shift-color').value || '#3390EC';
+  if(!name){ showToast('Введите название типа смены'); return; }
+  const id = 'shift_' + Date.now().toString(36);
+  SHIFT_TYPES.push({ id, name, color });
+  await fbSet(bp('shiftTypes'), SHIFT_TYPES);
+  $('in-new-shift-name').value = '';
+  renderShiftTypeChips();
+  refreshRotShiftSelect();
+  showToast('Тип смены добавлен');
+});
+
+function refreshRotWorkerSelect(){
+  const sel = $('rot-worker-select');
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = WORKERS.length
+    ? WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('')
+    : `<option value="">Сначала добавьте работника</option>`;
+  if(WORKERS.includes(prev)) sel.value = prev;
+}
+
+function refreshRotShiftSelect(){
+  const sel = $('rot-shift-select');
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = SHIFT_TYPES.length
+    ? SHIFT_TYPES.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join('')
+    : `<option value="">Сначала добавьте тип смены</option>`;
+  if(SHIFT_TYPES.some(t => t.id === prev)) sel.value = prev;
+}
+
+$('sched-month').addEventListener('change', renderCalendar);
+
+$('btn-apply-rotation').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('График может менять только мастер бригады'); return; }
+  const worker = $('rot-worker-select').value;
+  const shiftId = $('rot-shift-select').value;
+  const startDateStr = $('rot-start-date').value;
+  const workDays = parseInt($('rot-work-days').value, 10) || 2;
+  const offDays = parseInt($('rot-off-days').value, 10) || 0;
+  const monthVal = $('sched-month').value || toISODate(new Date()).slice(0,7);
+
+  if(!worker){ showToast('Выберите работника'); return; }
+  if(!shiftId){ showToast('Выберите тип смены'); return; }
+  if(!startDateStr){ showToast('Укажите дату начала отсчёта'); return; }
+
+  const startDate = new Date(startDateStr + 'T00:00:00');
+  const cycleLen = workDays + offDays;
+  const offType = shiftTypeById('off');
+
+  const [y, m] = monthVal.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+
+  for(let d = 1; d <= daysInMonth; d++){
+    const dateObj = new Date(y, m-1, d);
+    const dateStr = toISODate(dateObj);
+    const diffDays = Math.round((dateObj - startDate) / 86400000);
+    if(diffDays < 0) continue;
+    const pos = ((diffDays % cycleLen) + cycleLen) % cycleLen;
+
+    SCHEDULE[dateStr] = SCHEDULE[dateStr] || {};
+    if(pos < workDays){
+      SCHEDULE[dateStr][worker] = shiftId;
+    }else if(offType){
+      SCHEDULE[dateStr][worker] = offType.id;
+    }else{
+      delete SCHEDULE[dateStr][worker];
+    }
+    if(Object.keys(SCHEDULE[dateStr]).length === 0) delete SCHEDULE[dateStr];
+  }
+
+  await fbSet(bp('schedule'), SCHEDULE);
+  renderCalendar();
+  showToast('Месяц заполнен по шаблону');
+});
+
+function renderCalendar(){
+  ensureShiftTypesSeeded().then(() => { renderShiftTypeChips(); refreshRotShiftSelect(); });
+
+  const weekdaysEl = $('cal-weekdays');
+  if(weekdaysEl && weekdaysEl.children.length === 0){
+    weekdaysEl.innerHTML = WEEKDAY_NAMES.map(w => `<div class="cal-weekday">${w}</div>`).join('');
+  }
+
+  const monthVal = $('sched-month').value || toISODate(new Date()).slice(0,7);
+  const [y, m] = monthVal.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const firstDay = new Date(y, m-1, 1);
+  const leadOffset = (firstDay.getDay() + 6) % 7; // Пн = 0
+  const todayStr = toISODate(new Date());
+
+  const grid = $('cal-grid');
+  let html = '';
+  for(let i=0; i<leadOffset; i++){ html += `<div class="cal-day empty"></div>`; }
+
+  for(let d=1; d<=daysInMonth; d++){
+    const dateObj = new Date(y, m-1, d);
+    const dateStr = toISODate(dateObj);
+    const dayShifts = SCHEDULE[dateStr] || {};
+    const dots = Object.keys(dayShifts).slice(0, 6).map(worker => {
+      const t = shiftTypeById(dayShifts[worker]);
+      return `<span class="cal-dot" style="background:${t ? t.color : '#C7C7CC'};" title="${escapeHtml(worker)}"></span>`;
+    }).join('');
+
+    html += `
+      <div class="cal-day${dateStr===todayStr ? ' today' : ''}" data-date="${dateStr}">
+        <div class="cal-day-num">${d}</div>
+        <div class="cal-dots">${dots}</div>
+      </div>`;
+  }
+  grid.innerHTML = html;
+
+  grid.querySelectorAll('.cal-day:not(.empty)').forEach(cell => {
+    cell.addEventListener('click', () => openDayEditor(cell.getAttribute('data-date')));
+  });
+}
+
+function openDayEditor(dateStr){
+  selectedCalDate = dateStr;
+  document.querySelectorAll('.cal-day').forEach(c => c.classList.toggle('selected', c.getAttribute('data-date')===dateStr));
+
+  const card = $('day-editor-card');
+  card.style.display = 'block';
+  $('day-editor-title').textContent = formatDateRu(dateStr);
+
+  const dayShifts = SCHEDULE[dateStr] || {};
+  const owner = isOwner();
+  const rows = WORKERS.length ? WORKERS : (PROFILE ? [PROFILE.fio] : []);
+
+  $('day-editor-rows').innerHTML = rows.map(worker => {
+    const current = dayShifts[worker] || '';
+    const options = `<option value="">—</option>` + SHIFT_TYPES.map(t =>
+      `<option value="${escapeHtml(t.id)}" ${t.id===current ? 'selected' : ''}>${escapeHtml(t.name)}</option>`
+    ).join('');
+    return `
+      <div class="day-editor-row">
+        <div class="day-editor-worker">${escapeHtml(worker)}</div>
+        <select data-worker="${escapeHtml(worker)}" ${owner ? '' : 'disabled'}>${options}</select>
+      </div>`;
+  }).join('') || `<div class="hint">В бригаде пока нет работников</div>`;
+
+  $('btn-save-day-schedule').style.display = owner ? 'flex' : 'none';
+}
+
+$('btn-save-day-schedule').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('График может менять только мастер бригады'); return; }
+  if(!selectedCalDate) return;
+
+  const dayData = {};
+  document.querySelectorAll('#day-editor-rows select').forEach(sel => {
+    const worker = sel.getAttribute('data-worker');
+    if(sel.value) dayData[worker] = sel.value;
+  });
+
+  if(Object.keys(dayData).length > 0){
+    SCHEDULE[selectedCalDate] = dayData;
+  }else{
+    delete SCHEDULE[selectedCalDate];
+  }
+  await fbSet(bp('schedule'), SCHEDULE);
+  renderCalendar();
+  showToast('График сохранён');
+});
+
 
 // ---------- ОТЧЁТ: переключение режима ----------
 let REPORT_MODE = 'brigade';
