@@ -519,27 +519,56 @@
           <label>Работник</label>
           <select id="rot-worker-select"></select>
         </div>
-        <div class="field-row">
-          <div class="field">
-            <label>Дата начала</label>
-            <input type="date" id="rot-start-date">
-          </div>
-          <div class="field">
-            <label>Тип смены (рабочие дни)</label>
-            <select id="rot-shift-select"></select>
+        <div class="field">
+          <label>Тип шаблона</label>
+          <div class="seg-control" id="rot-pattern-mode">
+            <button class="seg-btn active" data-pattern="simple">Смена / отдых</button>
+            <button class="seg-btn" data-pattern="dayoffnight">День / выходной / ночь</button>
           </div>
         </div>
-        <div class="field-row">
-          <div class="field">
-            <label>Дней в смене</label>
-            <input type="number" id="rot-work-days" placeholder="2" min="1">
-          </div>
-          <div class="field">
-            <label>Дней отдыха</label>
-            <input type="number" id="rot-off-days" placeholder="2" min="0">
-          </div>
+        <div class="field">
+          <label>Дата начала</label>
+          <input type="date" id="rot-start-date">
         </div>
-        <div class="hint" style="margin-bottom:10px;">Заполнит выбранный месяц по шаблону: N дней смены, затем M дней отдыха, и так по кругу.</div>
+
+        <div id="rot-simple-fields">
+          <div class="field-row">
+            <div class="field">
+              <label>Тип смены (рабочие дни)</label>
+              <select id="rot-shift-select"></select>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Дней в смене</label>
+              <input type="number" id="rot-work-days" placeholder="2" min="1">
+            </div>
+            <div class="field">
+              <label>Дней отдыха</label>
+              <input type="number" id="rot-off-days" placeholder="2" min="0">
+            </div>
+          </div>
+          <div class="hint" style="margin-bottom:10px;">Заполнит месяц по шаблону: N дней смены, затем M дней отдыха, и по кругу.</div>
+        </div>
+
+        <div id="rot-3block-fields" style="display:none;">
+          <div class="field-row">
+            <div class="field">
+              <label>Тип смены (день)</label>
+              <select id="rot-day-shift-select"></select>
+            </div>
+            <div class="field">
+              <label>Тип смены (ночь)</label>
+              <select id="rot-night-shift-select"></select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Дней в каждом блоке</label>
+            <input type="number" id="rot-block-days" placeholder="2" min="1">
+          </div>
+          <div class="hint" style="margin-bottom:10px;">Заполнит месяц по кругу: N дней в день, затем N дней выходных, затем N дней в ночь — и снова сначала. Выходные дни используют тип «Выходной».</div>
+        </div>
+
         <button class="btn btn-primary" id="btn-apply-rotation">Заполнить месяц по шаблону</button>
       </div>
 
@@ -1362,53 +1391,90 @@ function refreshRotWorkerSelect(){
 }
 
 function refreshRotShiftSelect(){
-  const sel = $('rot-shift-select');
-  if(!sel) return;
-  const prev = sel.value;
-  sel.innerHTML = SHIFT_TYPES.length
-    ? SHIFT_TYPES.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join('')
-    : `<option value="">Сначала добавьте тип смены</option>`;
-  if(SHIFT_TYPES.some(t => t.id === prev)) sel.value = prev;
+  [$('rot-shift-select'), $('rot-day-shift-select'), $('rot-night-shift-select')].forEach(sel => {
+    if(!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = SHIFT_TYPES.length
+      ? SHIFT_TYPES.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join('')
+      : `<option value="">Сначала добавьте тип смены</option>`;
+    if(SHIFT_TYPES.some(t => t.id === prev)) sel.value = prev;
+  });
+  // удобные значения по умолчанию для шаблона день/ночь
+  const dayType = shiftTypeById('day') || SHIFT_TYPES[0];
+  const nightType = shiftTypeById('night') || SHIFT_TYPES[1];
+  if(dayType && $('rot-day-shift-select') && !$('rot-day-shift-select').value) $('rot-day-shift-select').value = dayType.id;
+  if(nightType && $('rot-night-shift-select') && !$('rot-night-shift-select').value) $('rot-night-shift-select').value = nightType.id;
 }
+
+let rotPatternMode = 'simple';
+document.querySelectorAll('#rot-pattern-mode .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    rotPatternMode = btn.getAttribute('data-pattern');
+    document.querySelectorAll('#rot-pattern-mode .seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+    $('rot-simple-fields').style.display = (rotPatternMode === 'simple') ? 'block' : 'none';
+    $('rot-3block-fields').style.display = (rotPatternMode === 'dayoffnight') ? 'block' : 'none';
+  });
+});
 
 $('sched-month').addEventListener('change', renderCalendar);
 
 $('btn-apply-rotation').addEventListener('click', async () => {
   if(!isOwner()){ showToast('График может менять только мастер бригады'); return; }
   const worker = $('rot-worker-select').value;
-  const shiftId = $('rot-shift-select').value;
   const startDateStr = $('rot-start-date').value;
-  const workDays = parseInt($('rot-work-days').value, 10) || 2;
-  const offDays = parseInt($('rot-off-days').value, 10) || 0;
   const monthVal = $('sched-month').value || toISODate(new Date()).slice(0,7);
-
-  if(!worker){ showToast('Выберите работника'); return; }
-  if(!shiftId){ showToast('Выберите тип смены'); return; }
-  if(!startDateStr){ showToast('Укажите дату начала отсчёта'); return; }
-
-  const startDate = new Date(startDateStr + 'T00:00:00');
-  const cycleLen = workDays + offDays;
-  const offType = shiftTypeById('off');
-
   const [y, m] = monthVal.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
 
-  for(let d = 1; d <= daysInMonth; d++){
-    const dateObj = new Date(y, m-1, d);
-    const dateStr = toISODate(dateObj);
-    const diffDays = Math.round((dateObj - startDate) / 86400000);
-    if(diffDays < 0) continue;
-    const pos = ((diffDays % cycleLen) + cycleLen) % cycleLen;
+  if(!worker){ showToast('Выберите работника'); return; }
+  if(!startDateStr){ showToast('Укажите дату начала отсчёта'); return; }
 
+  const startDate = new Date(startDateStr + 'T00:00:00');
+  const offType = shiftTypeById('off');
+
+  function setDay(dateStr, shiftId){
     SCHEDULE[dateStr] = SCHEDULE[dateStr] || {};
-    if(pos < workDays){
-      SCHEDULE[dateStr][worker] = shiftId;
-    }else if(offType){
-      SCHEDULE[dateStr][worker] = offType.id;
-    }else{
-      delete SCHEDULE[dateStr][worker];
-    }
+    if(shiftId){ SCHEDULE[dateStr][worker] = shiftId; }
+    else{ delete SCHEDULE[dateStr][worker]; }
     if(Object.keys(SCHEDULE[dateStr]).length === 0) delete SCHEDULE[dateStr];
+  }
+
+  if(rotPatternMode === 'simple'){
+    const shiftId = $('rot-shift-select').value;
+    const workDays = parseInt($('rot-work-days').value, 10) || 2;
+    const offDays = parseInt($('rot-off-days').value, 10) || 0;
+    if(!shiftId){ showToast('Выберите тип смены'); return; }
+
+    const cycleLen = workDays + offDays;
+    for(let d = 1; d <= daysInMonth; d++){
+      const dateObj = new Date(y, m-1, d);
+      const dateStr = toISODate(dateObj);
+      const diffDays = Math.round((dateObj - startDate) / 86400000);
+      if(diffDays < 0) continue;
+      const pos = ((diffDays % cycleLen) + cycleLen) % cycleLen;
+      setDay(dateStr, pos < workDays ? shiftId : (offType ? offType.id : null));
+    }
+  }else{
+    // День / выходной / ночь — по N дней в каждом блоке, по кругу
+    const dayShiftId = $('rot-day-shift-select').value;
+    const nightShiftId = $('rot-night-shift-select').value;
+    const blockDays = parseInt($('rot-block-days').value, 10) || 2;
+    if(!dayShiftId || !nightShiftId){ showToast('Выберите типы смен для дня и ночи'); return; }
+    if(!offType){ showToast('В списке типов смен нет «Выходной» — добавьте его сначала'); return; }
+
+    const cycleLen = blockDays * 3;
+    for(let d = 1; d <= daysInMonth; d++){
+      const dateObj = new Date(y, m-1, d);
+      const dateStr = toISODate(dateObj);
+      const diffDays = Math.round((dateObj - startDate) / 86400000);
+      if(diffDays < 0) continue;
+      const pos = ((diffDays % cycleLen) + cycleLen) % cycleLen;
+      let shiftId;
+      if(pos < blockDays) shiftId = dayShiftId;
+      else if(pos < blockDays*2) shiftId = offType.id;
+      else shiftId = nightShiftId;
+      setDay(dateStr, shiftId);
+    }
   }
 
   await fbSet(bp('schedule'), SCHEDULE);
