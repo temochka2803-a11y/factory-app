@@ -269,15 +269,18 @@
   .cal-weekday{ font-size:10px; font-weight:700; color:var(--text-secondary); text-align:center; padding:4px 0; text-transform:uppercase; }
   .cal-day{
     aspect-ratio:1; border-radius:10px; border:1.5px solid var(--border); background:#FAFAFA;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
-    cursor:pointer; padding:2px; position:relative;
+    cursor:pointer; padding:0; position:relative; overflow:hidden;
   }
   .cal-day.empty{ visibility:hidden; cursor:default; }
-  .cal-day.today{ border-color:var(--accent); }
-  .cal-day.selected{ background:#EAF3FE; border-color:var(--accent); border-width:2px; }
-  .cal-day-num{ font-size:12px; font-weight:600; color:var(--text); }
-  .cal-dots{ display:flex; flex-wrap:wrap; gap:2px; justify-content:center; max-width:100%; }
-  .cal-dot{ width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .cal-day.today{ border-color:var(--accent); border-width:2px; }
+  .cal-day.selected{ outline:2px solid var(--accent-dark); outline-offset:1px; }
+  .cal-day-fill{ position:absolute; inset:0; display:flex; flex-direction:column; }
+  .cal-day-fill > div{ flex:1; }
+  .cal-day-num{
+    position:absolute; top:3px; left:3px; z-index:2;
+    background:rgba(255,255,255,.88); color:var(--text);
+    font-size:10.5px; font-weight:700; line-height:1; border-radius:6px; padding:3px 5px;
+  }
 
   .shift-chip{ display:flex; align-items:center; gap:6px; }
   .shift-dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
@@ -566,7 +569,8 @@
             <label>Дней в каждом блоке</label>
             <input type="number" id="rot-block-days" placeholder="2" min="1">
           </div>
-          <div class="hint" style="margin-bottom:10px;">Заполнит месяц по кругу: N дней в день, затем N дней выходных, затем N дней в ночь — и снова сначала. Выходные дни используют тип «Выходной».</div>
+          <div class="hint" style="margin-bottom:10px;">Заполнит месяц по кругу: N дней в день → N дней выходных → N дней в ночь → N дней выходных — и снова сначала. Выходные дни используют тип «Выходной».</div>
+          <div class="hint" style="margin-bottom:10px;">Например, при N = 2 получится: 2 в день, 2 выходных, 2 в ночь, 2 выходных.</div>
         </div>
 
         <button class="btn btn-primary" id="btn-apply-rotation">Заполнить месяц по шаблону</button>
@@ -574,6 +578,10 @@
 
       <div class="section-title">Календарь</div>
       <div class="card">
+        <div class="field" style="margin-bottom:12px;">
+          <label>Показать график</label>
+          <select id="cal-filter-select"></select>
+        </div>
         <div class="cal-grid" id="cal-weekdays"></div>
         <div class="cal-grid" id="cal-grid" style="margin-top:6px;"></div>
       </div>
@@ -1455,14 +1463,14 @@ $('btn-apply-rotation').addEventListener('click', async () => {
       setDay(dateStr, pos < workDays ? shiftId : (offType ? offType.id : null));
     }
   }else{
-    // День / выходной / ночь — по N дней в каждом блоке, по кругу
+    // День / выходной / ночь / выходной — по N дней в каждом блоке, по кругу
     const dayShiftId = $('rot-day-shift-select').value;
     const nightShiftId = $('rot-night-shift-select').value;
     const blockDays = parseInt($('rot-block-days').value, 10) || 2;
     if(!dayShiftId || !nightShiftId){ showToast('Выберите типы смен для дня и ночи'); return; }
     if(!offType){ showToast('В списке типов смен нет «Выходной» — добавьте его сначала'); return; }
 
-    const cycleLen = blockDays * 3;
+    const cycleLen = blockDays * 4;
     for(let d = 1; d <= daysInMonth; d++){
       const dateObj = new Date(y, m-1, d);
       const dateStr = toISODate(dateObj);
@@ -1470,9 +1478,10 @@ $('btn-apply-rotation').addEventListener('click', async () => {
       if(diffDays < 0) continue;
       const pos = ((diffDays % cycleLen) + cycleLen) % cycleLen;
       let shiftId;
-      if(pos < blockDays) shiftId = dayShiftId;
-      else if(pos < blockDays*2) shiftId = offType.id;
-      else shiftId = nightShiftId;
+      if(pos < blockDays) shiftId = dayShiftId;               // 1) N дней в день
+      else if(pos < blockDays*2) shiftId = offType.id;         // 2) N дней выходных
+      else if(pos < blockDays*3) shiftId = nightShiftId;       // 3) N дней в ночь
+      else shiftId = offType.id;                                // 4) N дней выходных
       setDay(dateStr, shiftId);
     }
   }
@@ -1482,8 +1491,19 @@ $('btn-apply-rotation').addEventListener('click', async () => {
   showToast('Месяц заполнен по шаблону');
 });
 
+function refreshCalFilterSelect(){
+  const sel = $('cal-filter-select');
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = `<option value="">Вся бригада</option>` +
+    WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+  if(prev && (prev === '' || WORKERS.includes(prev))) sel.value = prev;
+}
+$('cal-filter-select').addEventListener('change', renderCalendar);
+
 function renderCalendar(){
   ensureShiftTypesSeeded().then(() => { renderShiftTypeChips(); refreshRotShiftSelect(); });
+  refreshCalFilterSelect();
 
   const weekdaysEl = $('cal-weekdays');
   if(weekdaysEl && weekdaysEl.children.length === 0){
@@ -1496,6 +1516,7 @@ function renderCalendar(){
   const firstDay = new Date(y, m-1, 1);
   const leadOffset = (firstDay.getDay() + 6) % 7; // Пн = 0
   const todayStr = toISODate(new Date());
+  const filterWorker = $('cal-filter-select').value;
 
   const grid = $('cal-grid');
   let html = '';
@@ -1505,15 +1526,23 @@ function renderCalendar(){
     const dateObj = new Date(y, m-1, d);
     const dateStr = toISODate(dateObj);
     const dayShifts = SCHEDULE[dateStr] || {};
-    const dots = Object.keys(dayShifts).slice(0, 6).map(worker => {
+
+    let workerIds = Object.keys(dayShifts);
+    if(filterWorker) workerIds = workerIds.filter(w => w === filterWorker);
+
+    const colors = workerIds.slice(0, 4).map(worker => {
       const t = shiftTypeById(dayShifts[worker]);
-      return `<span class="cal-dot" style="background:${t ? t.color : '#C7C7CC'};" title="${escapeHtml(worker)}"></span>`;
-    }).join('');
+      return t ? t.color : '#C7C7CC';
+    });
+
+    const fillHtml = colors.length
+      ? `<div class="cal-day-fill">${colors.map(c => `<div style="background:${c};"></div>`).join('')}</div>`
+      : '';
 
     html += `
       <div class="cal-day${dateStr===todayStr ? ' today' : ''}" data-date="${dateStr}">
+        ${fillHtml}
         <div class="cal-day-num">${d}</div>
-        <div class="cal-dots">${dots}</div>
       </div>`;
   }
   grid.innerHTML = html;
