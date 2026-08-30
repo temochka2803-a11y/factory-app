@@ -197,6 +197,9 @@
   }
   .day-total-bar .label{ font-size:13.5px; color:var(--accent-dark); font-weight:600; }
   .day-total-bar .val{ font-family:var(--mono); font-size:19px; font-weight:800; color:var(--accent-dark); }
+  .day-total-bar.personal{ background:#E9F9EE; border-color:#B9E8C6; }
+  .day-total-bar.personal .label{ color:#1E8A44; }
+  .day-total-bar.personal .val{ color:#1E8A44; }
 
   .sched-legend{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
   .sched-legend-item{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-secondary); }
@@ -426,6 +429,16 @@
 
     <!-- ---- ВВОД ---- -->
     <div id="tab-entry" class="content">
+      <div class="day-total-bar personal" id="my-payroll-bar" style="margin-bottom:14px;">
+        <span class="label">Моя зарплата за месяц</span>
+        <span class="val" id="my-payroll-val">0 ₽</span>
+      </div>
+
+      <div class="day-total-bar" id="payroll-summary-bar" style="display:none;">
+        <span class="label">Зарплата бригады за месяц</span>
+        <span class="val" id="payroll-summary-val">0 ₽</span>
+      </div>
+
       <details class="manage-details" id="users-panel" style="margin-bottom:16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px;">
         <summary>👥 Участники бригады (<span id="users-count">0</span>)</summary>
         <div class="manage-block" id="users-list-view"></div>
@@ -756,10 +769,15 @@ let PAYROLL = {};      // { [worker]: { advance, final } } — только за
 let selectedCalDate = null;
 
 const DEFAULT_SHIFT_TYPES = [
-  { id: 'day',   name: 'День',      color: '#3390EC' },
-  { id: 'night', name: 'Ночь',      color: '#7B5EEA' },
-  { id: 'off',   name: 'Выходной',  color: '#C7C7CC' },
+  { id: 'day',      name: 'День',        color: '#3390EC' },
+  { id: 'night',    name: 'Ночь',        color: '#7B5EEA' },
+  { id: 'off',      name: 'Выходной',    color: '#C7C7CC' },
+  { id: 'vacation', name: 'Отпуск',      color: '#34A853' },
+  { id: 'sick',     name: 'Больничный',  color: '#E5A93B' },
 ];
+// Эти типы будут автоматически добавлены и в уже существующие бригады,
+// у которых типы смен уже были настроены раньше (см. ensureShiftTypesSeeded).
+const NEW_SHIFT_TYPE_IDS_TO_MERGE = ['vacation', 'sick'];
 
 function showToast(msg){
   const t = $('toast');
@@ -787,7 +805,7 @@ async function switchTab(name){
   refreshWorkerSelect();
   renderManageChips();
   renderWorkerChips();
-  if(name === 'entry'){ renderEntries(); renderUsersList(); }
+  if(name === 'entry'){ renderEntries(); renderUsersList(); refreshMyPayroll(); if(isOwner()) refreshPayrollSummary(); }
   if(name === 'team') renderTeam();
   if(name === 'schedule'){
     refreshRotWorkerSelect();
@@ -994,6 +1012,12 @@ function applyRolePermissions(){
   const payrollTabBtn = document.querySelector('.tab-btn[data-tab="payroll"]');
   if(payrollTabBtn) payrollTabBtn.style.display = owner ? 'flex' : 'none';
 
+  const payrollBar = $('payroll-summary-bar');
+  if(payrollBar){
+    payrollBar.style.display = owner ? 'flex' : 'none';
+    if(owner) refreshPayrollSummary();
+  }
+
   // Добавление/удаление категорий и деталей — только у мастера.
   // Сами селекты остаются доступны всем, чтобы можно было выбрать деталь для своей записи.
   $('btn-toggle-add-cat').style.display = owner ? 'flex' : 'none';
@@ -1129,6 +1153,8 @@ $('btn-refresh').addEventListener('click', async () => {
   renderEntries();
   renderUsersList();
   renderTeam();
+  refreshMyPayroll();
+  if(isOwner()) refreshPayrollSummary();
   showToast('Данные бригады обновлены');
 });
 
@@ -1485,10 +1511,24 @@ function shiftTypeById(id){
 }
 
 async function ensureShiftTypesSeeded(){
-  if(SHIFT_TYPES.length === 0 && isOwner()){
+  if(!isOwner()) return;
+  let changed = false;
+
+  if(SHIFT_TYPES.length === 0){
     SHIFT_TYPES = DEFAULT_SHIFT_TYPES.slice();
-    await fbSet(bp('shiftTypes'), SHIFT_TYPES);
+    changed = true;
+  }else{
+    // бригада уже существовала раньше — донесём только новые типы (отпуск/больничный),
+    // не трогая то, что мастер мог сам поменять или удалить
+    NEW_SHIFT_TYPE_IDS_TO_MERGE.forEach(id => {
+      if(!SHIFT_TYPES.some(t => t.id === id)){
+        const def = DEFAULT_SHIFT_TYPES.find(t => t.id === id);
+        if(def){ SHIFT_TYPES.push(def); changed = true; }
+      }
+    });
   }
+
+  if(changed) await fbSet(bp('shiftTypes'), SHIFT_TYPES);
 }
 
 function renderShiftTypeChips(){
@@ -1803,8 +1843,34 @@ $('btn-save-payroll').addEventListener('click', async () => {
 
   PAYROLL = updated;
   await fbSet(bp('payroll/' + monthVal), PAYROLL);
+  await refreshPayrollSummary();
+  await refreshMyPayroll();
   showToast('Зарплата сохранена');
 });
+
+// Общая сумма зарплаты бригады за текущий месяц — показывается мастеру на вкладке «Ввод»
+async function refreshPayrollSummary(){
+  const bar = $('payroll-summary-bar');
+  const valEl = $('payroll-summary-val');
+  if(!bar || !valEl || !isOwner()) return;
+
+  const monthVal = toISODate(new Date()).slice(0,7);
+  const data = (await fbGet(bp('payroll/' + monthVal))) || {};
+  const total = Object.values(data).reduce((s, r) => s + (r.advance || 0) + (r.final || 0), 0);
+  valEl.textContent = total.toLocaleString('ru-RU') + ' ₽';
+}
+
+// Личная зарплата за месяц — показывается каждому на его вкладке «Ввод», и мастеру тоже
+async function refreshMyPayroll(){
+  const valEl = $('my-payroll-val');
+  if(!valEl || !PROFILE) return;
+
+  const monthVal = toISODate(new Date()).slice(0,7);
+  const data = (await fbGet(bp('payroll/' + monthVal))) || {};
+  const rec = data[PROFILE.fio] || {};
+  const total = (rec.advance || 0) + (rec.final || 0);
+  valEl.textContent = total.toLocaleString('ru-RU') + ' ₽';
+}
 
 
 // ---------- ОТЧЁТ: переключение режима ----------
