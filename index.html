@@ -130,6 +130,17 @@
   .user-stat .val{ font-family:var(--mono); font-size:14px; font-weight:700; color:var(--accent); }
   .user-stat .lbl{ font-size:10px; color:var(--text-secondary); }
 
+  .payroll-row{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:10px;
+  }
+  .payroll-worker{ font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; }
+  .payroll-total{
+    display:flex; justify-content:space-between; align-items:center; margin-top:10px;
+    padding-top:10px; border-top:1px dashed var(--border); font-size:13px; color:var(--text-secondary);
+  }
+  .payroll-total .val{ font-family:var(--mono); font-size:16px; font-weight:800; color:var(--accent); }
+
   .btn{
     display:flex; align-items:center; justify-content:center; gap:6px;
     width:100%; padding:13px 16px; border-radius:12px; border:none;
@@ -619,6 +630,19 @@
       </div>
     </div>
 
+    <!-- ---- ЗАРПЛАТА ---- -->
+    <div id="tab-payroll" class="content" style="display:none;">
+      <div class="field" style="margin-bottom:16px;">
+        <label>Месяц</label>
+        <input type="month" id="payroll-month">
+      </div>
+
+      <div class="section-title">Зарплата по работникам</div>
+      <div id="payroll-list"></div>
+
+      <button class="btn btn-primary" id="btn-save-payroll" style="margin-top:4px;">Сохранить</button>
+    </div>
+
     <!-- ---- ОТЧЁТ ---- -->
     <div id="tab-report" class="content" style="display:none;">
       <div class="card">
@@ -657,6 +681,9 @@
       </button>
       <button class="tab-btn" data-tab="schedule">
         <span class="tab-icon">📅</span><span class="tab-label">График</span>
+      </button>
+      <button class="tab-btn" data-tab="payroll">
+        <span class="tab-icon">💰</span><span class="tab-label">Зарплата</span>
       </button>
       <button class="tab-btn" data-tab="report">
         <span class="tab-icon">📄</span><span class="tab-label">Отчёт</span>
@@ -725,6 +752,7 @@ let CATALOG = [];      // [{ name, category }]
 let WORKERS = [];      // ["Иванов Иван Иванович", ...]
 let SHIFT_TYPES = [];  // [{ id, name, color }]
 let SCHEDULE = {};     // { [date]: { [worker]: shiftTypeId } }
+let PAYROLL = {};      // { [worker]: { advance, final } } — только за выбранный месяц
 let selectedCalDate = null;
 
 const DEFAULT_SHIFT_TYPES = [
@@ -748,7 +776,7 @@ function showRoot(name){
 
 async function switchTab(name){
   await refreshBrigadeData();
-  ['entry','team','schedule','report'].forEach(t=>{
+  ['entry','team','schedule','payroll','report'].forEach(t=>{
     $('tab-'+t).style.display = (t===name) ? 'block' : 'none';
   });
   document.querySelectorAll('.tab-btn').forEach(b=>{
@@ -767,6 +795,7 @@ async function switchTab(name){
     renderShiftTypeChips();
     renderCalendar();
   }
+  if(name === 'payroll') renderPayroll();
 }
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=> switchTab(btn.getAttribute('data-tab')));
@@ -897,6 +926,17 @@ async function ensureInRoster(name){
   }
 }
 
+// Сохраняет настоящий Telegram ID пользователя (доступен только внутри Telegram),
+// привязанный к его ФИО — нужен внешнему скрипту, чтобы писать человеку напрямую.
+async function saveTelegramId(fio){
+  try{
+    const wa = window.Telegram && window.Telegram.WebApp;
+    const tgUser = wa && wa.initDataUnsafe && wa.initDataUnsafe.user;
+    if(!tgUser || !tgUser.id) return; // открыто не в Telegram — пропускаем, не мешаем работе
+    await fbSet(bp('telegramIds/' + fio.replace(/[.#$\[\]]/g, '_')), tgUser.id);
+  }catch(e){ /* не критично для работы приложения */ }
+}
+
 // ---------- Init ----------
 async function init(){
   const fbOk = initFirebase();
@@ -913,6 +953,7 @@ async function init(){
   }
 
   await refreshBrigadeData();
+  await saveTelegramId(PROFILE.fio);
 
   $('home-fio').textContent = PROFILE.fio;
   $('home-factory').textContent = PROFILE.factory;
@@ -922,6 +963,7 @@ async function init(){
   $('rep-date').value = toISODate(new Date());
   $('rep-month').value = toISODate(new Date()).slice(0,7);
   $('sched-month').value = toISODate(new Date()).slice(0,7);
+  $('payroll-month').value = toISODate(new Date()).slice(0,7);
 
   refreshAllCategorySelects();
   refreshAllPartSelects();
@@ -948,6 +990,9 @@ function applyRolePermissions(){
   // Вкладка «Бригада» (роль-менеджмент, записи за других) — только у мастера
   const teamTabBtn = document.querySelector('.tab-btn[data-tab="team"]');
   if(teamTabBtn) teamTabBtn.style.display = owner ? 'flex' : 'none';
+
+  const payrollTabBtn = document.querySelector('.tab-btn[data-tab="payroll"]');
+  if(payrollTabBtn) payrollTabBtn.style.display = owner ? 'flex' : 'none';
 
   // Добавление/удаление категорий и деталей — только у мастера.
   // Сами селекты остаются доступны всем, чтобы можно было выбрать деталь для своей записи.
@@ -1002,8 +1047,9 @@ $('btn-register').addEventListener('click', async () => {
 
       const code = await generateUniqueCode();
       PROFILE = { fio, factory, code, isOwner: true };
-      await fbSet(`brigades/${code}`, { factory, categories: [], catalog: [], workers: [fio], shiftTypes: DEFAULT_SHIFT_TYPES, schedule: {} });
+      await fbSet(`brigades/${code}`, { factory, categories: [], catalog: [], workers: [fio], shiftTypes: DEFAULT_SHIFT_TYPES, schedule: {}, telegramIds: {} });
       await saveLocalProfile(PROFILE);
+      await saveTelegramId(fio);
 
       $('reg-fio').closest('.card').style.display = 'none';
       $('code-reveal-card').style.display = 'block';
@@ -1018,6 +1064,7 @@ $('btn-register').addEventListener('click', async () => {
       PROFILE = { fio, factory: brigade.factory || '', code, isOwner: false };
       await saveLocalProfile(PROFILE);
       await ensureInRoster(fio);
+      await saveTelegramId(fio);
       await init();
     }
   }catch(e){
@@ -1690,6 +1737,76 @@ $('btn-save-day-schedule').addEventListener('click', async () => {
 });
 
 
+// ---------- ЗАРПЛАТА (только мастер) ----------
+$('payroll-month').addEventListener('change', renderPayroll);
+
+async function renderPayroll(){
+  const monthVal = $('payroll-month').value || toISODate(new Date()).slice(0,7);
+  PAYROLL = (await fbGet(bp('payroll/' + monthVal))) || {};
+
+  const wrap = $('payroll-list');
+  if(WORKERS.length === 0){
+    wrap.innerHTML = `<div class="empty-state"><div class="emoji">👥</div><div class="msg">В бригаде пока нет работников</div></div>`;
+    return;
+  }
+
+  wrap.innerHTML = WORKERS.map(worker => {
+    const rec = PAYROLL[worker] || {};
+    const advance = rec.advance || 0;
+    const final = rec.final || 0;
+    const total = advance + final;
+    const safeId = worker.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_');
+    return `
+      <div class="payroll-row">
+        <div class="payroll-worker">${escapeHtml(worker)}</div>
+        <div class="field-row">
+          <div class="field">
+            <label>Аванс, ₽</label>
+            <input type="number" class="payroll-advance" data-worker="${escapeHtml(worker)}" id="pr-adv-${safeId}" value="${advance || ''}" placeholder="0" min="0">
+          </div>
+          <div class="field">
+            <label>Расчёт, ₽</label>
+            <input type="number" class="payroll-final" data-worker="${escapeHtml(worker)}" id="pr-fin-${safeId}" value="${final || ''}" placeholder="0" min="0">
+          </div>
+        </div>
+        <div class="payroll-total">
+          <span>Итого за месяц</span>
+          <span class="val" id="pr-total-${safeId}">${total.toLocaleString('ru-RU')} ₽</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  wrap.querySelectorAll('.payroll-advance, .payroll-final').forEach(input => {
+    input.addEventListener('input', () => {
+      const worker = input.getAttribute('data-worker');
+      const safeId = worker.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_');
+      const adv = parseFloat($('pr-adv-' + safeId).value) || 0;
+      const fin = parseFloat($('pr-fin-' + safeId).value) || 0;
+      $('pr-total-' + safeId).textContent = (adv + fin).toLocaleString('ru-RU') + ' ₽';
+    });
+  });
+}
+
+$('btn-save-payroll').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Зарплату может вносить только мастер бригады'); return; }
+  const monthVal = $('payroll-month').value || toISODate(new Date()).slice(0,7);
+
+  const updated = {};
+  WORKERS.forEach(worker => {
+    const safeId = worker.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_');
+    const advInput = $('pr-adv-' + safeId);
+    const finInput = $('pr-fin-' + safeId);
+    const advance = advInput ? (parseFloat(advInput.value) || 0) : 0;
+    const final = finInput ? (parseFloat(finInput.value) || 0) : 0;
+    if(advance || final){ updated[worker] = { advance, final }; }
+  });
+
+  PAYROLL = updated;
+  await fbSet(bp('payroll/' + monthVal), PAYROLL);
+  showToast('Зарплата сохранена');
+});
+
+
 // ---------- ОТЧЁТ: переключение режима ----------
 let REPORT_MODE = 'brigade';
 const REPORT_BTN_LABELS = {
@@ -2197,7 +2314,7 @@ function escapeHtml(str){ const div = document.createElement('div'); div.textCon
 
 // ---------- Админ-режим: список всех бригад и пользователей бота ----------
 // ВАЖНО: смените этот код на свой собственный секрет перед публикацией.
-const ADMIN_SECRET = "6589";
+const ADMIN_SECRET = "1234";
 
 let adminTapCount = 0;
 let adminTapTimer = null;
