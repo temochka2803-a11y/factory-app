@@ -2534,8 +2534,13 @@ function buildNaryadBlank(worker, monthVal){
   actions.className = 'report-actions';
   actions.innerHTML = `<button class="btn btn-primary" id="btn-print-naryad">📄 Скачать PDF</button>`;
   $('report-output').appendChild(actions);
-  $('btn-print-naryad').addEventListener('click', () => {
-    downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount });
+  $('btn-print-naryad').addEventListener('click', async () => {
+    try{
+      await downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount });
+    }catch(e){
+      console.error('Ошибка формирования PDF:', e);
+      showToast('Ошибка: ' + (e && e.message ? e.message : 'не удалось сформировать PDF'));
+    }
   });
 }
 
