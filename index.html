@@ -7,6 +7,8 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root{
     --accent: #3390EC;
@@ -2498,9 +2500,81 @@ function buildNaryadBlank(worker, monthVal){
 
   const actions = document.createElement('div');
   actions.className = 'report-actions';
-  actions.innerHTML = `<button class="btn btn-primary" id="btn-print-naryad">🖨 Печать бланка</button>`;
+  actions.innerHTML = `<button class="btn btn-primary" id="btn-print-naryad">📄 Скачать PDF</button>`;
   $('report-output').appendChild(actions);
-  $('btn-print-naryad').addEventListener('click', () => { setPrintOrientation(true); window.print(); });
+  $('btn-print-naryad').addEventListener('click', () => {
+    downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount });
+  });
+}
+
+// Строит настоящий PDF-файл (не диалог печати браузера) и сразу скачивает его на устройство —
+// внутри Telegram-вебвью системная печать работает нестабильно, а прямое скачивание — надёжно.
+function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount }){
+  if(!window.jspdf){ showToast('Не удалось загрузить модуль PDF, попробуйте ещё раз'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  doc.setFontSize(13);
+  doc.text('Наряд на сдельную работу', 148.5, 10, { align: 'center' });
+  doc.setFontSize(9);
+  const infoLine = `Ф.И.О.: ${worker}      Завод/цех: ${PROFILE.factory}      Месяц: ${monthLabel}      Сформировано: ${new Date().toLocaleDateString('ru-RU')}`;
+  doc.text(infoLine, 148.5, 16, { align: 'center' });
+
+  const head = [['Наименование детали', ...Array.from({length: daysInMonth}, (_,i)=> String(i+1)), 'Итого']];
+  const body = [];
+
+  usedParts.forEach(part => {
+    let rowTotal = 0;
+    const row = [part];
+    for(let d=1; d<=daysInMonth; d++){
+      const qty = byPart[part][d] || 0;
+      if(qty) rowTotal += qty;
+      row.push(qty || '');
+    }
+    row.push(rowTotal);
+    body.push(row);
+  });
+
+  for(let i=0; i<blankRowsCount; i++){
+    body.push(['', ...Array(daysInMonth).fill(''), '']);
+  }
+
+  const grandTotal = dayTotals.reduce((s,v)=> s + (v||0), 0);
+  const sumRow = ['Итого за день', ...Array.from({length: daysInMonth}, (_,i)=> dayTotals[i+1] || ''), grandTotal];
+  body.push(sumRow);
+  const sumRowIndex = body.length - 1;
+
+  const dayColStyles = {};
+  for(let d=1; d<=daysInMonth; d++){
+    dayColStyles[d] = { cellWidth: 6.2, fillColor: d > cutoffDay ? [250,250,250] : undefined };
+  }
+
+  doc.autoTable({
+    head,
+    body,
+    startY: 20,
+    theme: 'grid',
+    styles: { fontSize: 6, cellPadding: 1, halign: 'center', valign: 'middle' },
+    headStyles: { fillColor: [244,244,245], textColor: [30,30,30], fontStyle: 'bold' },
+    columnStyles: { 0: { cellWidth: 32, halign: 'left', fontStyle: 'bold' }, ...dayColStyles, [daysInMonth+1]: { cellWidth: 12, fontStyle: 'bold' } },
+    didParseCell: (data) => {
+      if(data.row.index === sumRowIndex){
+        data.cell.styles.fillColor = [234,243,254];
+        data.cell.styles.fontStyle = 'bold';
+      }
+    },
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 14;
+  doc.setFontSize(9);
+  doc.text('_____________________________', 30, finalY);
+  doc.text('Подпись работника', 30, finalY + 5);
+  doc.text('_____________________________', 180, finalY);
+  doc.text('Подпись мастера', 180, finalY + 5);
+
+  const fileName = `Наряд_${worker.replace(/\s+/g,'_')}_${monthVal}.pdf`;
+  doc.save(fileName);
+  showToast('PDF сохранён');
 }
 
 // ---------- Шеринг ----------
