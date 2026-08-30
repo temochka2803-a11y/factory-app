@@ -2509,7 +2509,7 @@ function buildNaryadBlank(worker, monthVal){
 
 // Строит настоящий PDF-файл (не диалог печати браузера) и сразу скачивает его на устройство —
 // внутри Telegram-вебвью системная печать работает нестабильно, а прямое скачивание — надёжно.
-function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount }){
+async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount }){
   if(!window.jspdf){ showToast('Не удалось загрузить модуль PDF, попробуйте ещё раз'); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -2573,8 +2573,43 @@ function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDa
   doc.text('Подпись мастера', 180, finalY + 5);
 
   const fileName = `Наряд_${worker.replace(/\s+/g,'_')}_${monthVal}.pdf`;
-  doc.save(fileName);
-  showToast('PDF сохранён');
+  const blob = doc.output('blob');
+
+  // Внутри Telegram-вебвью обычное скачивание по скрытой ссылке часто молча не срабатывает.
+  // Поэтому сначала пробуем нативное меню «Поделиться» — оно надёжно работает и на Android, и на iOS,
+  // и позволяет сохранить файл прямо в память телефона или переслать его.
+  let handled = false;
+  if(navigator.share && navigator.canShare){
+    try{
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      if(navigator.canShare({ files: [file] })){
+        await navigator.share({ files: [file], title: fileName });
+        handled = true;
+        showToast('Готово — выберите, куда сохранить PDF');
+      }
+    }catch(e){
+      // Пользователь мог просто закрыть окно «Поделиться» — это не ошибка, второй раз не пробуем
+      handled = true;
+    }
+  }
+
+  if(!handled){
+    try{
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      showToast('PDF сохранён. Если файла нигде не видно — попробуйте открыть приложение в обычном браузере телефона');
+    }catch(e){
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      showToast('PDF открыт в новой вкладке — сохраните вручную через меню браузера');
+    }
+  }
 }
 
 // ---------- Шеринг ----------
