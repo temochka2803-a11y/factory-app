@@ -2422,12 +2422,13 @@ function buildNaryadBlank(worker, monthVal){
 
   const items = ENTRIES.filter(e => e.worker === worker && e.date.startsWith(monthVal));
 
-  // группируем по наименованию детали, без категорий, день -> количество
+  // группируем по связке "категория + деталь" — категория идёт префиксом перед названием
   const byPart = {};
   items.forEach(e => {
-    if(!byPart[e.part]) byPart[e.part] = {};
+    const label = `${e.category} ${e.part}`.trim();
+    if(!byPart[label]) byPart[label] = {};
     const day = parseInt(e.date.split('-')[2], 10);
-    byPart[e.part][day] = (byPart[e.part][day] || 0) + e.qty;
+    byPart[label][day] = (byPart[label][day] || 0) + e.qty;
   });
   const usedParts = Object.keys(byPart).sort((a,b)=> a.localeCompare(b,'ru'));
 
