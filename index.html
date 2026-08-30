@@ -7,6 +7,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
@@ -765,6 +766,7 @@ const firebaseConfig = {
   authDomain: "uchet-b8c60.firebaseapp.com",
   databaseURL: "https://uchet-b8c60-default-rtdb.firebaseio.com",
   projectId: "uchet-b8c60",
+  storageBucket: "uchet-b8c60.firebasestorage.app", // нужен для скачивания PDF через Telegram — см. инструкцию в чате
 };
 // =====================================================================
 
@@ -2397,6 +2399,36 @@ function downloadWorkerReport(worker, byCategory, categories, total, periodLabel
   showToast('Файл скачан');
 }
 
+// ---------- Официальное скачивание файла через Telegram.WebApp.downloadFile ----------
+// Требует Bot API 8.0+ и настоящей https-ссылки на файл, поэтому сначала загружаем
+// PDF во временное хранилище Firebase Storage, получаем ссылку — и уже её передаём Telegram.
+async function tryTelegramNativeDownload(blob, fileName){
+  const wa = window.Telegram && window.Telegram.WebApp;
+  if(!wa || typeof wa.downloadFile !== 'function') return false;
+  if(wa.isVersionAtLeast && !wa.isVersionAtLeast('8.0')) return false;
+  if(!firebaseReady || typeof firebase.storage !== 'function') return false;
+
+  try{
+    const storage = firebase.storage();
+    const path = `naryad_pdfs/${PROFILE.code}/${Date.now()}_${fileName}`;
+    const ref = storage.ref(path);
+    await ref.put(blob, { contentType: 'application/pdf' });
+    const url = await ref.getDownloadURL();
+
+    const accepted = await withTimeout(new Promise((resolve) => {
+      try{
+        wa.downloadFile({ url, file_name: fileName }, (result) => resolve(!!result));
+      }catch(e){ resolve(false); }
+    }), 8000, false);
+
+    if(accepted) showToast('Загрузка началась — файл появится в папке загрузок');
+    return accepted;
+  }catch(e){
+    console.error('Telegram downloadFile не сработал:', e);
+    return false;
+  }
+}
+
 // ---------- Ориентация печати (для альбомного бланка наряда) ----------
 function setPrintOrientation(landscape){
   let style = document.getElementById('dynamic-page-style');
@@ -2575,11 +2607,13 @@ async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cu
   const fileName = `Наряд_${worker.replace(/\s+/g,'_')}_${monthVal}.pdf`;
   const blob = doc.output('blob');
 
-  // Внутри Telegram-вебвью обычное скачивание по скрытой ссылке часто молча не срабатывает.
-  // Поэтому сначала пробуем нативное меню «Поделиться» — оно надёжно работает и на Android, и на iOS,
-  // и позволяет сохранить файл прямо в память телефона или переслать его.
-  let handled = false;
-  if(navigator.share && navigator.canShare){
+  // Способ 1 (самый надёжный внутри Telegram): загружаем PDF во временное хранилище
+  // и просим сам Telegram скачать его по ссылке через встроенный downloadFile() —
+  // именно так это задумано в официальной документации Mini Apps.
+  let handled = await tryTelegramNativeDownload(blob, fileName);
+
+  // Способ 2: нативное меню «Поделиться» телефона
+  if(!handled && navigator.share && navigator.canShare){
     try{
       const file = new File([blob], fileName, { type: 'application/pdf' });
       if(navigator.canShare({ files: [file] })){
