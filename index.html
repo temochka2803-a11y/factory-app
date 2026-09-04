@@ -2556,7 +2556,7 @@ function buildNaryadBlank(worker, monthVal){
 
   const actions = document.createElement('div');
   actions.className = 'report-actions';
-  actions.innerHTML = `<button class="btn btn-primary" id="btn-print-naryad">📄 Скачать PDF</button>`;
+  actions.innerHTML = `<button class="btn btn-primary" id="btn-print-naryad">🔗 Получить ссылку на PDF</button>`;
   $('report-output').appendChild(actions);
   $('btn-print-naryad').addEventListener('click', async () => {
     try{
@@ -2636,43 +2636,51 @@ async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cu
   const fileName = `Наряд_${worker.replace(/\s+/g,'_')}_${monthVal}.pdf`;
   const blob = doc.output('blob');
 
-  // Способ 1 (самый надёжный внутри Telegram): загружаем PDF во временное хранилище
-  // и просим сам Telegram скачать его по ссылке через встроенный downloadFile() —
-  // именно так это задумано в официальной документации Mini Apps.
-  let handled = await tryTelegramNativeDownload(blob, fileName);
-
-  // Способ 2: нативное меню «Поделиться» телефона
-  if(!handled && navigator.share && navigator.canShare){
-    try{
-      const file = new File([blob], fileName, { type: 'application/pdf' });
-      if(navigator.canShare({ files: [file] })){
-        await navigator.share({ files: [file], title: fileName });
-        handled = true;
-        showToast('Готово — выберите, куда сохранить PDF');
-      }
-    }catch(e){
-      // Пользователь мог просто закрыть окно «Поделиться» — это не ошибка, второй раз не пробуем
-      handled = true;
-    }
+  if(!firebaseReady || typeof firebase.storage !== 'function'){
+    showToast('Нужен включённый Firebase Storage, чтобы получить ссылку — см. инструкцию в чате');
+    return;
   }
 
-  if(!handled){
-    try{
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-      showToast('PDF сохранён. Если файла нигде не видно — попробуйте открыть приложение в обычном браузере телефона');
-    }catch(e){
-      const url = URL.createObjectURL(blob);
+  const storage = firebase.storage();
+  const path = `naryad_pdfs/${PROFILE.code}/${Date.now()}_${fileName}`;
+  const ref = storage.ref(path);
+  await ref.put(blob, { contentType: 'application/pdf' });
+  const url = await ref.getDownloadURL();
+  showNaryadLink(url, fileName);
+}
+
+// Показывает готовую прямую ссылку на PDF с кнопкой копирования — самый надёжный
+// способ скачать файл именно внутри Telegram-вебвью: копируешь ссылку и открываешь
+// её в обычном браузере телефона, где скачивание работает штатно.
+function showNaryadLink(url, fileName){
+  const wrap = document.createElement('div');
+  wrap.className = 'card';
+  wrap.style.marginTop = '10px';
+  wrap.innerHTML = `
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px;">🔗 Ссылка на PDF готова</div>
+    <div class="hint" style="margin-top:0;margin-bottom:10px;">
+      Скопируй ссылку и открой её в обычном браузере телефона (Chrome, Yandex и т.п.),
+      не внутри Telegram — скачивание начнётся сразу.
+    </div>
+    <div class="field">
+      <input type="text" id="naryad-link-input" value="${url}" readonly style="font-size:11px;">
+    </div>
+    <div class="report-actions" style="margin-top:0;">
+      <button class="btn btn-primary" id="btn-copy-naryad-link">📋 Скопировать ссылку</button>
+      <button class="btn btn-secondary" id="btn-open-naryad-link">↗ Открыть в браузере</button>
+    </div>
+  `;
+  $('report-output').appendChild(wrap);
+
+  $('btn-copy-naryad-link').addEventListener('click', () => copyToClipboard(url));
+  $('btn-open-naryad-link').addEventListener('click', () => {
+    if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink){
+      window.Telegram.WebApp.openLink(url);
+    }else{
       window.open(url, '_blank');
-      showToast('PDF открыт в новой вкладке — сохраните вручную через меню браузера');
     }
-  }
+  });
+  showToast('Ссылка готова');
 }
 
 // ---------- Шеринг ----------
