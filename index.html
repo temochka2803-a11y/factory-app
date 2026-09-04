@@ -2693,7 +2693,14 @@ function shareToVK(text){
 }
 
 // ---------- Utils ----------
-function toISODate(d){ return d.toISOString().slice(0,10); }
+function toISODate(d){
+  // Берём локальную дату устройства, а не UTC — иначе toISOString() может
+  // сдвинуть число на день в зависимости от часового пояса и времени суток.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 function formatDateRu(isoDate){ const [y,m,d] = isoDate.split('-'); return `${d}.${m}.${y}`; }
 function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
 
