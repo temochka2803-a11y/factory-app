@@ -111,6 +111,7 @@
     background:none; border:none; color:var(--text-secondary); font-size:14px; cursor:pointer;
     width:18px; height:18px; display:flex; align-items:center; justify-content:center;
   }
+  .chip.chip-excluded{ background:#FFF4E5; border-color:#F4D9A8; }
 
   .user-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -791,6 +792,7 @@ let WORKERS = [];      // ["Иванов Иван Иванович", ...]
 let SHIFT_TYPES = [];  // [{ id, name, color }]
 let SCHEDULE = {};     // { [date]: { [worker]: shiftTypeId } }
 let PAYROLL = {};      // { [worker]: { advance, final } } — только за выбранный месяц
+let EXCLUDED_CATEGORIES = []; // категории, которые не учитываются в ежедневном отчёте бригады
 let selectedCalDate = null;
 
 const DEFAULT_SHIFT_TYPES = [
@@ -945,13 +947,14 @@ async function generateUniqueCode(){
 
 async function refreshBrigadeData(){
   if(!PROFILE || !firebaseReady) return;
-  const [cats, cat, workers, entriesObj, shiftTypes, schedule] = await Promise.all([
+  const [cats, cat, workers, entriesObj, shiftTypes, schedule, excludedCats] = await Promise.all([
     fbGet(bp('categories')),
     fbGet(bp('catalog')),
     fbGet(bp('workers')),
     fbGet(bp('entries')),
     fbGet(bp('shiftTypes')),
     fbGet(bp('schedule')),
+    fbGet(bp('excludedCategories')),
   ]);
   CATEGORIES = cats || [];
   CATALOG = cat || [];
@@ -959,6 +962,7 @@ async function refreshBrigadeData(){
   ENTRIES = entriesObj ? Object.keys(entriesObj).map(id => ({ id, ...entriesObj[id] })) : [];
   SHIFT_TYPES = shiftTypes || [];
   SCHEDULE = schedule || {};
+  EXCLUDED_CATEGORIES = excludedCats || [];
 }
 
 async function ensureInRoster(name){
@@ -1251,17 +1255,37 @@ $('btn-save-part').addEventListener('click', async () => {
 
 function renderManageChips(){
   const catWrap = $('cat-chip-list');
-  catWrap.innerHTML = CATEGORIES.length ? CATEGORIES.map(c => `
-    <span class="chip">${escapeHtml(c)}<button data-cat="${escapeHtml(c)}" title="Удалить категорию">✕</button></span>
-  `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет категорий</span>`;
-  catWrap.querySelectorAll('button').forEach(btn => {
+  catWrap.innerHTML = CATEGORIES.length ? CATEGORIES.map(c => {
+    const excluded = EXCLUDED_CATEGORIES.includes(c);
+    return `
+    <span class="chip${excluded ? ' chip-excluded' : ''}">${escapeHtml(c)}${excluded ? ' <span style="font-size:10px;opacity:.8;">(вне отчёта)</span>' : ''}<button data-toggle-exclude="${escapeHtml(c)}" title="${excluded ? 'Учитывать в ежедневном отчёте бригады' : 'Не учитывать в ежедневном отчёте бригады'}">${excluded ? '👁' : '🚫'}</button><button data-cat="${escapeHtml(c)}" title="Удалить категорию">✕</button></span>`;
+  }).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет категорий</span>`;
+
+  catWrap.querySelectorAll('button[data-toggle-exclude]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!isOwner()){ showToast('Категории может менять только мастер бригады'); return; }
+      const cat = btn.getAttribute('data-toggle-exclude');
+      if(EXCLUDED_CATEGORIES.includes(cat)){
+        EXCLUDED_CATEGORIES = EXCLUDED_CATEGORIES.filter(c => c !== cat);
+      }else{
+        EXCLUDED_CATEGORIES.push(cat);
+      }
+      await fbSet(bp('excludedCategories'), EXCLUDED_CATEGORIES);
+      renderManageChips();
+      showToast(EXCLUDED_CATEGORIES.includes(cat) ? 'Категория исключена из ежедневного отчёта' : 'Категория возвращена в ежедневный отчёт');
+    });
+  });
+
+  catWrap.querySelectorAll('button[data-cat]').forEach(btn => {
     btn.addEventListener('click', async () => {
       if(!isOwner()){ showToast('Категории может менять только мастер бригады'); return; }
       const cat = btn.getAttribute('data-cat');
       CATEGORIES = CATEGORIES.filter(c => c !== cat);
       CATALOG = CATALOG.filter(p => p.category !== cat);
+      EXCLUDED_CATEGORIES = EXCLUDED_CATEGORIES.filter(c => c !== cat);
       await fbSet(bp('categories'), CATEGORIES);
       await fbSet(bp('catalog'), CATALOG);
+      await fbSet(bp('excludedCategories'), EXCLUDED_CATEGORIES);
       refreshAllCategorySelects();
       refreshAllPartSelects();
       renderManageChips();
@@ -1984,7 +2008,7 @@ $('btn-build-report').addEventListener('click', async () => {
 
 // ---------- ОТЧЁТ ДЛЯ МАСТЕРА (вся бригада за смену, без ФИО) ----------
 function buildBrigadeReport(dateStr){
-  const combined = ENTRIES.filter(e => e.date === dateStr);
+  const combined = ENTRIES.filter(e => e.date === dateStr && !EXCLUDED_CATEGORIES.includes(e.category));
 
   const byKey = {};
   combined.forEach(e => {
