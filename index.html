@@ -865,6 +865,17 @@ function withTimeout(promise, ms, timeoutValue){
     });
   });
 }
+
+// Как withTimeout, но без побочных эффектов на Telegram CloudStorage —
+// для операций, не связанных с локальным облаком (например, загрузка в Firebase Storage).
+function withPlainTimeout(promise, ms, timeoutValue){
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => { if(!settled){ settled = true; resolve(timeoutValue); } }, ms);
+    promise.then((v) => { if(!settled){ settled = true; clearTimeout(timer); resolve(v); } })
+      .catch((e) => { if(!settled){ settled = true; clearTimeout(timer); console.error(e); resolve(timeoutValue); } });
+  });
+}
 function notifyCloudBrokenOnce(){
   if(cloudBrokenNotified) return;
   cloudBrokenNotified = true;
@@ -2641,12 +2652,27 @@ async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cu
     return;
   }
 
+  showToast('Загружаем PDF, подождите...');
+
   const storage = firebase.storage();
   const path = `naryad_pdfs/${PROFILE.code}/${Date.now()}_${fileName}`;
   const ref = storage.ref(path);
-  await ref.put(blob, { contentType: 'application/pdf' });
-  const url = await ref.getDownloadURL();
-  showNaryadLink(url, fileName);
+
+  const uploadResult = await withPlainTimeout(
+    (async () => {
+      await ref.put(blob, { contentType: 'application/pdf' });
+      return await ref.getDownloadURL();
+    })(),
+    20000,
+    null
+  );
+
+  if(!uploadResult){
+    showToast('Не удалось загрузить PDF за 20 секунд — проверьте, включён ли Firebase Storage и правила доступа');
+    return;
+  }
+
+  showNaryadLink(uploadResult, fileName);
 }
 
 // Показывает готовую прямую ссылку на PDF с кнопкой копирования — самый надёжный
