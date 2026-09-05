@@ -2567,7 +2567,7 @@ function buildNaryadBlank(worker, monthVal){
 
   const actions = document.createElement('div');
   actions.className = 'report-actions';
-  actions.innerHTML = `<button class="btn btn-primary" id="btn-print-naryad">🔗 Получить ссылку на PDF</button>`;
+  actions.innerHTML = `<button class="btn btn-primary" id="btn-print-naryad">📄 Скачать PDF</button>`;
   $('report-output').appendChild(actions);
   $('btn-print-naryad').addEventListener('click', async () => {
     try{
@@ -2647,32 +2647,41 @@ async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cu
   const fileName = `Наряд_${worker.replace(/\s+/g,'_')}_${monthVal}.pdf`;
   const blob = doc.output('blob');
 
-  if(!firebaseReady || typeof firebase.storage !== 'function'){
-    showToast('Нужен включённый Firebase Storage, чтобы получить ссылку — см. инструкцию в чате');
-    return;
+  // Способ 1: нативное меню «Поделиться» телефона — не требует Firebase Storage,
+  // работает через сам браузер/ОС. Основной способ, раз Storage недоступен (нужен
+  // платный тариф Blaze, который не все могут подключить из-за карт).
+  let handled = false;
+  if(navigator.share && navigator.canShare){
+    try{
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      if(navigator.canShare({ files: [file] })){
+        await navigator.share({ files: [file], title: fileName });
+        handled = true;
+        showToast('Готово — выберите, куда сохранить PDF');
+      }
+    }catch(e){
+      // Пользователь мог просто закрыть окно «Поделиться» — это не ошибка, второй раз не пробуем
+      handled = true;
+    }
   }
 
-  showToast('Загружаем PDF, подождите...');
-
-  const storage = firebase.storage();
-  const path = `naryad_pdfs/${PROFILE.code}/${Date.now()}_${fileName}`;
-  const ref = storage.ref(path);
-
-  const uploadResult = await withPlainTimeout(
-    (async () => {
-      await ref.put(blob, { contentType: 'application/pdf' });
-      return await ref.getDownloadURL();
-    })(),
-    20000,
-    null
-  );
-
-  if(!uploadResult){
-    showToast('Не удалось загрузить PDF за 20 секунд — проверьте, включён ли Firebase Storage и правила доступа');
-    return;
+  if(!handled){
+    try{
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      showToast('PDF сохранён. Если файла нигде не видно — попробуйте открыть приложение в обычном браузере телефона');
+    }catch(e){
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      showToast('PDF открыт в новой вкладке — сохраните вручную через меню браузера');
+    }
   }
-
-  showNaryadLink(uploadResult, fileName);
 }
 
 // Показывает готовую прямую ссылку на PDF с кнопкой копирования — самый надёжный
