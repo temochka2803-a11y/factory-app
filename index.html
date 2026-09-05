@@ -767,8 +767,15 @@ const firebaseConfig = {
   authDomain: "uchet-b8c60.firebaseapp.com",
   databaseURL: "https://uchet-b8c60-default-rtdb.firebaseio.com",
   projectId: "uchet-b8c60",
-  storageBucket: "uchet-b8c60.firebasestorage.app", // нужен для скачивания PDF через Telegram — см. инструкцию в чате
+  storageBucket: "uchet-b8c60.firebasestorage.app", // не обязателен, сейчас не используется
 };
+// =====================================================================
+
+// =====================================================================
+// НАСТРОЙКА ОТПРАВКИ PDF В TELEGRAM ЧЕРЕЗ CLOUDFLARE WORKER (см. инструкцию в чате)
+// =====================================================================
+const CLOUDFLARE_WORKER_URL = "https://YOUR-WORKER-NAME.YOUR-SUBDOMAIN.workers.dev";
+const APP_SHARED_SECRET = "ВПИШИТЕ_СВОЙ_СЕКРЕТ"; // тот же, что в настройках воркера (APP_SECRET)
 // =====================================================================
 
 let db = null;
@@ -2581,6 +2588,37 @@ function buildNaryadBlank(worker, monthVal){
 
 // Строит настоящий PDF-файл (не диалог печати браузера) и сразу скачивает его на устройство —
 // внутри Telegram-вебвью системная печать работает нестабильно, а прямое скачивание — надёжно.
+// Отправляет PDF в Telegram-чат текущего пользователя через свой Cloudflare Worker —
+// воркер пересылает файл в Telegram как обычное вложение (sendDocument), используя
+// секретный токен бота, который никогда не попадает в код мини-приложения.
+async function sendPdfViaBot(blob, fileName){
+  if(!PROFILE) return false;
+  if(!CLOUDFLARE_WORKER_URL || CLOUDFLARE_WORKER_URL.includes('YOUR-WORKER-NAME')) return false;
+
+  const key = PROFILE.fio.replace(/[.#$\[\]]/g, '_');
+  const chatId = await fbGet(bp('telegramIds/' + key));
+  if(!chatId) return false;
+
+  const form = new FormData();
+  form.append('chat_id', chatId);
+  form.append('file_name', fileName);
+  form.append('file', blob, fileName);
+
+  const res = await withPlainTimeout(
+    fetch(CLOUDFLARE_WORKER_URL, {
+      method: 'POST',
+      headers: { 'X-App-Secret': APP_SHARED_SECRET },
+      body: form,
+    }),
+    15000,
+    null
+  );
+  if(!res || !res.ok) return false;
+
+  const data = await res.json().catch(() => null);
+  return !!(data && data.ok);
+}
+
 async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount }){
   if(!window.jspdf){ showToast('Не удалось загрузить модуль PDF, попробуйте ещё раз'); return; }
   const { jsPDF } = window.jspdf;
@@ -2647,9 +2685,17 @@ async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cu
   const fileName = `Наряд_${worker.replace(/\s+/g,'_')}_${monthVal}.pdf`;
   const blob = doc.output('blob');
 
-  // Способ 1: нативное меню «Поделиться» телефона — не требует Firebase Storage,
-  // работает через сам браузер/ОС. Основной способ, раз Storage недоступен (нужен
-  // платный тариф Blaze, который не все могут подключить из-за карт).
+  // Способ 1 (самый надёжный): отправляем PDF через свой Cloudflare Worker,
+  // а он пересылает его в Telegram как обычное вложение в чат с ботом —
+  // это не зависит от скачивания через веб-страницу и работает всегда.
+  showToast('Отправляем PDF в Telegram...');
+  const sentViaBot = await sendPdfViaBot(blob, fileName).catch((e) => { console.error(e); return false; });
+  if(sentViaBot){
+    showToast('Готово — файл придёт сообщением в этот чат');
+    return;
+  }
+
+  // Способ 2 (запасной, если воркер ещё не настроен): нативное меню «Поделиться»
   let handled = false;
   if(navigator.share && navigator.canShare){
     try{
