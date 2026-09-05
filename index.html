@@ -774,7 +774,7 @@ const firebaseConfig = {
 // =====================================================================
 // НАСТРОЙКА ОТПРАВКИ PDF В TELEGRAM ЧЕРЕЗ CLOUDFLARE WORKER (см. инструкцию в чате)
 // =====================================================================
-const CLOUDFLARE_WORKER_URL = "https://naryad-bot-relay.tema-tatarinov2013.workers.dev/";
+const CLOUDFLARE_WORKER_URL = "https://naryad-bot-relay.tema-tatarinov2013.workers.dev";
 const APP_SHARED_SECRET = "naryad2026secretXYZ"; // тот же, что в настройках воркера (APP_SECRET)
 // =====================================================================
 
@@ -2592,31 +2592,54 @@ function buildNaryadBlank(worker, monthVal){
 // воркер пересылает файл в Telegram как обычное вложение (sendDocument), используя
 // секретный токен бота, который никогда не попадает в код мини-приложения.
 async function sendPdfViaBot(blob, fileName){
-  if(!PROFILE) return false;
-  if(!CLOUDFLARE_WORKER_URL || CLOUDFLARE_WORKER_URL.includes('YOUR-WORKER-NAME')) return false;
+  if(!PROFILE) return { ok: false, reason: 'Профиль не загружен' };
+  if(!CLOUDFLARE_WORKER_URL || CLOUDFLARE_WORKER_URL.includes('YOUR-WORKER-NAME')){
+    return { ok: false, reason: 'Адрес Cloudflare Worker не настроен в коде' };
+  }
 
   const key = PROFILE.fio.replace(/[.#$\[\]]/g, '_');
   const chatId = await fbGet(bp('telegramIds/' + key));
-  if(!chatId) return false;
+  if(!chatId){
+    return { ok: false, reason: 'Нет сохранённого Telegram ID — откройте приложение через настоящий Telegram и повторите' };
+  }
 
   const form = new FormData();
   form.append('chat_id', chatId);
   form.append('file_name', fileName);
   form.append('file', blob, fileName);
 
-  const res = await withPlainTimeout(
-    fetch(CLOUDFLARE_WORKER_URL, {
-      method: 'POST',
-      headers: { 'X-App-Secret': APP_SHARED_SECRET },
-      body: form,
-    }),
-    15000,
-    null
-  );
-  if(!res || !res.ok) return false;
+  let res;
+  try{
+    res = await withPlainTimeout(
+      fetch(CLOUDFLARE_WORKER_URL, {
+        method: 'POST',
+        headers: { 'X-App-Secret': APP_SHARED_SECRET },
+        body: form,
+      }),
+      15000,
+      null
+    );
+  }catch(e){
+    return { ok: false, reason: 'Сетевая ошибка при обращении к Worker: ' + e.message };
+  }
+
+  if(!res){
+    return { ok: false, reason: 'Worker не ответил за 15 секунд (таймаут)' };
+  }
 
   const data = await res.json().catch(() => null);
-  return !!(data && data.ok);
+
+  if(!res.ok){
+    const errText = (data && (data.error || (data.description))) || `HTTP ${res.status}`;
+    return { ok: false, reason: 'Worker вернул ошибку: ' + errText };
+  }
+
+  if(!data || !data.ok){
+    const errText = (data && data.description) || 'неизвестная ошибка Telegram API';
+    return { ok: false, reason: 'Telegram отклонил отправку: ' + errText };
+  }
+
+  return { ok: true };
 }
 
 async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount }){
@@ -2689,11 +2712,14 @@ async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cu
   // а он пересылает его в Telegram как обычное вложение в чат с ботом —
   // это не зависит от скачивания через веб-страницу и работает всегда.
   showToast('Отправляем PDF в Telegram...');
-  const sentViaBot = await sendPdfViaBot(blob, fileName).catch((e) => { console.error(e); return false; });
-  if(sentViaBot){
+  const botResult = await sendPdfViaBot(blob, fileName).catch((e) => ({ ok: false, reason: 'Неожиданная ошибка: ' + e.message }));
+  if(botResult.ok){
     showToast('Готово — файл придёт сообщением в этот чат');
     return;
   }
+  console.error('sendPdfViaBot не сработал:', botResult.reason);
+  showToast('⚠️ ' + botResult.reason + ' — пробуем запасной способ...');
+  await new Promise(r => setTimeout(r, 2500)); // даём время прочитать причину, прежде чем показать следующий тост
 
   // Способ 2 (запасной, если воркер ещё не настроен): нативное меню «Поделиться»
   let handled = false;
