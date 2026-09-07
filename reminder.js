@@ -96,15 +96,17 @@ async function main() {
       const hasEntries = entryDateCandidates.some(d =>
         Object.values(entries).some(e => e.worker === worker && e.date === d)
       );
-      if (hasEntries) continue; // данные уже внесены — не беспокоим
 
       const endTime = SHIFT_TYPE === 'day' ? '19:00' : '07:00';
-      const text = `⏰ Смена заканчивается в ${endTime} — через 1 час 20 минут.\n`
-        + `Не забудьте внести данные по сделке за сегодня в приложении, пока смена не закончилась.`;
+      const text = hasEntries
+        ? `⏰ Смена заканчивается в ${endTime} — через 1 час 20 минут.\n`
+          + `Данные по сделке за сегодня у вас уже внесены — пожалуйста, перепроверьте их перед окончанием смены.`
+        : `⏰ Смена заканчивается в ${endTime} — через 1 час 20 минут.\n`
+          + `Не забудьте внести данные по сделке за сегодня в приложении, пока смена не закончилась.`;
 
       const ok = await sendTelegramMessage(chatId, text);
       if (ok) {
-        console.log(`[${code}] Напоминание отправлено: ${worker} (${SHIFT_TYPE})`);
+        console.log(`[${code}] Напоминание отправлено: ${worker} (${SHIFT_TYPE}, ${hasEntries ? 'перепроверить' : 'внести'})`);
         await fbPut(`brigades/${code}/reminded/${remindedKey}`, true);
       }
     }
