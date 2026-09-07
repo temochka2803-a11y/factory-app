@@ -2579,7 +2579,7 @@ function buildNaryadBlank(worker, monthVal){
   $('report-output').appendChild(actions);
   $('btn-print-naryad').addEventListener('click', async () => {
     try{
-      await downloadNaryadPdf({ worker, monthVal });
+      await downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount });
     }catch(e){
       console.error('Ошибка формирования PDF:', e);
       showToast('Ошибка: ' + (e && e.message ? e.message : 'не удалось сформировать PDF'));
@@ -2659,13 +2659,29 @@ function arrayBufferToBase64(buffer){
 }
 
 async function registerCyrillicFont(doc){
+  const candidateUrls = [
+    'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.ttf',
+    'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/static/Roboto-Regular.ttf',
+    'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/Roboto-Regular.ttf',
+  ];
+
   try{
     if(!cyrillicFontBase64Cache){
-      const fontUrl = 'https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/cyrillic-400-normal.ttf';
-      const res = await fetch(fontUrl);
-      if(!res.ok) throw new Error('HTTP ' + res.status);
-      const buf = await res.arrayBuffer();
-      cyrillicFontBase64Cache = arrayBufferToBase64(buf);
+      let lastError = null;
+      for(const fontUrl of candidateUrls){
+        try{
+          const res = await fetch(fontUrl);
+          if(!res.ok) throw new Error('HTTP ' + res.status);
+          const buf = await res.arrayBuffer();
+          if(buf.byteLength < 10000) throw new Error('Файл слишком маленький, похоже не тот формат');
+          cyrillicFontBase64Cache = arrayBufferToBase64(buf);
+          break;
+        }catch(e){
+          lastError = e;
+          console.error('Не удалось загрузить шрифт с ' + fontUrl + ':', e);
+        }
+      }
+      if(!cyrillicFontBase64Cache) throw lastError || new Error('Ни один источник шрифта не сработал');
     }
     doc.addFileToVFS('Roboto-Regular.ttf', cyrillicFontBase64Cache);
     doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
@@ -2677,43 +2693,97 @@ async function registerCyrillicFont(doc){
   }
 }
 
-async function downloadNaryadPdf({ worker, monthVal }){
+async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount }){
   if(!window.jspdf){ showToast('Не удалось загрузить модуль PDF, попробуйте ещё раз'); return; }
-  if(typeof html2canvas !== 'function'){ showToast('Не удалось загрузить модуль снимка таблицы, попробуйте ещё раз'); return; }
-
-  const naryadDoc = document.getElementById('naryad-doc');
-  if(!naryadDoc){ showToast('Сначала сформируйте бланк'); return; }
-
-  showToast('Готовим PDF...');
-
-  // На экране широкая таблица прячется за горизонтальным скроллом — на время снимка
-  // временно убираем это ограничение, чтобы в кадр попала таблица целиком, а не её видимая часть.
-  const scrollEl = naryadDoc.querySelector('.naryad-scroll');
-  const prevOverflow = scrollEl.style.overflow;
-  const prevWidth = scrollEl.style.width;
-  scrollEl.style.overflow = 'visible';
-  scrollEl.style.width = scrollEl.scrollWidth + 'px';
-
-  let canvas;
-  try{
-    canvas = await html2canvas(naryadDoc, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
-  }finally{
-    scrollEl.style.overflow = prevOverflow;
-    scrollEl.style.width = prevWidth;
-  }
-
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 5;
-  const imgW = pageWidth - margin * 2;
-  const imgH = pageHeight - margin * 2;
-  const x = margin;
-  const y = margin;
 
-  const imgData = canvas.toDataURL('image/png');
-  doc.addImage(imgData, 'PNG', x, y, imgW, imgH);
+  showToast('Готовим PDF...');
+  const cyrillicFontOk = await registerCyrillicFont(doc);
+  const fontName = cyrillicFontOk ? 'Roboto' : undefined; // undefined = стандартный шрифт jsPDF (без кириллицы)
+  if(fontName) doc.setFont(fontName);
+  if(!cyrillicFontOk){
+    showToast('⚠️ Не удалось загрузить кириллический шрифт — текст в PDF может отображаться некорректно');
+  }
+
+  doc.setFontSize(13);
+  doc.text('Наряд на сдельную работу', 148.5, 10, { align: 'center' });
+  doc.setFontSize(9);
+  const infoLine = `Ф.И.О.: ${worker}      Завод/цех: ${PROFILE.factory}      Месяц: ${monthLabel}      Сформировано: ${new Date().toLocaleDateString('ru-RU')}`;
+  doc.text(infoLine, 148.5, 16, { align: 'center' });
+
+  const head = [['Наименование детали', ...Array.from({length: daysInMonth}, (_,i)=> String(i+1)), 'Итого']];
+  const body = [];
+
+  usedParts.forEach(part => {
+    let rowTotal = 0;
+    const row = [part];
+    for(let d=1; d<=daysInMonth; d++){
+      const qty = byPart[part][d] || 0;
+      if(qty) rowTotal += qty;
+      row.push(qty || '');
+    }
+    row.push(rowTotal);
+    body.push(row);
+  });
+
+  for(let i=0; i<blankRowsCount; i++){
+    body.push(['', ...Array(daysInMonth).fill(''), '']);
+  }
+
+  const grandTotal = dayTotals.reduce((s,v)=> s + (v||0), 0);
+  const sumRow = ['Итого за день', ...Array.from({length: daysInMonth}, (_,i)=> dayTotals[i+1] || ''), grandTotal];
+  body.push(sumRow);
+  const sumRowIndex = body.length - 1;
+
+  // Считаем ширину колонок так, чтобы таблица занимала всю страницу целиком,
+  // независимо от того, 28, 30 или 31 день в месяце.
+  const pageMargin = 6;
+  const nameColWidth = 34;
+  const totalColWidth = 13;
+  const pageWidthMM = doc.internal.pageSize.getWidth();
+  const pageHeightMM = doc.internal.pageSize.getHeight();
+  const usableWidth = pageWidthMM - pageMargin * 2;
+  const dayColWidth = (usableWidth - nameColWidth - totalColWidth) / daysInMonth;
+
+  const dayColStyles = {};
+  for(let d=1; d<=daysInMonth; d++){
+    dayColStyles[d] = { cellWidth: dayColWidth, fillColor: d > cutoffDay ? [250,250,250] : undefined };
+  }
+
+  // Считаем высоту одной строки так, чтобы вся таблица (шапка+строки+итог) заполнила
+  // страницу и по высоте тоже, а не только по ширине.
+  const startY = 20;
+  const bottomReserve = 20; // место под подписи внизу
+  const availableHeight = pageHeightMM - startY - bottomReserve;
+  const totalRows = body.length + 1; // +1 за строку заголовка
+  const rowHeight = Math.max(4, availableHeight / totalRows);
+
+  doc.autoTable({
+    head,
+    body,
+    startY,
+    theme: 'grid',
+    margin: { left: pageMargin, right: pageMargin },
+    tableWidth: usableWidth,
+    styles: { font: fontName, fontSize: 6, cellPadding: 1, halign: 'center', valign: 'middle', minCellHeight: rowHeight },
+    headStyles: { font: fontName, fillColor: [244,244,245], textColor: [30,30,30], fontStyle: 'bold', minCellHeight: rowHeight },
+    columnStyles: { 0: { cellWidth: nameColWidth, halign: 'left', fontStyle: 'bold' }, ...dayColStyles, [daysInMonth+1]: { cellWidth: totalColWidth, fontStyle: 'bold' } },
+    didParseCell: (data) => {
+      if(data.row.index === sumRowIndex){
+        data.cell.styles.fillColor = [234,243,254];
+        data.cell.styles.fontStyle = 'bold';
+      }
+    },
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 8;
+  doc.setFontSize(9);
+  if(fontName) doc.setFont(fontName);
+  doc.text('_____________________________', 30, finalY);
+  doc.text('Подпись работника', 30, finalY + 5);
+  doc.text('_____________________________', 180, finalY);
+  doc.text('Подпись мастера', 180, finalY + 5);
 
   const fileName = `Наряд_${worker.replace(/\s+/g,'_')}_${monthVal}.pdf`;
   const blob = doc.output('blob');
