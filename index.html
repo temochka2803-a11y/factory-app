@@ -10,6 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
     --accent: #3390EC;
@@ -2578,7 +2579,7 @@ function buildNaryadBlank(worker, monthVal){
   $('report-output').appendChild(actions);
   $('btn-print-naryad').addEventListener('click', async () => {
     try{
-      await downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount });
+      await downloadNaryadPdf({ worker, monthVal });
     }catch(e){
       console.error('Ошибка формирования PDF:', e);
       showToast('Ошибка: ' + (e && e.message ? e.message : 'не удалось сформировать PDF'));
@@ -2642,68 +2643,77 @@ async function sendPdfViaBot(blob, fileName){
   return { ok: true };
 }
 
-async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount }){
+// Стандартные шрифты jsPDF (Helvetica и т.п.) не содержат кириллицу — без этого
+// русский текст в PDF превращается в набор случайных латинских символов.
+// Подключаем шрифт с кириллицей (Roboto) прямо из CDN в момент создания файла.
+let cyrillicFontBase64Cache = null;
+
+function arrayBufferToBase64(buffer){
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for(let i = 0; i < bytes.length; i += chunkSize){
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function registerCyrillicFont(doc){
+  try{
+    if(!cyrillicFontBase64Cache){
+      const fontUrl = 'https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/cyrillic-400-normal.ttf';
+      const res = await fetch(fontUrl);
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const buf = await res.arrayBuffer();
+      cyrillicFontBase64Cache = arrayBufferToBase64(buf);
+    }
+    doc.addFileToVFS('Roboto-Regular.ttf', cyrillicFontBase64Cache);
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'bold'); // тот же файл — без него жирный текст снова слетит на стандартный шрифт
+    return true;
+  }catch(e){
+    console.error('Не удалось подключить кириллический шрифт:', e);
+    return false;
+  }
+}
+
+async function downloadNaryadPdf({ worker, monthVal }){
   if(!window.jspdf){ showToast('Не удалось загрузить модуль PDF, попробуйте ещё раз'); return; }
+  if(typeof html2canvas !== 'function'){ showToast('Не удалось загрузить модуль снимка таблицы, попробуйте ещё раз'); return; }
+
+  const naryadDoc = document.getElementById('naryad-doc');
+  if(!naryadDoc){ showToast('Сначала сформируйте бланк'); return; }
+
+  showToast('Готовим PDF...');
+
+  // На экране широкая таблица прячется за горизонтальным скроллом — на время снимка
+  // временно убираем это ограничение, чтобы в кадр попала таблица целиком, а не её видимая часть.
+  const scrollEl = naryadDoc.querySelector('.naryad-scroll');
+  const prevOverflow = scrollEl.style.overflow;
+  const prevWidth = scrollEl.style.width;
+  scrollEl.style.overflow = 'visible';
+  scrollEl.style.width = scrollEl.scrollWidth + 'px';
+
+  let canvas;
+  try{
+    canvas = await html2canvas(naryadDoc, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+  }finally{
+    scrollEl.style.overflow = prevOverflow;
+    scrollEl.style.width = prevWidth;
+  }
+
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 5;
+  const imgW = pageWidth - margin * 2;
+  const imgH = pageHeight - margin * 2;
+  const x = margin;
+  const y = margin;
 
-  doc.setFontSize(13);
-  doc.text('Наряд на сдельную работу', 148.5, 10, { align: 'center' });
-  doc.setFontSize(9);
-  const infoLine = `Ф.И.О.: ${worker}      Завод/цех: ${PROFILE.factory}      Месяц: ${monthLabel}      Сформировано: ${new Date().toLocaleDateString('ru-RU')}`;
-  doc.text(infoLine, 148.5, 16, { align: 'center' });
-
-  const head = [['Наименование детали', ...Array.from({length: daysInMonth}, (_,i)=> String(i+1)), 'Итого']];
-  const body = [];
-
-  usedParts.forEach(part => {
-    let rowTotal = 0;
-    const row = [part];
-    for(let d=1; d<=daysInMonth; d++){
-      const qty = byPart[part][d] || 0;
-      if(qty) rowTotal += qty;
-      row.push(qty || '');
-    }
-    row.push(rowTotal);
-    body.push(row);
-  });
-
-  for(let i=0; i<blankRowsCount; i++){
-    body.push(['', ...Array(daysInMonth).fill(''), '']);
-  }
-
-  const grandTotal = dayTotals.reduce((s,v)=> s + (v||0), 0);
-  const sumRow = ['Итого за день', ...Array.from({length: daysInMonth}, (_,i)=> dayTotals[i+1] || ''), grandTotal];
-  body.push(sumRow);
-  const sumRowIndex = body.length - 1;
-
-  const dayColStyles = {};
-  for(let d=1; d<=daysInMonth; d++){
-    dayColStyles[d] = { cellWidth: 6.2, fillColor: d > cutoffDay ? [250,250,250] : undefined };
-  }
-
-  doc.autoTable({
-    head,
-    body,
-    startY: 20,
-    theme: 'grid',
-    styles: { fontSize: 6, cellPadding: 1, halign: 'center', valign: 'middle' },
-    headStyles: { fillColor: [244,244,245], textColor: [30,30,30], fontStyle: 'bold' },
-    columnStyles: { 0: { cellWidth: 32, halign: 'left', fontStyle: 'bold' }, ...dayColStyles, [daysInMonth+1]: { cellWidth: 12, fontStyle: 'bold' } },
-    didParseCell: (data) => {
-      if(data.row.index === sumRowIndex){
-        data.cell.styles.fillColor = [234,243,254];
-        data.cell.styles.fontStyle = 'bold';
-      }
-    },
-  });
-
-  const finalY = doc.lastAutoTable.finalY + 14;
-  doc.setFontSize(9);
-  doc.text('_____________________________', 30, finalY);
-  doc.text('Подпись работника', 30, finalY + 5);
-  doc.text('_____________________________', 180, finalY);
-  doc.text('Подпись мастера', 180, finalY + 5);
+  const imgData = canvas.toDataURL('image/png');
+  doc.addImage(imgData, 'PNG', x, y, imgW, imgH);
 
   const fileName = `Наряд_${worker.replace(/\s+/g,'_')}_${monthVal}.pdf`;
   const blob = doc.output('blob');
