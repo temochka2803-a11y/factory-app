@@ -1,45 +1,9 @@
-name: Напоминание о внесении данных перед концом смены
-
-on:
-  schedule:
-    # 14:40 UTC = 17:40 МСК — дневная смена
-    - cron: '40 14 * * *'
-    # 02:40 UTC = 05:40 МСК — ночная смена
-    - cron: '40 2 * * *'
-  workflow_dispatch:
-    inputs:
-      shift_type:
-        description: 'Какую смену проверить вручную (для теста)'
-        required: true
-        default: 'day'
-        type: choice
-        options: ['day', 'night']
-
-jobs:
-  remind_day:
-    runs-on: ubuntu-latest
-    if: github.event.schedule == '40 14 * * *' || (github.event_name == 'workflow_dispatch' && github.event.inputs.shift_type == 'day')
-    steps:
-      - name: Скачать код репозитория
-        uses: actions/checkout@v4
-      - name: Запустить скрипт (дневная смена)
-        env:
-          BOT_TOKEN: \${{ secrets.BOT_TOKEN }}
-          FIREBASE_DATABASE_URL: \${{ secrets.FIREBASE_DATABASE_URL }}
-          TZ_OFFSET_HOURS: '3'
-          SHIFT_TYPE: 'day'
-        run: node reminder.js
-
-  remind_night:
-    runs-on: ubuntu-latest
-    if: github.event.schedule == '40 2 * * *' || (github.event_name == 'workflow_dispatch' && github.event.inputs.shift_type == 'night')
-    steps:
-      - name: Скачать код репозитория
-        uses: actions/checkout@v4
-      - name: Запустить скрипт (ночная смена)
-        env:
-          BOT_TOKEN: \${{ secrets.BOT_TOKEN }}
-          FIREBASE_DATABASE_URL: \${{ secrets.FIREBASE_DATABASE_URL }}
-          TZ_OFFSET_HOURS: '3'
-          SHIFT_TYPE: 'night'
-        run: node reminder.js
+- name: DEBUG: Check Env Vars
+  run: |
+    echo "BOT_TOKEN length: \${#BOT_TOKEN}"
+    echo "FIREBASE_DATABASE_URL: \${FIREBASE_DATABASE_URL}"
+    echo "SHIFT_TYPE: \${SHIFT_TYPE}"
+  env:
+    BOT_TOKEN: \${{ secrets.BOT_TOKEN }}
+    FIREBASE_DATABASE_URL: \${{ secrets.FIREBASE_DATABASE_URL }}
+    SHIFT_TYPE: 'day'
