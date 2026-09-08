@@ -35,8 +35,8 @@ jobs:
 
       - name: Запустить скрипт напоминаний
         env:
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+          BOT_TOKEN: \${{ secrets.BOT_TOKEN }}
+          FIREBASE_DATABASE_URL: \${{ secrets.FIREBASE_DATABASE_URL }}
           TZ_OFFSET_HOURS: '3'
-          SHIFT_TYPE: ${{ steps.shift.outputs.type }}
+          SHIFT_TYPE: 'day'
         run: node reminder.js
