@@ -5,6 +5,8 @@
 //
 // Запускается дважды в день через GitHub Actions (см. reminder.yml),
 // SHIFT_TYPE передаётся из workflow и указывает, какую смену проверять сейчас.
+https:/github.com/temochka2803-a11y/factory-app/edit/main/reminder.js
+
 console.log('=== START REMINDER JOB ===');
 console.log('SHIFT_TYPE:', process.env.SHIFT_TYPE);
 console.log('TZ_OFFSET_HOURS:', process.env.TZ_OFFSET_HOURS);
