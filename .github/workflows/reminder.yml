@@ -1,6 +1,12 @@
-name: Remind
+name: Напоминания по сменам
 
 on:
+  # Дневная смена: 17:40 МСК (14:40 UTC)
+  schedule:
+    - cron: '40 14 * * *'
+  # Ночная смена: 05:40 МСК (02:40 UTC)
+    - cron: '40 2 * * *'
+  # Ручной запуск для теста
   workflow_dispatch:
     inputs:
       shift_type:
@@ -16,19 +22,32 @@ jobs:
   remind:
     runs-on: ubuntu-latest
     steps:
-      # Шаг 1: Скачивание кода (работает у вас отлично)
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Скачать код
+        uses: actions/checkout@v4
 
-      # Шаг 2: Установка зависимостей (критически важно для package.json)
-      - name: Install dependencies
+      - name: Установить Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Установить зависимости
         run: npm ci
 
-      # Шаг 3: Запуск вашего скрипта
-      - name: Run reminder script
+      - name: Определить тип смены
+        id: shift
+        run: |
+          if [ -n "${{ inputs.shift_type }}" ]; then
+            echo "shift=${{ inputs.shift_type }}" >> $GITHUB_OUTPUT
+          elif [ "$(date -u +%H)" = "14" ]; then
+            echo "shift=day" >> $GITHUB_OUTPUT
+          else
+            echo "shift=night" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Запустить скрипт напоминаний
         run: node reminder.js
         env:
-          BOT_TOKEN: \${{ secrets.BOT_TOKEN }}
-          FIREBASE_DATABASE_URL: \${{ secrets.FIREBASE_DATABASE_URL }}
-          TZ_OFFSET_HOURS: 3
-          SHIFT_TYPE: \${{ inputs.shift_type }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+          TZ_OFFSET_HOURS: '3'
+          SHIFT_TYPE: ${{ steps.shift.outputs.shift }}
