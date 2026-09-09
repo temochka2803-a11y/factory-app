@@ -5,6 +5,16 @@
 //
 // Запускается дважды в день через GitHub Actions (см. reminder.yml),
 // SHIFT_TYPE передаётся из workflow и указывает, какую смену проверять сейчас.
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION:', err.message);
+  console.error(err.stack);
+  process.exit(1); // Важно: это заставит GitHub показать красный крестик вместо зелёной галочки
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('UNHANDLED REJECTION:', reason);
+  process.exit(1);
+});
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const DATABASE_URL = process.env.FIREBASE_DATABASE_URL;
