@@ -5,14 +5,6 @@
 //
 // Запускается дважды в день через GitHub Actions (см. reminder.yml),
 // SHIFT_TYPE передаётся из workflow и указывает, какую смену проверять сейчас.
-https:/github.com/temochka2803-a11y/factory-app/edit/main/reminder.js
-
-console.log('=== START REMINDER JOB ===');
-console.log('SHIFT_TYPE:', process.env.SHIFT_TYPE);
-console.log('TZ_OFFSET_HOURS:', process.env.TZ_OFFSET_HOURS);
-console.log('FIREBASE_URL_LENGTH:', process.env.FIREBASE_DATABASE_URL ? process.env.FIREBASE_DATABASE_URL.length : 0);
-console.log('BOT_TOKEN_SET:', !!process.env.BOT_TOKEN);
-
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const DATABASE_URL = process.env.FIREBASE_DATABASE_URL;
