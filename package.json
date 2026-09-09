@@ -1,0 +1,15 @@
+{
+  "name": "reminder-bot",
+  "version": "1.0.0",
+  "description": "Бот напоминаний о внесении данных по сделке перед концом смены",
+  "main": "reminder.js",
+  "scripts": {
+    "start": "node reminder.js"
+  },
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {}
+}
