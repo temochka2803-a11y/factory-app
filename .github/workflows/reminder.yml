@@ -1,15 +1,17 @@
-- name: Определить тип смены по расписанию
-  id: shift
-  run: |
-    HOUR=$(date -u +%H)
-    MINUTE=$(date -u +%M)
-    CURRENT_MIN=$((HOUR * 60 + MINUTE))
-    # 14:40 UTC = 880 минут → day
-    # 02:40 UTC = 160 минут → night
-    if [ "$CURRENT_MIN" -ge 850 ] && [ "$CURRENT_MIN" -le 910 ]; then
-      echo "type=day" >> "$GITHUB_OUTPUT"
-    elif [ "$CURRENT_MIN" -ge 130 ] && [ "$CURRENT_MIN" -le 190 ]; then
-      echo "type=night" >> "$GITHUB_OUTPUT"
-    else
-      echo "type=${{ github.event.inputs.shift_type }}" >> "$GITHUB_OUTPUT"
-    fi
+        name: Определить тип смены по расписанию
+        id: shift
+        run: |
+          HOUR=\$(date -u +%H)
+          MINUTE=\$(date -u +%M)
+          CURRENT_MIN=\$((HOUR * 60 + MINUTE))
+
+          # Окно для дневной смены: 14:10–14:50 UTC (чтобы покрыть возможные задержки)
+          if [ "$CURRENT_MIN" -ge 850 ] && [ "$CURRENT_MIN" -le 910 ]; then
+            echo "type=day" >> "\$GITHUB_OUTPUT"
+          # Окно для ночной смены: 02:10–02:50 UTC
+          elif [ "$CURRENT_MIN" -ge 130 ] && [ "$CURRENT_MIN" -le 190 ]; then
+            echo "type=night" >> "\$GITHUB_OUTPUT"
+          else
+            # Если запуск не по расписанию (например, workflow_dispatch), берём из ввода
+            echo "type=${{ github.event.inputs.shift_type }}" >> "$GITHUB_OUTPUT"
+          fi
