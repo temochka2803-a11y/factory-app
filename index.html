@@ -203,6 +203,14 @@
   .day-total-bar .label{ font-size:13.5px; color:var(--accent-dark); font-weight:600; }
   .day-total-bar .val{ font-family:var(--mono); font-size:19px; font-weight:800; color:var(--accent-dark); }
   .day-total-bar.personal{ background:#E9F9EE; border-color:#B9E8C6; }
+
+  .mini-dash{ display:flex; gap:8px; margin-bottom:14px; }
+  .mini-dash-item{
+    flex:1; background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:12px 6px; text-align:center;
+  }
+  .mini-dash-val{ font-family:var(--mono); font-size:20px; font-weight:800; color:var(--accent); line-height:1.1; }
+  .mini-dash-lbl{ font-size:10.5px; color:var(--text-secondary); margin-top:3px; text-transform:uppercase; letter-spacing:.2px; }
   .day-total-bar.personal .label{ color:#1E8A44; }
   .day-total-bar.personal .val{ color:#1E8A44; }
 
@@ -454,6 +462,21 @@
 
     <!-- ---- ВВОД ---- -->
     <div id="tab-entry" class="content">
+      <div class="mini-dash">
+        <div class="mini-dash-item">
+          <div class="mini-dash-val" id="dash-today">0</div>
+          <div class="mini-dash-lbl">Сегодня</div>
+        </div>
+        <div class="mini-dash-item">
+          <div class="mini-dash-val" id="dash-week">0</div>
+          <div class="mini-dash-lbl">За неделю</div>
+        </div>
+        <div class="mini-dash-item">
+          <div class="mini-dash-val" id="dash-month">0</div>
+          <div class="mini-dash-lbl">За месяц</div>
+        </div>
+      </div>
+
       <div class="day-total-bar personal" id="my-payroll-bar" style="margin-bottom:14px;">
         <span class="label">Моя зарплата за месяц</span>
         <span class="val" id="my-payroll-val">0 ₽</span>
@@ -840,7 +863,7 @@ async function switchTab(name){
   refreshWorkerSelect();
   renderManageChips();
   renderWorkerChips();
-  if(name === 'entry'){ renderEntries(); renderUsersList(); refreshMyPayroll(); if(isOwner()) refreshPayrollSummary(); }
+  if(name === 'entry'){ renderEntries(); renderUsersList(); renderMiniDashboard(); refreshMyPayroll(); if(isOwner()) refreshPayrollSummary(); }
   if(name === 'team') renderTeam();
   if(name === 'schedule'){
     refreshRotWorkerSelect();
@@ -1038,6 +1061,7 @@ async function init(){
   renderWorkerChips();
   renderEntries();
   renderUsersList();
+  renderMiniDashboard();
 
   applyRolePermissions();
 
@@ -1200,6 +1224,7 @@ $('btn-refresh').addEventListener('click', async () => {
   renderWorkerChips();
   renderEntries();
   renderUsersList();
+  renderMiniDashboard();
   renderTeam();
   refreshMyPayroll();
   if(isOwner()) refreshPayrollSummary();
@@ -1331,6 +1356,26 @@ function renderManageChips(){
 }
 
 // ---------- ВВОД: собственные записи (worker = я) ----------
+function renderMiniDashboard(){
+  if(!PROFILE) return;
+  const todayStr = toISODate(new Date());
+  const monthPrefix = todayStr.slice(0,7);
+
+  const weekDates = new Set();
+  for(let i=0;i<7;i++){
+    weekDates.add(toISODate(new Date(Date.now() - i*86400000)));
+  }
+
+  const own = ENTRIES.filter(e => e.worker === PROFILE.fio);
+  const todaySum = own.filter(e => e.date === todayStr).reduce((s,e)=> s + e.qty, 0);
+  const weekSum = own.filter(e => weekDates.has(e.date)).reduce((s,e)=> s + e.qty, 0);
+  const monthSum = own.filter(e => e.date.startsWith(monthPrefix)).reduce((s,e)=> s + e.qty, 0);
+
+  $('dash-today').textContent = todaySum;
+  $('dash-week').textContent = weekSum;
+  $('dash-month').textContent = monthSum;
+}
+
 function renderUsersList(){
   const wrap = $('users-list-view');
   const countEl = $('users-count');
@@ -1406,6 +1451,7 @@ function renderEntries(){
       ENTRIES = ENTRIES.filter(e => e.id !== id);
       renderEntries();
   renderUsersList();
+  renderMiniDashboard();
       showToast('Запись удалена');
     });
   });
@@ -1432,6 +1478,7 @@ $('btn-add').addEventListener('click', async () => {
   $('in-qty').value = '';
   renderEntries();
   renderUsersList();
+  renderMiniDashboard();
   showToast('Запись добавлена');
 });
 
