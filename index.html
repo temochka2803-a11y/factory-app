@@ -507,7 +507,10 @@
       </div>
 
       <div class="day-total-bar personal" id="my-payroll-bar" style="margin-bottom:14px;">
-        <span class="label">Моя зарплата за месяц</span>
+        <div style="display:flex; flex-direction:column; min-width:0;">
+          <span class="label">Моя зарплата за месяц</span>
+          <span class="hint" id="my-payroll-hint" style="display:none; margin-top:2px; font-size:11.5px; opacity:.8;"></span>
+        </div>
         <span class="val" id="my-payroll-val">0 ₽</span>
       </div>
 
@@ -1520,6 +1523,7 @@ function renderEntries(){
       renderEntries();
   renderUsersList();
   renderMiniDashboard();
+      refreshMyPayroll();
       showToast('Запись удалена');
     });
   });
@@ -1547,6 +1551,7 @@ $('btn-add').addEventListener('click', async () => {
   renderEntries();
   renderUsersList();
   renderMiniDashboard();
+  refreshMyPayroll();
   showToast('Запись добавлена');
 });
 
@@ -2188,15 +2193,49 @@ async function refreshPayrollSummary(){
   valEl.textContent = fmtMoney(total) + ' ₽';
 }
 
-// Личная зарплата за месяц — показывается каждому на его вкладке «Ввод», и мастеру тоже
+// Последняя загруженная запись «Моей зарплаты» (чтобы живой пересчёт не терял ручную сумму)
+let lastMyPayrollRec = {};
+
+// Личная зарплата за месяц — показывается каждому на его вкладке «Ввод», и мастеру тоже.
+// В значении выводится РАСЧЁТНАЯ зарплата за текущий месяц (по средней стоимости изделия),
+// а ручная сумма по нарядам показывается подсказкой, если она отличается.
+function renderMyPayrollBar(rec, prevSalaryOverride){
+  const valEl = $('my-payroll-val');
+  if(!valEl || !PROFILE) return;
+
+  const monthVal = toISODate(new Date()).slice(0,7);
+  const r = rec || {};
+  const manual = (r.advance || 0) + (r.final || 0);
+  const prevSalary = (prevSalaryOverride === undefined || prevSalaryOverride === null)
+    ? (r.prevSalary || 0) : (Number(prevSalaryOverride) || 0);
+
+  const c = calcSalaryByAverage(PROFILE.fio, monthVal, prevSalary);
+  const hasCalc = prevSalary > 0;
+
+  valEl.textContent = fmtMoney(hasCalc ? c.salary : manual) + ' ₽';
+
+  const hintEl = $('my-payroll-hint');
+  if(!hintEl) return;
+  if(hasCalc && manual > 0 && manual !== c.salary){
+    hintEl.textContent = 'По нарядам: ' + fmtMoney(manual) + ' ₽';
+    hintEl.style.display = '';
+  } else if(!hasCalc && manual <= 0){
+    hintEl.textContent = 'Введите зарплату за прошлый месяц ниже';
+    hintEl.style.display = '';
+  } else {
+    hintEl.textContent = '';
+    hintEl.style.display = 'none';
+  }
+}
+
 async function refreshMyPayroll(){
   const valEl = $('my-payroll-val');
   if(!valEl || !PROFILE) return;
 
   const monthVal = toISODate(new Date()).slice(0,7);
   const data = (await fbGet(bp('payroll/' + monthVal))) || {};
-  const rec = data[PROFILE.fio] || {};
-  valEl.textContent = fmtMoney(payrollRecordTotal(rec)) + ' ₽';
+  lastMyPayrollRec = data[PROFILE.fio] || {};
+  renderMyPayrollBar(lastMyPayrollRec);
 }
 
 // ---------- «Моя зарплата» на вкладке «Ввод»: пользователь сам вносит ЗП за прошлый месяц ----------
@@ -2231,6 +2270,7 @@ if(myCalcPrevInput){
     const salaryEl = $('my-calc-salary');
     if(statsEl) statsEl.innerHTML = calcStatsHtml(c, 'Выработка за текущий месяц');
     if(salaryEl) salaryEl.textContent = fmtMoney(c.salary) + ' ₽';
+    renderMyPayrollBar(lastMyPayrollRec, parseFloat(myCalcPrevInput.value) || 0);
   });
 }
 const btnSaveMyCalc = $('btn-save-my-calc');
