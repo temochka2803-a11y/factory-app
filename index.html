@@ -146,6 +146,35 @@
   }
   .payroll-total .val{ font-family:var(--mono); font-size:16px; font-weight:800; color:var(--accent); }
 
+  /* Блок расчёта зарплаты по средней стоимости изделия */
+  .payroll-calc{
+    border:1px dashed var(--border); border-radius:12px; padding:10px 12px;
+    background:#FAFBFF; margin-bottom:4px;
+  }
+  .payroll-calc summary{
+    font-size:12.5px; font-weight:700; color:var(--accent-dark); cursor:pointer; list-style:none;
+  }
+  .payroll-calc summary::-webkit-details-marker{ display:none; }
+  .payroll-calc summary::before{ content:'▸ '; }
+  .payroll-calc[open] summary::before{ content:'▾ '; }
+  .calc-stats{ display:flex; flex-direction:column; gap:5px; margin:8px 0 10px; }
+  .calc-stat{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    font-size:12px; color:var(--text-secondary);
+  }
+  .calc-stat b{ font-family:var(--mono); font-size:12.5px; color:var(--text); font-weight:700; white-space:nowrap; }
+  .calc-salary{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:#E9F9EE; border:1px solid #B9E8C6; border-radius:10px; padding:10px 12px;
+  }
+  .calc-salary .lbl{ font-size:12.5px; color:#1E8A44; font-weight:600; }
+  .calc-salary .val{ font-family:var(--mono); font-size:16px; font-weight:800; color:#1E8A44; white-space:nowrap; }
+  .calc-autofill{
+    display:flex; align-items:center; gap:8px; margin-top:10px;
+    font-size:12.5px; color:var(--text-secondary);
+  }
+  .calc-autofill input{ width:auto; margin:0; }
+
   .btn{
     display:flex; align-items:center; justify-content:center; gap:6px;
     width:100%; padding:13px 16px; border-radius:12px; border:none;
@@ -487,6 +516,25 @@
         <span class="val" id="payroll-summary-val">0 ₽</span>
       </div>
 
+      <div class="card" id="my-calc-card" style="margin-bottom:16px;">
+        <div class="manage-block-title">📊 Моя зарплата по средней стоимости изделия</div>
+        <div class="hint" style="margin:6px 0 12px;">
+          Введите свою зарплату за прошлый месяц. Приложение посчитает среднюю стоимость
+          изделия (зарплата ÷ выработка прошлого месяца) и умножит её на вашу выработку
+          за текущий месяц.
+        </div>
+        <div class="field" style="margin-bottom:10px;">
+          <label>Моя зарплата за прошлый месяц (<span id="my-calc-prev-month">—</span>), ₽</label>
+          <input type="number" id="my-calc-prev-salary" placeholder="0" min="0" inputmode="decimal">
+        </div>
+        <div class="calc-stats" id="my-calc-stats"></div>
+        <div class="calc-salary">
+          <span class="lbl">Расчётная зарплата за текущий месяц</span>
+          <span class="val" id="my-calc-salary">0 ₽</span>
+        </div>
+        <button class="btn btn-primary" id="btn-save-my-calc" style="margin-top:10px;">Сохранить</button>
+      </div>
+
       <details class="manage-details" id="users-panel" style="margin-bottom:16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px;">
         <summary>👥 Участники бригады (<span id="users-count">0</span>)</summary>
         <div class="manage-block" id="users-list-view"></div>
@@ -698,6 +746,18 @@
         <input type="month" id="payroll-month">
       </div>
 
+      <div class="card" style="margin-bottom:6px;">
+        <div class="manage-block-title">📊 Расчёт по средней стоимости изделия</div>
+        <div class="hint" style="margin:6px 0 0;">
+          <b>Средняя стоимость изделия</b> = зарплата за прошлый месяц ÷ выработка за прошлый месяц.<br>
+          <b>Расчётная зарплата</b> = средняя стоимость изделия × выработка за выбранный месяц.
+        </div>
+        <label class="calc-autofill">
+          <input type="checkbox" id="payroll-autofill">
+          Автоматически подставлять расчётную зарплату в поле «Расчёт»
+        </label>
+      </div>
+
       <div class="section-title">Зарплата по работникам</div>
       <div id="payroll-list"></div>
 
@@ -863,7 +923,7 @@ async function switchTab(name){
   refreshWorkerSelect();
   renderManageChips();
   renderWorkerChips();
-  if(name === 'entry'){ renderEntries(); renderUsersList(); renderMiniDashboard(); refreshMyPayroll(); if(isOwner()) refreshPayrollSummary(); }
+  if(name === 'entry'){ renderEntries(); renderUsersList(); renderMiniDashboard(); refreshMyPayroll(); refreshMyCalc(); if(isOwner()) refreshPayrollSummary(); }
   if(name === 'team') renderTeam();
   if(name === 'schedule'){
     refreshRotWorkerSelect();
@@ -967,6 +1027,11 @@ async function fbPush(path, value){
   if(!firebaseReady) return null;
   try{ const ref = db.ref(path).push(); await ref.set(value); return ref.key; }catch(e){ return null; }
 }
+// Частичное обновление ветки, не затирая соседние поля (например, аванс/расчёт мастера)
+async function fbUpdate(path, value){
+  if(!firebaseReady) return false;
+  try{ await db.ref(path).update(value); return true; }catch(e){ return false; }
+}
 async function fbRemove(path){
   if(!firebaseReady) return false;
   try{ await db.ref(path).remove(); return true; }catch(e){ return false; }
@@ -1064,6 +1129,8 @@ async function init(){
   renderMiniDashboard();
 
   applyRolePermissions();
+  refreshMyPayroll();
+  refreshMyCalc();
 
   showRoot('main');
   switchTab('entry');
@@ -1227,6 +1294,7 @@ $('btn-refresh').addEventListener('click', async () => {
   renderMiniDashboard();
   renderTeam();
   refreshMyPayroll();
+  refreshMyCalc();
   if(isOwner()) refreshPayrollSummary();
   showToast('Данные бригады обновлены');
 });
@@ -1893,11 +1961,80 @@ $('btn-save-day-schedule').addEventListener('click', async () => {
 
 
 // ---------- ЗАРПЛАТА (только мастер) ----------
+// Расчёт по средней стоимости изделия:
+//   средняя стоимость изделия = зарплата за прошлый месяц ÷ выработка за прошлый месяц
+//   расчётная зарплата        = средняя стоимость изделия × выработка за выбранный месяц
+
+// Сдвиг месяца формата "ГГГГ-ММ" на delta месяцев (например, -1 — прошлый месяц)
+function shiftMonth(monthKey, delta){
+  const base = (monthKey || toISODate(new Date()).slice(0,7)).split('-').map(Number);
+  const d = new Date(base[0], base[1] - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+function monthTitleRu(monthKey){
+  const p = monthKey.split('-').map(Number);
+  return new Date(p[0], p[1] - 1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
+}
+// Выработка работника (сумма шт) за месяц "ГГГГ-ММ"
+function qtyForMonth(worker, monthKey){
+  return ENTRIES
+    .filter(e => e.worker === worker && (e.date || '').startsWith(monthKey))
+    .reduce((s, e) => s + (Number(e.qty) || 0), 0);
+}
+// Основной расчёт: на входе ЗП за прошлый месяц, на выходе выработка, средняя стоимость и ЗП текущего месяца
+function calcSalaryByAverage(worker, monthKey, prevSalary){
+  const prevKey = shiftMonth(monthKey, -1);
+  const prevQty = qtyForMonth(worker, prevKey);
+  const curQty = qtyForMonth(worker, monthKey);
+  const avgCost = prevQty > 0 ? (Number(prevSalary) || 0) / prevQty : 0;
+  const salary = Math.round(avgCost * curQty);
+  return { prevKey, prevQty, curQty, avgCost, salary };
+}
+function fmtMoney(n){ return (Number(n) || 0).toLocaleString('ru-RU'); }
+function fmtMoney2(n){
+  return (Number(n) || 0).toLocaleString('ru-RU', { minimumFractionDigits:2, maximumFractionDigits:2 });
+}
+function calcStatsHtml(c, curLabel){
+  return `
+    <div class="calc-stat"><span>Выработка за прошлый месяц</span><b>${fmtMoney(c.prevQty)} шт</b></div>
+    <div class="calc-stat"><span>Средняя стоимость изделия</span><b>${fmtMoney2(c.avgCost)} ₽/шт</b></div>
+    <div class="calc-stat"><span>${curLabel || 'Выработка за выбранный месяц'}</span><b>${fmtMoney(c.curQty)} шт</b></div>`;
+}
+function updatePayrollRowTotal(safeId){
+  const a = $('pr-adv-' + safeId);
+  const f = $('pr-fin-' + safeId);
+  const t = $('pr-total-' + safeId);
+  if(!t) return;
+  const adv = a ? (parseFloat(a.value) || 0) : 0;
+  const fin = f ? (parseFloat(f.value) || 0) : 0;
+  t.textContent = fmtMoney(adv + fin) + ' ₽';
+}
+// Настройка: подставлять расчётную зарплату в поле «Расчёт» автоматически
+function isAutoFillCalc(){
+  try{
+    const v = localStorage.getItem('payroll_autofill');
+    return v === null ? true : v === '1';
+  }catch(e){ return true; }
+}
+
 $('payroll-month').addEventListener('change', renderPayroll);
+
+const payrollAutofillEl = $('payroll-autofill');
+if(payrollAutofillEl){
+  payrollAutofillEl.addEventListener('change', () => {
+    try{ localStorage.setItem('payroll_autofill', payrollAutofillEl.checked ? '1' : '0'); }catch(e){}
+    renderPayroll();
+  });
+}
 
 async function renderPayroll(){
   const monthVal = $('payroll-month').value || toISODate(new Date()).slice(0,7);
   PAYROLL = (await fbGet(bp('payroll/' + monthVal))) || {};
+
+  const prevMonthVal = shiftMonth(monthVal, -1);
+  const autofill = isAutoFillCalc();
+  const autofillEl = $('payroll-autofill');
+  if(autofillEl) autofillEl.checked = autofill;
 
   const wrap = $('payroll-list');
   if(WORKERS.length === 0){
@@ -1910,36 +2047,97 @@ async function renderPayroll(){
     const advance = rec.advance || 0;
     const final = rec.final || 0;
     const total = advance + final;
-    const safeId = worker.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_');
+    const prevSalary = rec.prevSalary || 0;
+    const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
+    const c = calcSalaryByAverage(worker, monthVal, prevSalary);
+
     return `
       <div class="payroll-row">
         <div class="payroll-worker">${escapeHtml(worker)}</div>
-        <div class="field-row">
+
+        <details class="payroll-calc" open>
+          <summary>Расчёт по средней стоимости изделия</summary>
+          <div class="field" style="margin:10px 0 0;">
+            <label>Зарплата за прошлый месяц (${escapeHtml(monthTitleRu(prevMonthVal))}), ₽</label>
+            <input type="number" class="payroll-prev-salary" data-worker="${escapeHtml(worker)}" id="pr-prev-${safeId}" value="${prevSalary || ''}" placeholder="0" min="0" inputmode="decimal">
+          </div>
+          <div class="calc-stats" id="pr-stats-${safeId}">${calcStatsHtml(c)}</div>
+          <div class="calc-salary">
+            <span class="lbl">Расчётная зарплата за ${escapeHtml(monthTitleRu(monthVal))}</span>
+            <span class="val" id="pr-calc-${safeId}">${fmtMoney(c.salary)} ₽</span>
+          </div>
+          <button type="button" class="btn btn-secondary btn-apply-calc" data-worker="${escapeHtml(worker)}" id="pr-apply-${safeId}" style="margin-top:10px;">Подставить в «Расчёт»</button>
+        </details>
+
+        <div class="field-row" style="margin-top:12px;">
           <div class="field">
             <label>Аванс, ₽</label>
-            <input type="number" class="payroll-advance" data-worker="${escapeHtml(worker)}" id="pr-adv-${safeId}" value="${advance || ''}" placeholder="0" min="0">
+            <input type="number" class="payroll-advance" data-worker="${escapeHtml(worker)}" id="pr-adv-${safeId}" value="${advance || ''}" placeholder="0" min="0" inputmode="decimal">
           </div>
           <div class="field">
             <label>Расчёт, ₽</label>
-            <input type="number" class="payroll-final" data-worker="${escapeHtml(worker)}" id="pr-fin-${safeId}" value="${final || ''}" placeholder="0" min="0">
+            <input type="number" class="payroll-final" data-worker="${escapeHtml(worker)}" id="pr-fin-${safeId}" value="${final || ''}" placeholder="0" min="0" inputmode="decimal">
           </div>
         </div>
         <div class="payroll-total">
           <span>Итого за месяц</span>
-          <span class="val" id="pr-total-${safeId}">${total.toLocaleString('ru-RU')} ₽</span>
+          <span class="val" id="pr-total-${safeId}">${fmtMoney(total)} ₽</span>
         </div>
       </div>`;
   }).join('');
 
+  // Ручной ввод аванса/расчёта — пересчитываем «Итого»
   wrap.querySelectorAll('.payroll-advance, .payroll-final').forEach(input => {
     input.addEventListener('input', () => {
-      const worker = input.getAttribute('data-worker');
-      const safeId = worker.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_');
-      const adv = parseFloat($('pr-adv-' + safeId).value) || 0;
-      const fin = parseFloat($('pr-fin-' + safeId).value) || 0;
-      $('pr-total-' + safeId).textContent = (adv + fin).toLocaleString('ru-RU') + ' ₽';
+      const safeId = input.getAttribute('data-worker').replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
+      updatePayrollRowTotal(safeId);
     });
   });
+
+  // Ввод зарплаты за прошлый месяц — пересчитываем среднюю стоимость и расчётную зарплату
+  wrap.querySelectorAll('.payroll-prev-salary').forEach(input => {
+    input.addEventListener('input', () => {
+      const worker = input.getAttribute('data-worker');
+      const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
+      const c = calcSalaryByAverage(worker, monthVal, parseFloat(input.value) || 0);
+      const statsEl = $('pr-stats-' + safeId);
+      if(statsEl) statsEl.innerHTML = calcStatsHtml(c);
+      const calcEl = $('pr-calc-' + safeId);
+      if(calcEl) calcEl.textContent = fmtMoney(c.salary) + ' ₽';
+      if(isAutoFillCalc()){
+        const finInput = $('pr-fin-' + safeId);
+        if(finInput){ finInput.value = c.salary ? c.salary : ''; updatePayrollRowTotal(safeId); }
+      }
+    });
+  });
+
+  // Кнопка «Подставить в Расчёт»
+  wrap.querySelectorAll('.btn-apply-calc').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const worker = btn.getAttribute('data-worker');
+      const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
+      const prevInput = $('pr-prev-' + safeId);
+      const c = calcSalaryByAverage(worker, monthVal, prevInput ? (parseFloat(prevInput.value) || 0) : 0);
+      const finInput = $('pr-fin-' + safeId);
+      if(finInput){ finInput.value = c.salary ? c.salary : ''; updatePayrollRowTotal(safeId); }
+      showToast('Расчётная зарплата подставлена');
+    });
+  });
+
+  // Автоподстановка при загрузке списка
+  if(autofill){
+    wrap.querySelectorAll('.payroll-prev-salary').forEach(input => {
+      const worker = input.getAttribute('data-worker');
+      const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
+      const prevSalary = parseFloat(input.value) || 0;
+      if(prevSalary > 0){
+        const c = calcSalaryByAverage(worker, monthVal, prevSalary);
+        const finInput = $('pr-fin-' + safeId);
+        // Не затираем «Расчёт», если мастер уже вписал его вручную
+        if(finInput && !finInput.value){ finInput.value = c.salary ? c.salary : ''; updatePayrollRowTotal(safeId); }
+      }
+    });
+  }
 }
 
 $('btn-save-payroll').addEventListener('click', async () => {
@@ -1948,20 +2146,35 @@ $('btn-save-payroll').addEventListener('click', async () => {
 
   const updated = {};
   WORKERS.forEach(worker => {
-    const safeId = worker.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_');
+    const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
+    const prevInput = $('pr-prev-' + safeId);
     const advInput = $('pr-adv-' + safeId);
     const finInput = $('pr-fin-' + safeId);
+    const prevSalary = prevInput ? (parseFloat(prevInput.value) || 0) : 0;
     const advance = advInput ? (parseFloat(advInput.value) || 0) : 0;
     const final = finInput ? (parseFloat(finInput.value) || 0) : 0;
-    if(advance || final){ updated[worker] = { advance, final }; }
+    if(advance || final || prevSalary){
+      updated[worker] = {
+        advance, final, prevSalary,
+        calc: calcSalaryByAverage(worker, monthVal, prevSalary).salary
+      };
+    }
   });
 
   PAYROLL = updated;
   await fbSet(bp('payroll/' + monthVal), PAYROLL);
   await refreshPayrollSummary();
   await refreshMyPayroll();
+  await refreshMyCalc();
   showToast('Зарплата сохранена');
 });
+
+// Итог по работнику: ручные аванс+расчёт, а если их нет — расчёт по средней стоимости
+function payrollRecordTotal(rec){
+  if(!rec) return 0;
+  const manual = (rec.advance || 0) + (rec.final || 0);
+  return manual || (rec.calc || 0);
+}
 
 // Общая сумма зарплаты бригады за текущий месяц — показывается мастеру на вкладке «Ввод»
 async function refreshPayrollSummary(){
@@ -1971,8 +2184,8 @@ async function refreshPayrollSummary(){
 
   const monthVal = toISODate(new Date()).slice(0,7);
   const data = (await fbGet(bp('payroll/' + monthVal))) || {};
-  const total = Object.values(data).reduce((s, r) => s + (r.advance || 0) + (r.final || 0), 0);
-  valEl.textContent = total.toLocaleString('ru-RU') + ' ₽';
+  const total = Object.values(data).reduce((s, r) => s + payrollRecordTotal(r), 0);
+  valEl.textContent = fmtMoney(total) + ' ₽';
 }
 
 // Личная зарплата за месяц — показывается каждому на его вкладке «Ввод», и мастеру тоже
@@ -1983,8 +2196,55 @@ async function refreshMyPayroll(){
   const monthVal = toISODate(new Date()).slice(0,7);
   const data = (await fbGet(bp('payroll/' + monthVal))) || {};
   const rec = data[PROFILE.fio] || {};
-  const total = (rec.advance || 0) + (rec.final || 0);
-  valEl.textContent = total.toLocaleString('ru-RU') + ' ₽';
+  valEl.textContent = fmtMoney(payrollRecordTotal(rec)) + ' ₽';
+}
+
+// ---------- «Моя зарплата» на вкладке «Ввод»: пользователь сам вносит ЗП за прошлый месяц ----------
+async function refreshMyCalc(){
+  const input = $('my-calc-prev-salary');
+  const statsEl = $('my-calc-stats');
+  const salaryEl = $('my-calc-salary');
+  const monthLbl = $('my-calc-prev-month');
+  if(!input || !statsEl || !salaryEl || !PROFILE) return;
+
+  const monthVal = toISODate(new Date()).slice(0,7);
+  const prevKey = shiftMonth(monthVal, -1);
+  if(monthLbl) monthLbl.textContent = monthTitleRu(prevKey);
+
+  const data = (await fbGet(bp('payroll/' + monthVal))) || {};
+  const rec = data[PROFILE.fio] || {};
+  const saved = rec.prevSalary || 0;
+  if(document.activeElement !== input) input.value = saved ? saved : '';
+
+  const c = calcSalaryByAverage(PROFILE.fio, monthVal, parseFloat(input.value) || 0);
+  statsEl.innerHTML = calcStatsHtml(c, 'Выработка за текущий месяц');
+  salaryEl.textContent = fmtMoney(c.salary) + ' ₽';
+}
+
+const myCalcPrevInput = $('my-calc-prev-salary');
+if(myCalcPrevInput){
+  myCalcPrevInput.addEventListener('input', () => {
+    if(!PROFILE) return;
+    const monthVal = toISODate(new Date()).slice(0,7);
+    const c = calcSalaryByAverage(PROFILE.fio, monthVal, parseFloat(myCalcPrevInput.value) || 0);
+    const statsEl = $('my-calc-stats');
+    const salaryEl = $('my-calc-salary');
+    if(statsEl) statsEl.innerHTML = calcStatsHtml(c, 'Выработка за текущий месяц');
+    if(salaryEl) salaryEl.textContent = fmtMoney(c.salary) + ' ₽';
+  });
+}
+const btnSaveMyCalc = $('btn-save-my-calc');
+if(btnSaveMyCalc){
+  btnSaveMyCalc.addEventListener('click', async () => {
+    if(!PROFILE) return;
+    const monthVal = toISODate(new Date()).slice(0,7);
+    const prevSalary = parseFloat(myCalcPrevInput.value) || 0;
+    const c = calcSalaryByAverage(PROFILE.fio, monthVal, prevSalary);
+    const ok = await fbUpdate(bp('payroll/' + monthVal + '/' + PROFILE.fio), { prevSalary, calc: c.salary });
+    showToast(ok ? 'Зарплата за прошлый месяц сохранена' : 'Не удалось сохранить расчёт');
+    await refreshMyPayroll();
+    await refreshMyCalc();
+  });
 }
 
 
