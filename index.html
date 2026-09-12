@@ -27,6 +27,8 @@
     --text-secondary: #8E8E93;
     --border: #E4E5E7;
     --danger: #E5484D;
+    --success: #34A853;
+    --success-dark: #1E8A44;
     --radius: 14px;
     --mono: 'SF Mono', 'Roboto Mono', Consolas, monospace;
   }
@@ -175,6 +177,47 @@
   }
   .calc-autofill input{ width:auto; margin:0; }
 
+  /* Прогноз зарплаты */
+  .forecast-card{
+    background:linear-gradient(135deg, #EAF3FE 0%, #F5F8FF 100%);
+    border:1px solid #CFE4FB; border-radius:12px;
+    padding:14px 16px; margin-top:12px;
+  }
+  .forecast-title{
+    font-size:11.5px; font-weight:700; color:var(--accent-dark);
+    text-transform:uppercase; letter-spacing:.3px; margin-bottom:8px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .forecast-title .badge{
+    font-size:10px; font-weight:600; text-transform:none; letter-spacing:0;
+    background:#fff; color:var(--accent-dark); border-radius:6px; padding:2px 6px;
+  }
+  .forecast-big{
+    font-family:var(--mono); font-size:24px; font-weight:800;
+    color:var(--accent-dark); line-height:1.1; margin:4px 0 2px;
+  }
+  .forecast-sub{
+    font-size:12px; color:var(--text-secondary); margin-bottom:10px;
+  }
+  .forecast-bars{
+    display:flex; flex-direction:column; gap:6px; font-size:12px;
+  }
+  .forecast-bar-row{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .forecast-bar-row .lbl{ color:var(--text-secondary); }
+  .forecast-bar-row .val{ font-family:var(--mono); font-weight:700; color:var(--text); white-space:nowrap; }
+  .forecast-progress{
+    height:6px; background:#DBE6F3; border-radius:3px; overflow:hidden; margin-top:6px;
+  }
+  .forecast-progress-fill{
+    height:100%; background:var(--accent); border-radius:3px;
+    transition: width .3s ease;
+  }
+  .forecast-hint{
+    font-size:11px; color:var(--text-secondary); margin-top:8px; line-height:1.35;
+  }
+
   .btn{
     display:flex; align-items:center; justify-content:center; gap:6px;
     width:100%; padding:13px 16px; border-radius:12px; border:none;
@@ -189,6 +232,8 @@
   .btn-telegram:active{ background:var(--telegram-dark); }
   .btn-vk{ background:var(--vk); color:#fff; }
   .btn-vk:active{ background:var(--vk-dark); }
+  .btn-repeat{ background:#EAF3FE; color:var(--accent-dark); border:1.5px solid #CFE4FB; }
+  .btn-repeat:active{ background:#DBEAFB; }
   .btn[disabled]{ opacity:.5; cursor:not-allowed; }
 
   .hint{ font-size:12px; color:var(--text-secondary); line-height:1.4; margin-top:6px; }
@@ -404,7 +449,6 @@
   }
   .toast.show{ opacity:1; bottom:88px; }
 
-  /* Modal for editing */
   .modal-overlay{
     display:none; position:fixed; inset:0; background:rgba(0,0,0,.45);
     z-index:250; align-items:center; justify-content:center; padding:16px;
@@ -418,7 +462,6 @@
   .modal-actions{ display:flex; gap:10px; margin-top:16px; }
   .modal-actions .btn{ flex:1; }
 
-  /* History / log */
   .log-item{
     background:#FAFAFA; border:1px solid var(--border); border-radius:10px;
     padding:10px 12px; margin-bottom:8px; font-size:12.5px;
@@ -427,7 +470,6 @@
   .log-item .log-change{ color:var(--text-secondary); }
   .log-item .log-change b{ color:var(--accent-dark); }
 
-  /* Search & filters */
   .filters-card{
     background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
     padding:14px 16px; margin-bottom:14px;
@@ -453,7 +495,6 @@
 
 <div id="app">
 
-  <!-- ========== ЭКРАН: НУЖНА НАСТРОЙКА FIREBASE ========== -->
   <div id="view-setup" style="display:none;">
     <div class="reg-wrap">
       <div class="reg-logo">⚙️</div>
@@ -467,7 +508,6 @@
     </div>
   </div>
 
-  <!-- ========== РЕГИСТРАЦИЯ ========== -->
   <div id="view-register" style="display:none;">
     <div class="reg-wrap">
       <div class="reg-logo">🏭</div>
@@ -518,7 +558,6 @@
     </div>
   </div>
 
-  <!-- ========== ОСНОВНОЕ ПРИЛОЖЕНИЕ ========== -->
   <div id="view-main" style="display:none;">
 
     <div class="topbar">
@@ -561,6 +600,30 @@
         <span class="val" id="my-payroll-val">0 ₽</span>
       </div>
 
+      <!-- ПРОГНОЗ ЗАРПЛАТЫ -->
+      <div class="forecast-card" id="forecast-card" style="display:none;">
+        <div class="forecast-title">
+          <span>🔮 Прогноз на конец месяца</span>
+          <span class="badge" id="forecast-badge">—</span>
+        </div>
+        <div class="forecast-big" id="forecast-value">0 ₽</div>
+        <div class="forecast-sub" id="forecast-sub">—</div>
+        <div class="forecast-bars">
+          <div class="forecast-bar-row">
+            <span class="lbl">Выработка сейчас</span>
+            <span class="val" id="forecast-current-qty">0 шт</span>
+          </div>
+          <div class="forecast-bar-row">
+            <span class="lbl">Прогноз к концу месяца</span>
+            <span class="val" id="forecast-total-qty">0 шт</span>
+          </div>
+        </div>
+        <div class="forecast-progress">
+          <div class="forecast-progress-fill" id="forecast-progress-fill" style="width:0%;"></div>
+        </div>
+        <div class="forecast-hint" id="forecast-hint"></div>
+      </div>
+
       <div class="day-total-bar" id="payroll-summary-bar" style="display:none;">
         <span class="label">Зарплата бригады за месяц</span>
         <span class="val" id="payroll-summary-val">0 ₽</span>
@@ -578,6 +641,11 @@
 
       <div class="section-title">Новая запись</div>
       <div class="card">
+        <!-- Кнопка повторной записи -->
+        <button class="btn btn-repeat" id="btn-repeat-last" style="display:none; margin-bottom:12px;">
+          <span>🔁</span><span id="btn-repeat-label">Повторить последнюю запись</span>
+        </button>
+
         <div class="field">
           <label>Категория</label>
           <div class="select-with-btn">
@@ -918,7 +986,6 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- ========== МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ ЗАПИСИ ========== -->
 <div id="edit-modal" class="modal-overlay">
   <div class="modal-card">
     <div class="modal-title">✏️ Редактировать запись</div>
@@ -949,7 +1016,6 @@
   </div>
 </div>
 
-<!-- Скрытый вход в админ-режим: 5 тапов по имени в шапке -->
 <div id="admin-pin-card" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:250; align-items:center; justify-content:center;">
   <div class="card" style="width:85%; max-width:320px; margin:0;">
     <div class="field">
@@ -961,7 +1027,6 @@
   </div>
 </div>
 
-<!-- Админ-панель: все бригады и все пользователи бота -->
 <div id="admin-overlay" style="display:none; position:fixed; inset:0; background:var(--bg); z-index:200; max-width:480px; margin:0 auto; overflow-y:auto;">
   <div class="topbar">
     <div class="topbar-row">
@@ -975,24 +1040,16 @@
 <script>
 const $ = (id) => document.getElementById(id);
 
-// =====================================================================
-// ЗАПОЛНИТЕ СВОИМИ ДАННЫМИ ИЗ FIREBASE (бесплатно, см. инструкцию в чате)
-// =====================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyDXSBSd3BY3R4BqCmcO3n6D9ArsifgiK_Y",
   authDomain: "uchet-b8c60.firebaseapp.com",
   databaseURL: "https://uchet-b8c60-default-rtdb.firebaseio.com",
   projectId: "uchet-b8c60",
-  storageBucket: "uchet-b8c60.firebasestorage.app", // не обязателен, сейчас не используется
+  storageBucket: "uchet-b8c60.firebasestorage.app",
 };
-// =====================================================================
 
-// =====================================================================
-// НАСТРОЙКА ОТПРАВКИ PDF В TELEGRAM ЧЕРЕЗ CLOUDFLARE WORKER (см. инструкцию в чате)
-// =====================================================================
 const CLOUDFLARE_WORKER_URL = "https://naryad-bot-relay.tema-tatarinov2013.workers.dev";
-const APP_SHARED_SECRET = "naryad2026xyz"; // тот же, что в настройках воркера (APP_SECRET)
-// =====================================================================
+const APP_SHARED_SECRET = "naryad2026xyz";
 
 let db = null;
 let firebaseReady = false;
@@ -1007,16 +1064,16 @@ function initFirebase(){
   }catch(e){ return false; }
 }
 
-let PROFILE = null;   // { fio, factory, code, isOwner }  — хранится локально на устройстве
-let ENTRIES = [];     // { id, worker, category, part, qty, date, time, ts } — общие для всей бригады
+let PROFILE = null;
+let ENTRIES = [];
 let CATEGORIES = [];
-let CATALOG = [];      // [{ name, category }]
-let WORKERS = [];      // ["Иванов Иван Иванович", ...]
-let SHIFT_TYPES = [];  // [{ id, name, color }]
-let SCHEDULE = {};     // { [date]: { [worker]: shiftTypeId } }
-let PAYROLL = {};      // { [worker]: { advance, final } } — только за выбранный месяц
-let EXCLUDED_CATEGORIES = []; // категории, которые не учитываются в ежедневном отчёте бригады
-let CHANGE_LOG = [];   // [{ id, action, by, timestamp, oldValue, newValue }]
+let CATALOG = [];
+let WORKERS = [];
+let SHIFT_TYPES = [];
+let SCHEDULE = {};
+let PAYROLL = {};
+let EXCLUDED_CATEGORIES = [];
+let CHANGE_LOG = [];
 let selectedCalDate = null;
 
 const DEFAULT_SHIFT_TYPES = [
@@ -1054,7 +1111,7 @@ async function switchTab(name){
   refreshWorkerSelect();
   renderManageChips();
   renderWorkerChips();
-  if(name === 'entry'){ renderEntries(); renderUsersList(); renderMiniDashboard(); refreshMyPayroll(); if(isOwner()) refreshPayrollSummary(); }
+  if(name === 'entry'){ renderEntries(); renderUsersList(); renderMiniDashboard(); refreshMyPayroll(); refreshForecast(); refreshRepeatButton(); if(isOwner()) refreshPayrollSummary(); }
   if(name === 'team') renderTeam();
   if(name === 'schedule'){
     refreshRotWorkerSelect();
@@ -1069,7 +1126,6 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=> switchTab(btn.getAttribute('data-tab')));
 });
 
-// ---------- Локальное хранилище профиля (на этом устройстве) ----------
 const LOCAL_TIMEOUT_MS = 3500;
 let cloudBroken = false;
 let cloudBrokenNotified = false;
@@ -1141,7 +1197,6 @@ async function loadLocalProfile(){
 }
 async function saveLocalProfile(p){ await localRawSet('profile', JSON.stringify(p)); }
 
-// ---------- Firebase: общие данные бригады ----------
 function bp(sub){ return `brigades/${PROFILE.code}/${sub}`; }
 
 async function fbGet(path){
@@ -1220,7 +1275,6 @@ async function saveTelegramId(fio){
   }catch(e){}
 }
 
-// ---------- Логирование изменений ----------
 async function logChange(action, oldValue, newValue){
   if(!PROFILE) return;
   const entry = {
@@ -1234,7 +1288,6 @@ async function logChange(action, oldValue, newValue){
   if(id) CHANGE_LOG.unshift({ id, ...entry });
 }
 
-// ---------- Init ----------
 async function init(){
   const fbOk = initFirebase();
   if(!fbOk){ showRoot('setup'); return; }
@@ -1273,12 +1326,13 @@ async function init(){
 
   applyRolePermissions();
   refreshMyPayroll();
+  refreshForecast();
+  refreshRepeatButton();
 
   showRoot('main');
   switchTab('entry');
 }
 
-// ---------- Права доступа ----------
 function isOwner(){
   return !!(PROFILE && PROFILE.isOwner);
 }
@@ -1319,7 +1373,7 @@ function applyRolePermissions(){
   }
 }
 
-// ---------- Регистрация ----------
+// ---------- РЕГИСТРАЦИЯ ----------
 let regMode = 'create';
 document.querySelectorAll('#reg-mode .seg-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1430,11 +1484,13 @@ $('btn-refresh').addEventListener('click', async () => {
   renderMiniDashboard();
   renderTeam();
   refreshMyPayroll();
+  refreshForecast();
+  refreshRepeatButton();
   if(isOwner()) refreshPayrollSummary();
   showToast('Данные бригады обновлены');
 });
 
-// ---------- Категории и детали ----------
+// ---------- КАТЕГОРИИ И ДЕТАЛИ ----------
 function refreshAllCategorySelects(){
   [$('in-cat-select'), $('team-cat-select'), $('edit-category'), $('search-category')].forEach(sel => {
     if(!sel) return;
@@ -1564,6 +1620,188 @@ function renderManageChips(){
   });
 }
 
+// ---------- ПРОГНОЗ ЗАРПЛАТЫ ----------
+// Логика: берём выработку за прошедшие дни текущего месяца, считаем среднюю выработку
+// за рабочий день (по дням, когда были записи) и умножаем на оставшиеся рабочие дни.
+// Учитываем график смен, если он заполнен для текущего работника.
+
+function refreshForecast(){
+  const card = $('forecast-card');
+  if(!card || !PROFILE) return;
+
+  const todayStr = toISODate(new Date());
+  const monthPrefix = todayStr.slice(0,7);
+  const [y, m] = monthPrefix.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const todayDay = parseInt(todayStr.split('-')[2], 10);
+
+  // Записи за текущий месяц
+  const own = ENTRIES.filter(e => e.worker === PROFILE.fio && (e.date || '').startsWith(monthPrefix));
+  const currentQty = own.reduce((s,e)=> s + e.qty, 0);
+
+  if(currentQty === 0){
+    card.style.display = 'none';
+    return;
+  }
+
+  // Уникальные дни с записями
+  const workedDates = new Set(own.map(e => e.date));
+  const workedDays = workedDates.size;
+
+  // Проверим, есть ли график для работника — тогда считаем по нему
+  let plannedWorkDays = 0;
+  let futureWorkDays = 0;
+  let hasSchedule = false;
+
+  for(let d = 1; d <= daysInMonth; d++){
+    const dateStr = `${monthPrefix}-${String(d).padStart(2,'0')}`;
+    const dayShifts = SCHEDULE[dateStr] || {};
+    const shiftId = dayShifts[PROFILE.fio];
+    const shift = shiftId ? shiftTypeById(shiftId) : null;
+    const isWorkShift = shift && shift.id !== 'off' && shift.id !== 'vacation' && shift.id !== 'sick';
+    if(isWorkShift){
+      hasSchedule = true;
+      plannedWorkDays++;
+      if(d > todayDay) futureWorkDays++;
+    }
+  }
+
+  // Прогноз выработки к концу месяца
+  let forecastQty;
+  let approach;
+
+  if(hasSchedule && plannedWorkDays > 0){
+    // Считаем среднюю выработку на отработанный день и умножаем на все запланированные рабочие дни
+    const avgPerDay = currentQty / Math.max(workedDays, 1);
+    forecastQty = Math.round(avgPerDay * plannedWorkDays);
+    approach = 'по графику смен';
+  }else{
+    // Без графика — пропорционально дням месяца
+    const avgPerDay = currentQty / Math.max(todayDay, 1);
+    forecastQty = Math.round(avgPerDay * daysInMonth);
+    approach = 'по календарным дням';
+  }
+
+  // Расчётная зарплата — используем тот же коэффициент, что и везде
+  const monthVal = monthPrefix;
+  const payData = PAYROLL[PROFILE.fio] || {};
+  const prevSalary = payData.prevSalary || 0;
+  const c = calcSalaryByAverage(PROFILE.fio, monthVal, prevSalary);
+
+  const currentSalary = c.salary;
+  const totalSalaryForecast = currentQty > 0
+    ? Math.round(currentSalary * (forecastQty / currentQty))
+    : currentSalary;
+
+  // Проценты
+  const progressPct = Math.min(100, Math.round((currentQty / forecastQty) * 100));
+
+  // Что показываем
+  card.style.display = 'block';
+
+  const badge = $('forecast-badge');
+  if(badge) badge.textContent = `день ${todayDay} из ${daysInMonth}`;
+
+  const valueEl = $('forecast-value');
+  if(valueEl){
+    if(prevSalary > 0){
+      valueEl.textContent = `${fmtMoney(totalSalaryForecast)} ₽`;
+    }else{
+      valueEl.textContent = `+${fmtMoney(forecastQty - currentQty)} шт`;
+    }
+  }
+
+  const subEl = $('forecast-sub');
+  if(subEl){
+    if(prevSalary > 0){
+      subEl.textContent = `Прогноз зарплаты (${approach})`;
+    }else{
+      subEl.textContent = `Прогноз выработки к концу месяца (${approach})`;
+    }
+  }
+
+  const currentQtyEl = $('forecast-current-qty');
+  if(currentQtyEl) currentQtyEl.textContent = `${fmtMoney(currentQty)} шт`;
+
+  const totalQtyEl = $('forecast-total-qty');
+  if(totalQtyEl) totalQtyEl.textContent = `${fmtMoney(forecastQty)} шт`;
+
+  const fill = $('forecast-progress-fill');
+  if(fill) fill.style.width = progressPct + '%';
+
+  const hintEl = $('forecast-hint');
+  if(hintEl){
+    if(prevSalary <= 0){
+      hintEl.textContent = 'Чтобы увидеть прогноз зарплаты, укажите свою зарплату за прошлый месяц во вкладке «Зарплата».';
+    }else if(hasSchedule){
+      hintEl.textContent = `Учтён график смен: ${plannedWorkDays} раб. дней в месяце, из них ${futureWorkDays} впереди.`;
+    }else{
+      hintEl.textContent = 'График смен не заполнен — прогноз считается пропорционально календарным дням.';
+    }
+  }
+}
+
+// ---------- ПОВТОР ПОСЛЕДНЕЙ ЗАПИСИ ----------
+function getLastEntry(){
+  if(!PROFILE) return null;
+  const own = ENTRIES.filter(e => e.worker === PROFILE.fio);
+  if(own.length === 0) return null;
+  return own.reduce((max, e) => (!max || e.ts > max.ts) ? e : max, null);
+}
+
+function refreshRepeatButton(){
+  const btn = $('btn-repeat-last');
+  const label = $('btn-repeat-label');
+  if(!btn || !label) return;
+
+  const last = getLastEntry();
+  if(!last){
+    btn.style.display = 'none';
+    return;
+  }
+  btn.style.display = 'flex';
+  const partShort = last.part.length > 20 ? last.part.slice(0, 20) + '…' : last.part;
+  label.textContent = `Повторить: ${partShort} (${last.qty} шт)`;
+  btn.setAttribute('data-entry-id', last.id);
+}
+
+$('btn-repeat-last').addEventListener('click', async () => {
+  const btn = $('btn-repeat-last');
+  const id = btn.getAttribute('data-entry-id');
+  const last = ENTRIES.find(e => e.id === id);
+  if(!last){ showToast('Не удалось найти последнюю запись'); return; }
+
+  // Убедимся, что выбранные категория и деталь всё ещё существуют
+  if(!CATEGORIES.includes(last.category)){
+    showToast('Категория этой записи больше не существует');
+    return;
+  }
+  const partExists = CATALOG.some(p => p.category === last.category && p.name === last.part);
+  if(!partExists){
+    showToast('Деталь этой записи больше не существует');
+    return;
+  }
+
+  // Подставим в форму
+  $('in-cat-select').value = last.category;
+  refreshPartSelect($('in-part-select'), last.category);
+  $('in-part-select').value = last.part;
+
+  // Подставим дату: сегодня (если открыта не сегодняшняя дата — переключим на сегодня)
+  const todayStr = toISODate(new Date());
+  if($('entry-date').value !== todayStr){
+    $('entry-date').value = todayStr;
+    renderEntries();
+  }
+
+  // Фокус на поле количества и лёгкая подсветка
+  $('in-qty').value = last.qty;
+  $('in-qty').focus();
+  $('in-qty').select();
+
+  showToast(`Подставлено: ${last.part} — ${last.qty} шт. Проверьте и нажмите «Добавить запись»`);
+});
+
 // ---------- ВВОД ----------
 function renderMiniDashboard(){
   if(!PROFILE) return;
@@ -1671,6 +1909,8 @@ function renderEntries(){
       renderUsersList();
       renderMiniDashboard();
       refreshMyPayroll();
+      refreshForecast();
+      refreshRepeatButton();
       showToast('Запись удалена');
     });
   });
@@ -1700,10 +1940,12 @@ $('btn-add').addEventListener('click', async () => {
   renderUsersList();
   renderMiniDashboard();
   refreshMyPayroll();
+  refreshForecast();
+  refreshRepeatButton();
   showToast('Запись добавлена');
 });
 
-// ---------- РЕДАКТИРОВАНИЕ ЗАПИСИ ----------
+// ---------- РЕДАКТИРОВАНИЕ ----------
 let editingEntryId = null;
 
 function openEditModal(id){
@@ -1778,6 +2020,8 @@ $('btn-edit-save').addEventListener('click', async () => {
   renderUsersList();
   renderMiniDashboard();
   refreshMyPayroll();
+  refreshForecast();
+  refreshRepeatButton();
   renderTeam();
   showToast('Запись изменена');
 });
@@ -2086,6 +2330,7 @@ $('btn-apply-rotation').addEventListener('click', async () => {
 
   await fbSet(bp('schedule'), SCHEDULE);
   renderCalendar();
+  refreshForecast();
   showToast('Месяц заполнен по шаблону');
 });
 
@@ -2194,6 +2439,7 @@ $('btn-save-day-schedule').addEventListener('click', async () => {
   }
   await fbSet(bp('schedule'), SCHEDULE);
   renderCalendar();
+  refreshForecast();
   showToast('График сохранён');
 });
 
@@ -2390,6 +2636,7 @@ $('btn-save-payroll').addEventListener('click', async () => {
   await refreshPayrollSummary();
   await refreshMyPayroll();
   await refreshMyCalc();
+  refreshForecast();
   showToast('Зарплата сохранена');
 });
 
@@ -2496,6 +2743,7 @@ if(btnSaveMyCalc){
     showToast(ok ? 'Зарплата за прошлый месяц сохранена' : 'Не удалось сохранить расчёт');
     await refreshMyPayroll();
     await refreshMyCalc();
+    refreshForecast();
   });
 }
 
@@ -2582,7 +2830,6 @@ $('btn-build-report').addEventListener('click', async () => {
   }
 });
 
-// ---------- ОТЧЁТ ДЛЯ МАСТЕРА ----------
 function buildBrigadeReport(dateStr){
   const combined = ENTRIES.filter(e => e.date === dateStr && !EXCLUDED_CATEGORIES.includes(e.category));
 
@@ -2687,7 +2934,6 @@ function downloadBrigadeReport(byCategory, categories, total, dateStr){
   showToast('Файл скачан');
 }
 
-// ---------- ЛИЧНАЯ ВЫПИСКА ----------
 function buildPersonalReport(fromDate, toDate, periodLabel, showDailyBreakdown){
   const own = ENTRIES.filter(e => e.worker === PROFILE.fio && e.date >= fromDate && e.date <= toDate);
 
@@ -2848,7 +3094,6 @@ function downloadPersonalReport(byCategory, categories, total, periodLabel, byDa
   showToast('Файл скачан');
 }
 
-// ---------- ВЫПИСКА ПО РАБОТНИКУ ----------
 function buildWorkerReport(worker, fromDate, toDate, periodLabel){
   const items = ENTRIES.filter(e => e.worker === worker && e.date >= fromDate && e.date <= toDate);
 
@@ -2999,7 +3244,6 @@ function downloadWorkerReport(worker, byCategory, categories, total, periodLabel
   showToast('Файл скачан');
 }
 
-// ---------- ПЕЧАТЬ PDF НАРЯДА ----------
 async function tryTelegramNativeDownload(blob, fileName){
   const wa = window.Telegram && window.Telegram.WebApp;
   if(!wa || typeof wa.downloadFile !== 'function') return false;
@@ -3037,7 +3281,6 @@ function setPrintOrientation(landscape){
   style.textContent = landscape ? '@page{ size: landscape; margin: 10mm; }' : '';
 }
 
-// ---------- БЛАНК НАРЯДА ----------
 function buildNaryadBlank(worker, monthVal){
   const [y, m] = monthVal.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
@@ -3367,7 +3610,37 @@ async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cu
   }
 }
 
-// ---------- Шеринг ----------
+function showNaryadLink(url, fileName){
+  const wrap = document.createElement('div');
+  wrap.className = 'card';
+  wrap.style.marginTop = '10px';
+  wrap.innerHTML = `
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px;">🔗 Ссылка на PDF готова</div>
+    <div class="hint" style="margin-top:0;margin-bottom:10px;">
+      Скопируй ссылку и открой её в обычном браузере телефона (Chrome, Yandex и т.п.),
+      не внутри Telegram — скачивание начнётся сразу.
+    </div>
+    <div class="field">
+      <input type="text" id="naryad-link-input" value="${url}" readonly style="font-size:11px;">
+    </div>
+    <div class="report-actions" style="margin-top:0;">
+      <button class="btn btn-primary" id="btn-copy-naryad-link">📋 Скопировать ссылку</button>
+      <button class="btn btn-secondary" id="btn-open-naryad-link">↗ Открыть в браузере</button>
+    </div>
+  `;
+  $('report-output').appendChild(wrap);
+
+  $('btn-copy-naryad-link').addEventListener('click', () => copyToClipboard(url));
+  $('btn-open-naryad-link').addEventListener('click', () => {
+    if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink){
+      window.Telegram.WebApp.openLink(url);
+    }else{
+      window.open(url, '_blank');
+    }
+  });
+  showToast('Ссылка готова');
+}
+
 function shareToWhatsApp(text){
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
 }
@@ -3384,7 +3657,6 @@ function shareToVK(text){
   window.open(url, '_blank');
 }
 
-// ---------- Utils ----------
 function toISODate(d){
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -3394,7 +3666,6 @@ function toISODate(d){
 function formatDateRu(isoDate){ const [y,m,d] = isoDate.split('-'); return `${d}.${m}.${y}`; }
 function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
 
-// ---------- ПОИСК И ФИЛЬТРЫ ----------
 function refreshSearchWorkerSelect(){
   const sel = $('search-worker');
   if(!sel) return;
@@ -3547,7 +3818,6 @@ function renderChangeLog(){
   }).join('');
 }
 
-// ---------- Админ-режим ----------
 const ADMIN_SECRET = "1234";
 
 let adminTapCount = 0;
