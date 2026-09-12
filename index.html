@@ -2,3335 +2,867 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Учёт деталей</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
-  :root{
-    --accent: #3390EC;
-    --accent-dark: #2679C9;
-    --whatsapp: #25D366;
-    --whatsapp-dark: #1DA851;
-    --telegram: #229ED9;
-    --telegram-dark: #1B87BD;
-    --vk: #0077FF;
-    --vk-dark: #0062D1;
-    --bg: #F0F1F3;
-    --card: #FFFFFF;
-    --text: #1C1C1E;
-    --text-secondary: #8E8E93;
-    --border: #E4E5E7;
-    --danger: #E5484D;
-    --radius: 14px;
-    --mono: 'SF Mono', 'Roboto Mono', Consolas, monospace;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    background:var(--bg);
-    font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color:var(--text);
-    min-height:100vh;
-    display:flex;
-    justify-content:center;
-  }
-  #app{
-    width:100%; max-width:480px; min-height:100vh;
-    background:var(--bg); display:flex; flex-direction:column; position:relative;
-  }
-
-  .topbar{
-    background:var(--accent); color:#fff; padding:14px 16px;
-    position:sticky; top:0; z-index:20; box-shadow:0 2px 8px rgba(0,0,0,.08);
-  }
-  .topbar-row{ display:flex; align-items:center; justify-content:space-between; }
-  .topbar-title{ font-size:17px; font-weight:600; }
-  .topbar-sub{ font-size:12.5px; opacity:.85; margin-top:2px; }
-  .topbar-code{ font-size:12px; opacity:.9; margin-top:6px; font-family:var(--mono); letter-spacing:1px; }
-  .topbar-actions{ display:flex; gap:8px; flex-shrink:0; }
-  .icon-btn{
-    background:rgba(255,255,255,.18); border:none; color:#fff;
-    width:32px;height:32px; border-radius:10px;
-    display:flex;align-items:center;justify-content:center;
-    cursor:pointer; font-size:16px; flex-shrink:0;
-  }
-  .icon-btn:active{ background:rgba(255,255,255,.3); }
-
-  .content{ flex:1; padding:16px; padding-bottom:90px; }
-
-  .card{
-    background:var(--card); border-radius:var(--radius); padding:16px;
-    margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.04); border:1px solid var(--border);
-  }
-
-  .field{ margin-bottom:14px; }
-  .field:last-child{ margin-bottom:0; }
-  .field label{ display:block; font-size:13px; color:var(--text-secondary); margin-bottom:6px; font-weight:500; }
-  .field input, .field select{
-    width:100%; padding:12px 14px; border:1.5px solid var(--border); border-radius:10px;
-    font-size:16px; background:#FAFAFA; color:var(--text); outline:none;
-    transition:border-color .15s; font-family:inherit; appearance:none; -webkit-appearance:none;
-  }
-  .field select{
-    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238E8E93'><path d='M7 10l5 5 5-5z'/></svg>");
-    background-repeat:no-repeat; background-position:right 12px center; background-size:20px; padding-right:38px;
-  }
-  .field input:focus, .field select:focus{ border-color:var(--accent); background-color:#fff; }
-  .field-row{ display:flex; gap:10px; }
-  .field-row .field{ flex:1; }
-  .select-with-btn{ display:flex; gap:8px; }
-  .select-with-btn select, .select-with-btn input{ flex:1; }
-  .add-btn{
-    flex-shrink:0; width:44px; border-radius:10px; border:1.5px solid var(--accent);
-    background:#fff; color:var(--accent); font-size:20px; font-weight:600; cursor:pointer;
-  }
-  .add-panel{
-    display:none; gap:8px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);
-  }
-  .add-panel.open{ display:flex; }
-  .add-panel input{ flex:1; }
-  .add-panel button.save-btn{
-    flex-shrink:0; padding:0 14px; border-radius:10px; border:none; background:var(--accent); color:#fff; font-weight:600; cursor:pointer;
-  }
-  .manage-details{ margin-top:12px; }
-  .manage-details summary{ font-size:12.5px; color:var(--accent); cursor:pointer; list-style:none; }
-  .manage-details summary::-webkit-details-marker{ display:none; }
-  .manage-block{ margin-top:12px; }
-  .manage-block-title{ font-size:11.5px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; margin-bottom:6px; }
-  .chip-list{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
-  .chip{
-    display:flex; align-items:center; gap:5px; background:#F4F4F5; border:1px solid var(--border);
-    border-radius:16px; padding:5px 6px 5px 12px; font-size:12.5px;
-  }
-  .chip button{
-    background:none; border:none; color:var(--text-secondary); font-size:14px; cursor:pointer;
-    width:18px; height:18px; display:flex; align-items:center; justify-content:center;
-  }
-  .chip.chip-excluded{ background:#FFF4E5; border-color:#F4D9A8; }
-
-  .user-row{
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-    padding:10px 4px; border-bottom:1px solid var(--border);
-  }
-  .user-row:last-child{ border-bottom:none; }
-  .user-info{ display:flex; align-items:center; gap:8px; min-width:0; }
-  .user-avatar{
-    width:28px; height:28px; border-radius:50%; background:var(--accent); color:#fff;
-    display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:700; flex-shrink:0;
-  }
-  .user-name-wrap{ min-width:0; }
-  .user-name{ font-size:13.5px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .user-tag{
-    display:inline-block; font-size:10px; font-weight:700; color:var(--accent-dark);
-    background:#EAF3FE; border-radius:6px; padding:1px 6px; margin-left:6px; vertical-align:1px;
-  }
-  .user-meta{ font-size:11.5px; color:var(--text-secondary); margin-top:1px; }
-  .user-stat{ text-align:right; flex-shrink:0; }
-  .user-stat .val{ font-family:var(--mono); font-size:14px; font-weight:700; color:var(--accent); }
-  .user-stat .lbl{ font-size:10px; color:var(--text-secondary); }
-
-  .payroll-row{
-    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
-    padding:14px 16px; margin-bottom:10px;
-  }
-  .payroll-worker{ font-size:14px; font-weight:700; color:var(--text); margin-bottom:10px; }
-  .payroll-total{
-    display:flex; justify-content:space-between; align-items:center; margin-top:10px;
-    padding-top:10px; border-top:1px dashed var(--border); font-size:13px; color:var(--text-secondary);
-  }
-  .payroll-total .val{ font-family:var(--mono); font-size:16px; font-weight:800; color:var(--accent); }
-
-  /* Блок расчёта зарплаты по средней стоимости изделия */
-  .payroll-calc{
-    border:1px dashed var(--border); border-radius:12px; padding:10px 12px;
-    background:#FAFBFF; margin-bottom:4px;
-  }
-  .payroll-calc summary{
-    font-size:12.5px; font-weight:700; color:var(--accent-dark); cursor:pointer; list-style:none;
-  }
-  .payroll-calc summary::-webkit-details-marker{ display:none; }
-  .payroll-calc summary::before{ content:'▸ '; }
-  .payroll-calc[open] summary::before{ content:'▾ '; }
-  .calc-stats{ display:flex; flex-direction:column; gap:5px; margin:8px 0 10px; }
-  .calc-stat{
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-    font-size:12px; color:var(--text-secondary);
-  }
-  .calc-stat b{ font-family:var(--mono); font-size:12.5px; color:var(--text); font-weight:700; white-space:nowrap; }
-  .calc-salary{
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-    background:#E9F9EE; border:1px solid #B9E8C6; border-radius:10px; padding:10px 12px;
-  }
-  .calc-salary .lbl{ font-size:12.5px; color:#1E8A44; font-weight:600; }
-  .calc-salary .val{ font-family:var(--mono); font-size:16px; font-weight:800; color:#1E8A44; white-space:nowrap; }
-  .calc-autofill{
-    display:flex; align-items:center; gap:8px; margin-top:10px;
-    font-size:12.5px; color:var(--text-secondary);
-  }
-  .calc-autofill input{ width:auto; margin:0; }
-
-  .btn{
-    display:flex; align-items:center; justify-content:center; gap:6px;
-    width:100%; padding:13px 16px; border-radius:12px; border:none;
-    font-size:15.5px; font-weight:600; cursor:pointer; font-family:inherit;
-  }
-  .btn-primary{ background:var(--accent); color:#fff; }
-  .btn-primary:active{ background:var(--accent-dark); }
-  .btn-secondary{ background:#fff; color:var(--accent); border:1.5px solid var(--accent); }
-  .btn-whatsapp{ background:var(--whatsapp); color:#fff; }
-  .btn-whatsapp:active{ background:var(--whatsapp-dark); }
-  .btn-telegram{ background:var(--telegram); color:#fff; }
-  .btn-telegram:active{ background:var(--telegram-dark); }
-  .btn-vk{ background:var(--vk); color:#fff; }
-  .btn-vk:active{ background:var(--vk-dark); }
-  .btn[disabled]{ opacity:.5; cursor:not-allowed; }
-
-  .hint{ font-size:12px; color:var(--text-secondary); line-height:1.4; margin-top:6px; }
-
-  .section-title{
-    font-size:13px; font-weight:600; color:var(--text-secondary);
-    text-transform:uppercase; letter-spacing:.3px; margin:20px 0 8px 4px;
-  }
-  .section-title:first-child{ margin-top:0; }
-
-  .worker-block{ margin-bottom:4px; }
-  .worker-header{ display:flex; align-items:center; justify-content:space-between; padding:0 4px; margin:14px 0 6px; }
-  .worker-name{ font-size:14.5px; font-weight:700; color:var(--text); }
-  .worker-name .avatar{
-    display:inline-flex; align-items:center; justify-content:center;
-    width:20px; height:20px; border-radius:50%; background:var(--accent);
-    color:#fff; font-size:10.5px; font-weight:700; margin-right:6px; vertical-align:-4px;
-  }
-  .worker-subtotal{ font-family:var(--mono); font-size:13px; color:var(--text-secondary); }
-
-  .entry-row{
-    display:flex; align-items:center; justify-content:space-between;
-    background:var(--card); border:1px solid var(--border); border-radius:12px;
-    padding:12px 14px; margin-bottom:8px;
-  }
-  .entry-info{ flex:1; min-width:0; }
-  .entry-part{ font-size:15px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .entry-meta{ font-size:12px; color:var(--text-secondary); margin-top:2px; }
-  .entry-qty{ font-family:var(--mono); font-size:17px; font-weight:700; color:var(--accent); margin-left:10px; white-space:nowrap; }
-  .entry-del{ background:none; border:none; color:var(--text-secondary); font-size:18px; padding:4px 8px; margin-left:6px; cursor:pointer; }
-
-  .empty-state{ text-align:center; padding:32px 20px; color:var(--text-secondary); }
-  .empty-state .emoji{ font-size:32px; margin-bottom:8px; }
-  .empty-state .msg{ font-size:14px; line-height:1.5; }
-
-  .day-total-bar{
-    display:flex; align-items:center; justify-content:space-between;
-    background:#EAF3FE; border:1px solid #CFE4FB; border-radius:12px;
-    padding:12px 16px; margin:16px 0;
-  }
-  .day-total-bar .label{ font-size:13.5px; color:var(--accent-dark); font-weight:600; }
-  .day-total-bar .val{ font-family:var(--mono); font-size:19px; font-weight:800; color:var(--accent-dark); }
-  .day-total-bar.personal{ background:#E9F9EE; border-color:#B9E8C6; }
-
-  .mini-dash{ display:flex; gap:8px; margin-bottom:14px; }
-  .mini-dash-item{
-    flex:1; background:var(--card); border:1px solid var(--border); border-radius:12px;
-    padding:12px 6px; text-align:center;
-  }
-  .mini-dash-val{ font-family:var(--mono); font-size:20px; font-weight:800; color:var(--accent); line-height:1.1; }
-  .mini-dash-lbl{ font-size:10.5px; color:var(--text-secondary); margin-top:3px; text-transform:uppercase; letter-spacing:.2px; }
-  .day-total-bar.personal .label{ color:#1E8A44; }
-  .day-total-bar.personal .val{ color:#1E8A44; }
-
-  .sched-legend{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
-  .sched-legend-item{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-secondary); }
-  .sched-legend-dot{ width:14px; height:14px; border-radius:5px; flex-shrink:0; }
-
-  .sched-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:var(--radius); border:1px solid var(--border); background:#fff; }
-  table.sched-table{ border-collapse:collapse; font-size:12px; }
-  table.sched-table th, table.sched-table td{ padding:0; text-align:center; }
-  table.sched-table th{
-    font-size:10.5px; font-weight:700; color:var(--text-secondary); padding:8px 4px;
-    border-bottom:1.5px solid var(--border); background:#FAFAFA; position:sticky; top:0;
-  }
-  .sched-worker-cell{
-    position:sticky; left:0; background:#FAFAFA; text-align:left !important;
-    padding:10px 12px !important; font-weight:600; font-size:12.5px; white-space:nowrap;
-    border-right:1.5px solid var(--border); z-index:2;
-  }
-  .sched-day-col{ width:34px; min-width:34px; }
-  .sched-cell{
-    width:34px; height:34px; cursor:pointer; border-bottom:1px solid var(--border);
-    border-left:1px solid #F4F4F5;
-  }
-  .sched-cell:not(.owner-editable){ cursor:default; }
-  .sched-badge{
-    width:26px; height:26px; margin:4px auto; border-radius:7px;
-    display:flex; align-items:center; justify-content:center;
-    font-size:11px; font-weight:800; color:#fff;
-  }
-
-  .sched-my-list{ margin-top:4px; }
-  .sched-my-row{
-    display:flex; align-items:center; justify-content:space-between;
-    background:var(--card); border:1px solid var(--border); border-radius:12px;
-    padding:11px 14px; margin-bottom:8px;
-  }
-  .sched-my-date{ font-size:14px; font-weight:600; }
-  .sched-my-type{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary); }
-
-  .tabbar{
-    position:fixed; bottom:0; left:50%; transform:translateX(-50%);
-    width:100%; max-width:480px; background:#fff; border-top:1px solid var(--border);
-    display:flex; padding-bottom:env(safe-area-inset-bottom); z-index:15;
-  }
-  .tab-btn{
-    flex:1; background:none; border:none; padding:9px 4px 8px;
-    display:flex; flex-direction:column; align-items:center; gap:3px;
-    color:var(--text-secondary); font-family:inherit; cursor:pointer;
-  }
-  .tab-btn .tab-icon{ font-size:20px; line-height:1; }
-  .tab-btn .tab-label{ font-size:11px; font-weight:600; }
-  .tab-btn.active{ color:var(--accent); }
-
-  .reg-wrap{ padding:40px 20px; display:flex; flex-direction:column; align-items:center; }
-  .reg-logo{
-    width:64px;height:64px; border-radius:18px; background:var(--accent);
-    display:flex;align-items:center;justify-content:center; font-size:30px; margin-bottom:16px; color:#fff;
-  }
-  .reg-title{ font-size:20px; font-weight:700; margin-bottom:4px; text-align:center; }
-  .reg-sub{ font-size:14px; color:var(--text-secondary); text-align:center; margin-bottom:28px; line-height:1.5; }
-  .reg-card{ width:100%; }
-
-  .seg-control{ display:flex; flex-wrap:wrap; gap:6px; background:#F0F1F3; border-radius:12px; padding:4px; }
-  .seg-btn{
-    flex:1 1 30%; min-width:30%; border:none; background:none; padding:9px 4px 8px; border-radius:9px;
-    font-size:10.5px; font-weight:600; color:var(--text-secondary); cursor:pointer; font-family:inherit;
-    line-height:1.25;
-  }
-  .seg-btn.active{ background:#fff; color:var(--accent); box-shadow:0 1px 3px rgba(0,0,0,.08); }
-
-  .code-reveal{
-    background:#EAF3FE; border:1.5px dashed var(--accent); border-radius:12px;
-    padding:14px; text-align:center; margin-top:6px;
-  }
-  .code-reveal .code-val{
-    font-family:var(--mono); font-size:24px; font-weight:800; letter-spacing:3px; color:var(--accent-dark);
-    margin:4px 0 8px;
-  }
-
-  .report-doc{ background:#fff; border-radius:var(--radius); padding:20px 18px; border:1px solid var(--border); }
-  .report-doc h2{ font-size:16px; margin:0 0 2px; text-align:center; }
-  .report-doc .report-meta{ font-size:12.5px; color:var(--text-secondary); text-align:center; margin-bottom:16px; }
-  .report-doc .report-field{ display:flex; justify-content:space-between; font-size:13.5px; padding:6px 0; border-bottom:1px dashed var(--border); }
-  .report-doc .report-field span:first-child{ color:var(--text-secondary); }
-  .report-section-title{
-    font-size:11.5px; font-weight:700; color:var(--text-secondary); text-transform:uppercase;
-    letter-spacing:.3px; margin:16px 0 2px;
-  }
-  table.report-table{ width:100%; border-collapse:collapse; margin-top:14px; font-size:13.5px; }
-  table.report-table th{ text-align:left; font-size:11.5px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.2px; padding:7px 4px; border-bottom:1.5px solid var(--text); }
-  table.report-table td{ padding:8px 4px; border-bottom:1px solid var(--border); }
-  table.report-table td.qty{ font-family:var(--mono); font-weight:700; text-align:right; }
-  table.report-table tr.cat-row td{
-    background:#F4F4F5; font-weight:700; font-size:12px; text-transform:uppercase;
-    letter-spacing:.3px; color:var(--accent-dark); padding-top:10px; padding-bottom:6px; border-bottom:1px solid var(--border);
-  }
-  .report-total{ display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:12px; border-top:2px solid var(--text); font-weight:700; font-size:15px; }
-  .report-total .val{ font-family:var(--mono); color:var(--accent); font-size:18px; }
-  .report-actions{ display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
-  .report-actions .btn{ flex:1; min-width:130px; }
-
-  .naryad-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:var(--radius); }
-  .naryad-doc{ background:#fff; border-radius:var(--radius); border:1px solid var(--border); padding:16px; }
-  .naryad-head{ text-align:center; margin-bottom:10px; }
-  .naryad-head h2{ font-size:15px; margin:0 0 6px; }
-  .naryad-head .row{ display:flex; justify-content:space-between; font-size:12px; padding:2px 0; border-bottom:1px dashed var(--border); }
-  .naryad-head .row span:first-child{ color:var(--text-secondary); }
-  table.naryad-table{ border-collapse:collapse; font-size:10px; white-space:nowrap; margin-top:10px; }
-  table.naryad-table th, table.naryad-table td{
-    border:1px solid var(--border); padding:3px 4px; text-align:center; min-width:20px;
-  }
-  table.naryad-table th{ background:#F4F4F5; font-weight:700; font-size:9.5px; }
-  table.naryad-table td.naryad-name{ text-align:left; min-width:120px; font-weight:600; white-space:normal; }
-  table.naryad-table td.naryad-future{ background:#FAFAFA; }
-  table.naryad-table td.naryad-total{ font-family:var(--mono); font-weight:700; background:#F4F4F5; }
-  table.naryad-table tr.naryad-sum-row td{ font-weight:700; background:#EAF3FE; }
-  .naryad-sign{ display:flex; justify-content:space-between; gap:20px; margin-top:16px; font-size:11.5px; }
-  .naryad-sign div{ flex:1; border-top:1px solid var(--text); padding-top:4px; color:var(--text-secondary); }
-
-  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
-  .cal-weekday{ font-size:10px; font-weight:700; color:var(--text-secondary); text-align:center; padding:4px 0; text-transform:uppercase; }
-  .cal-day{
-    aspect-ratio:1; border-radius:10px; border:1.5px solid var(--border); background:#FAFAFA;
-    cursor:pointer; padding:0; position:relative; overflow:hidden;
-  }
-  .cal-day.empty{ visibility:hidden; cursor:default; }
-  .cal-day.today{ border-color:var(--accent); border-width:2px; }
-  .cal-day.selected{ outline:2px solid var(--accent-dark); outline-offset:1px; }
-  .cal-day-fill{ position:absolute; inset:0; display:flex; flex-direction:column; }
-  .cal-day-fill > div{ flex:1; }
-  .cal-day-num{
-    position:absolute; top:3px; left:3px; z-index:2;
-    background:rgba(255,255,255,.88); color:var(--text);
-    font-size:10.5px; font-weight:700; line-height:1; border-radius:6px; padding:3px 5px;
-  }
-
-  .shift-chip{ display:flex; align-items:center; gap:6px; }
-  .shift-dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-
-  .day-editor-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 0; border-bottom:1px solid var(--border); }
-  .day-editor-row:last-child{ border-bottom:none; }
-  .day-editor-worker{ font-size:14px; font-weight:600; flex:1; min-width:0; }
-  .day-editor-row select{ width:150px; flex-shrink:0; }
-
-  @media print{
-    body *{ visibility:hidden; }
-    .report-doc, .report-doc *{ visibility:visible; }
-    .report-doc{ position:absolute; top:0; left:0; width:100%; border:none; }
-    .naryad-doc, .naryad-doc *{ visibility:visible; }
-    .naryad-doc{ position:absolute; top:0; left:0; width:100%; border:none; }
-  }
-
-  .toast{
-    position:fixed; bottom:78px; left:50%; transform:translateX(-50%);
-    background:#1C1C1E; color:#fff; padding:10px 18px; border-radius:20px;
-    font-size:13.5px; z-index:100; opacity:0; transition:opacity .25s, bottom .25s;
-    pointer-events:none; white-space:nowrap;
-  }
-  .toast.show{ opacity:1; bottom:88px; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #f4f6f8; color: #222; padding-bottom: 70px; }
+  header { background: #2563eb; color: #fff; padding: 12px 16px; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 6px rgba(0,0,0,.1); }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header .sub { font-size: 12px; opacity: .85; }
+  .container { max-width: 720px; margin: 0 auto; padding: 12px; }
+  .card { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .card h2 { font-size: 16px; margin-bottom: 10px; color: #1e3a8a; }
+  .card h3 { font-size: 14px; margin: 10px 0 6px; color: #374151; }
+  label { display: block; font-size: 13px; color: #4b5563; margin: 8px 0 4px; }
+  input, select, textarea { width: 100%; padding: 9px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; background: #fff; }
+  input:focus, select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+  button { padding: 10px 14px; border: none; border-radius: 8px; background: #2563eb; color: #fff; font-size: 14px; cursor: pointer; font-weight: 500; }
+  button:hover { background: #1d4ed8; }
+  button.secondary { background: #e5e7eb; color: #111827; }
+  button.secondary:hover { background: #d1d5db; }
+  button.danger { background: #dc2626; }
+  button.danger:hover { background: #b91c1c; }
+  button.success { background: #059669; }
+  button.small { padding: 5px 9px; font-size: 12px; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .tabs { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; border-top: 1px solid #e5e7eb; z-index: 10; }
+  .tab { flex: 1; padding: 8px 4px; text-align: center; font-size: 11px; color: #6b7280; cursor: pointer; border: none; background: none; }
+  .tab.active { color: #2563eb; font-weight: 600; }
+  .tab .ico { display: block; font-size: 18px; margin-bottom: 2px; }
+  .hidden { display: none !important; }
+  .record { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; margin-bottom: 8px; background: #fafafa; }
+  .record .top { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
+  .record .qty { font-size: 18px; font-weight: 600; color: #059669; }
+  .record .meta { font-size: 12px; color: #6b7280; margin-top: 4px; }
+  .record .actions { display: flex; gap: 4px; }
+  .stat { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+  .stat:last-child { border-bottom: none; }
+  .stat .v { font-weight: 600; color: #1e3a8a; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; background: #dbeafe; color: #1e40af; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 12px; }
+  .modal { background: #fff; border-radius: 12px; padding: 16px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { margin-bottom: 12px; }
+  details.summary { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
+  details.summary > summary { cursor: pointer; font-weight: 600; color: #1e40af; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+  details.summary > summary::after { content: '▼'; font-size: 10px; transition: transform .2s; }
+  details.summary[open] > summary::after { transform: rotate(180deg); }
+  details.summary > summary::-webkit-details-marker { display: none; }
+  details.summary .body { margin-top: 10px; }
+  .log-entry { font-size: 12px; padding: 6px 8px; background: #fef3c7; border-left: 3px solid #f59e0b; margin-bottom: 4px; border-radius: 4px; }
+  .log-entry .ts { color: #6b7280; font-size: 11px; }
+  .month-group { margin-bottom: 16px; }
+  .month-group h3 { background: #1e40af; color: #fff; padding: 8px 12px; border-radius: 8px 8px 0 0; font-size: 14px; }
+  .month-group .body { border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; padding: 10px; background: #fff; }
+  .filter-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .filter-bar .full { grid-column: 1 / -1; }
+  .empty { text-align: center; color: #9ca3af; padding: 20px; font-size: 13px; }
+  .toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: #059669; color: #fff; padding: 10px 18px; border-radius: 8px; z-index: 200; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+  .toast.err { background: #dc2626; }
+  .code-box { background: #111827; color: #10b981; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 16px; text-align: center; letter-spacing: 2px; margin: 8px 0; }
+  .chip { display: inline-block; padding: 4px 10px; background: #e0e7ff; color: #3730a3; border-radius: 12px; font-size: 12px; margin: 2px; cursor: pointer; }
+  .chip.active { background: #2563eb; color: #fff; }
 </style>
 </head>
 <body>
 
-<div id="app">
+<header>
+  <h1>🏭 Учёт деталей</h1>
+  <div class="sub" id="headerSub">Войдите или создайте бригаду</div>
+</header>
 
-  <!-- ========== ЭКРАН: НУЖНА НАСТРОЙКА FIREBASE ========== -->
-  <div id="view-setup" style="display:none;">
-    <div class="reg-wrap">
-      <div class="reg-logo">⚙️</div>
-      <div class="reg-title">Нужна настройка</div>
-      <div class="reg-sub">
-        Чтобы работники могли присоединяться со своих телефонов, приложению нужна
-        бесплатная база Firebase. Впишите свои ключи в переменную
-        <b>firebaseConfig</b> в начале &lt;script&gt; — инструкция дана отдельно.
-        Пока ключи не вписаны, регистрация недоступна.
-      </div>
-    </div>
-  </div>
+<div class="container" id="app"></div>
 
-  <!-- ========== РЕГИСТРАЦИЯ ========== -->
-  <div id="view-register" style="display:none;">
-    <div class="reg-wrap">
-      <div class="reg-logo">🏭</div>
-      <div class="reg-title">Учёт выработки</div>
-      <div class="reg-sub">Укажите свои данные — они сохранятся,<br>и при следующем входе вводить их не нужно</div>
-      <div class="card reg-card">
-        <div class="field">
-          <label>Фамилия Имя Отчество</label>
-          <input type="text" id="reg-fio" placeholder="Иванов Иван Иванович" autocomplete="off">
-        </div>
-
-        <div class="field">
-          <label>Бригада</label>
-          <div class="seg-control" id="reg-mode">
-            <button class="seg-btn active" data-mode="create">Создать новую</button>
-            <button class="seg-btn" data-mode="join">Присоединиться по коду</button>
-          </div>
-        </div>
-
-        <div id="reg-create-fields">
-          <div class="field">
-            <label>Наименование завода / цеха</label>
-            <input type="text" id="reg-factory" placeholder="ООО «Металлист», цех №3" autocomplete="off">
-          </div>
-        </div>
-
-        <div id="reg-join-fields" style="display:none;">
-          <div class="field">
-            <label>Код бригады</label>
-            <input type="text" id="reg-code" placeholder="Например: A1B2C3" autocomplete="off" style="text-transform:uppercase;">
-            <div class="hint">Код даёт мастер бригады — он получил его при создании</div>
-          </div>
-        </div>
-
-        <div class="field" style="margin-top:4px;">
-          <button class="btn btn-primary" id="btn-register">Продолжить</button>
-        </div>
-      </div>
-
-      <div class="card reg-card" id="code-reveal-card" style="display:none;">
-        <div class="code-reveal">
-          <div style="font-size:12.5px;color:var(--text-secondary);">Код вашей бригады — сохраните и отправьте работникам</div>
-          <div class="code-val" id="reveal-code-val">——————</div>
-          <button class="btn btn-secondary" id="btn-copy-reveal-code">📋 Скопировать код</button>
-        </div>
-        <button class="btn btn-primary" style="margin-top:12px;" id="btn-continue-after-reveal">Продолжить в приложение</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ========== ОСНОВНОЕ ПРИЛОЖЕНИЕ ========== -->
-  <div id="view-main" style="display:none;">
-
-    <div class="topbar">
-      <div class="topbar-row">
-        <div>
-          <div class="topbar-title" id="home-fio">—</div>
-          <div class="topbar-sub" id="home-factory">—</div>
-          <div class="topbar-code" id="home-code">Код: ——————</div>
-        </div>
-        <div class="topbar-actions">
-          <button class="icon-btn" id="btn-copy-code" title="Скопировать код бригады">📋</button>
-          <button class="icon-btn" id="btn-refresh" title="Обновить данные бригады">🔄</button>
-          <button class="icon-btn" id="btn-edit-profile" title="Изменить профиль">✎</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ---- ВВОД ---- -->
-    <div id="tab-entry" class="content">
-      <div class="mini-dash">
-        <div class="mini-dash-item">
-          <div class="mini-dash-val" id="dash-today">0</div>
-          <div class="mini-dash-lbl">Сегодня</div>
-        </div>
-        <div class="mini-dash-item">
-          <div class="mini-dash-val" id="dash-week">0</div>
-          <div class="mini-dash-lbl">За неделю</div>
-        </div>
-        <div class="mini-dash-item">
-          <div class="mini-dash-val" id="dash-month">0</div>
-          <div class="mini-dash-lbl">За месяц</div>
-        </div>
-      </div>
-
-      <div class="day-total-bar personal" id="my-payroll-bar" style="margin-bottom:14px;">
-        <div style="display:flex; flex-direction:column; min-width:0;">
-          <span class="label">Моя зарплата за месяц</span>
-          <span class="hint" id="my-payroll-hint" style="display:none; margin-top:2px; font-size:11.5px; opacity:.8;"></span>
-        </div>
-        <span class="val" id="my-payroll-val">0 ₽</span>
-      </div>
-
-      <div class="day-total-bar" id="payroll-summary-bar" style="display:none;">
-        <span class="label">Зарплата бригады за месяц</span>
-        <span class="val" id="payroll-summary-val">0 ₽</span>
-      </div>
-
-      <div class="card" id="my-calc-card" style="margin-bottom:16px;">
-        <div class="manage-block-title">📊 Моя зарплата по средней стоимости изделия</div>
-        <div class="hint" style="margin:6px 0 12px;">
-          Введите свою зарплату за прошлый месяц. Приложение посчитает среднюю стоимость
-          изделия (зарплата ÷ выработка прошлого месяца) и умножит её на вашу выработку
-          за текущий месяц.
-        </div>
-        <div class="field" style="margin-bottom:10px;">
-          <label>Моя зарплата за прошлый месяц (<span id="my-calc-prev-month">—</span>), ₽</label>
-          <input type="number" id="my-calc-prev-salary" placeholder="0" min="0" inputmode="decimal">
-        </div>
-        <div class="calc-stats" id="my-calc-stats"></div>
-        <div class="calc-salary">
-          <span class="lbl">Расчётная зарплата за текущий месяц</span>
-          <span class="val" id="my-calc-salary">0 ₽</span>
-        </div>
-        <button class="btn btn-primary" id="btn-save-my-calc" style="margin-top:10px;">Сохранить</button>
-      </div>
-
-      <details class="manage-details" id="users-panel" style="margin-bottom:16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px;">
-        <summary>👥 Участники бригады (<span id="users-count">0</span>)</summary>
-        <div class="manage-block" id="users-list-view"></div>
-      </details>
-
-      <div class="field" style="margin-bottom:16px;">
-        <label>Дата</label>
-        <input type="date" id="entry-date">
-      </div>
-
-      <div class="section-title">Новая запись</div>
-      <div class="card">
-        <div class="field">
-          <label>Категория</label>
-          <div class="select-with-btn">
-            <select id="in-cat-select"></select>
-            <button class="add-btn" id="btn-toggle-add-cat" title="Добавить категорию">+</button>
-          </div>
-          <div class="add-panel" id="add-cat-panel">
-            <input type="text" id="in-new-cat" placeholder="Новая категория">
-            <button class="save-btn" id="btn-save-cat">Сохранить</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Наименование детали</label>
-          <div class="select-with-btn">
-            <select id="in-part-select"></select>
-            <button class="add-btn" id="btn-toggle-add-part" title="Добавить деталь">+</button>
-          </div>
-          <div class="add-panel" id="add-part-panel">
-            <input type="text" id="in-new-part" placeholder="Новая деталь">
-            <button class="save-btn" id="btn-save-part">Сохранить</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Количество, шт</label>
-          <input type="number" id="in-qty" placeholder="0" min="1" inputmode="numeric">
-        </div>
-        <button class="btn btn-primary" id="btn-add">+ Добавить запись</button>
-
-        <details class="manage-details">
-          <summary>Управлять категориями и деталями</summary>
-          <div class="manage-block">
-            <div class="manage-block-title">Категории</div>
-            <div class="chip-list" id="cat-chip-list"></div>
-            <div class="manage-block-title">Детали</div>
-            <div class="chip-list" id="part-chip-list"></div>
-          </div>
-        </details>
-      </div>
-
-      <div class="section-title">Мои записи за дату</div>
-      <div id="entries-list"></div>
-
-      <div class="day-total-bar">
-        <span class="label">Итого за дату, шт</span>
-        <span class="val" id="day-total">0</span>
-      </div>
-    </div>
-
-    <!-- ---- БРИГАДА ---- -->
-    <div id="tab-team" class="content" style="display:none;">
-      <div class="field" style="margin-bottom:16px;">
-        <label>Дата (смена)</label>
-        <input type="date" id="team-date">
-      </div>
-
-      <div class="section-title">Работники бригады</div>
-      <div class="card">
-        <div class="hint" style="margin-top:0;margin-bottom:12px;">
-          Работники, которые сами присоединятся по коду бригады на своём телефоне, появятся здесь
-          автоматически. Тут можно добавить и тех, у кого нет телефона с приложением — вручную.
-        </div>
-        <div class="select-with-btn">
-          <input type="text" id="in-new-worker" placeholder="ФИО работника">
-          <button class="add-btn" id="btn-add-worker" title="Добавить работника">+</button>
-        </div>
-        <div class="chip-list" id="worker-chip-list" style="margin-top:12px;"></div>
-      </div>
-
-      <div class="section-title">Сдельная запись за другого работника</div>
-      <div class="card">
-        <div class="field">
-          <label>Работник</label>
-          <select id="in-worker-select"></select>
-        </div>
-        <div class="field">
-          <label>Категория</label>
-          <select id="team-cat-select"></select>
-        </div>
-        <div class="field">
-          <label>Наименование детали</label>
-          <select id="team-part-select"></select>
-        </div>
-        <div class="field">
-          <label>Количество, шт</label>
-          <input type="number" id="in-team-qty" placeholder="0" min="1" inputmode="numeric">
-        </div>
-        <button class="btn btn-primary" id="btn-team-add">+ Добавить запись</button>
-      </div>
-
-      <div class="section-title">Данные за смену (вся бригада)</div>
-      <div id="team-list"></div>
-
-      <div class="day-total-bar">
-        <span class="label">Итого по бригаде, шт</span>
-        <span class="val" id="team-day-total">0</span>
-      </div>
-    </div>
-
-    <!-- ---- ГРАФИК ---- -->
-    <div id="tab-schedule" class="content" style="display:none;">
-      <div class="field" style="margin-bottom:16px;">
-        <label>Месяц</label>
-        <input type="month" id="sched-month">
-      </div>
-
-      <div class="card" id="shift-types-card">
-        <div class="manage-block-title" style="margin-bottom:8px;">Типы смен</div>
-        <div class="chip-list" id="shift-type-chip-list"></div>
-        <div class="select-with-btn">
-          <input type="text" id="in-new-shift-name" placeholder="Название (например, Ночь)">
-          <input type="color" id="in-new-shift-color" value="#3390EC" style="width:44px;flex:0 0 44px;padding:2px;">
-          <button class="add-btn" id="btn-add-shift-type" title="Добавить тип смены">+</button>
-        </div>
-      </div>
-
-      <div class="card" id="rotation-card">
-        <div class="manage-block-title" style="margin-bottom:8px;">Шаблон ротации</div>
-        <div class="field">
-          <label>Работник</label>
-          <select id="rot-worker-select"></select>
-        </div>
-        <div class="field">
-          <label>Тип шаблона</label>
-          <div class="seg-control" id="rot-pattern-mode">
-            <button class="seg-btn active" data-pattern="simple">Смена / отдых</button>
-            <button class="seg-btn" data-pattern="dayoffnight">День / выходной / ночь</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Дата начала</label>
-          <input type="date" id="rot-start-date">
-        </div>
-
-        <div id="rot-simple-fields">
-          <div class="field-row">
-            <div class="field">
-              <label>Тип смены (рабочие дни)</label>
-              <select id="rot-shift-select"></select>
-            </div>
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label>Дней в смене</label>
-              <input type="number" id="rot-work-days" placeholder="2" min="1">
-            </div>
-            <div class="field">
-              <label>Дней отдыха</label>
-              <input type="number" id="rot-off-days" placeholder="2" min="0">
-            </div>
-          </div>
-          <div class="hint" style="margin-bottom:10px;">Заполнит месяц по шаблону: N дней смены, затем M дней отдыха, и по кругу.</div>
-        </div>
-
-        <div id="rot-3block-fields" style="display:none;">
-          <div class="field-row">
-            <div class="field">
-              <label>Тип смены (день)</label>
-              <select id="rot-day-shift-select"></select>
-            </div>
-            <div class="field">
-              <label>Тип смены (ночь)</label>
-              <select id="rot-night-shift-select"></select>
-            </div>
-          </div>
-          <div class="field">
-            <label>Дней в каждом блоке</label>
-            <input type="number" id="rot-block-days" placeholder="2" min="1">
-          </div>
-          <div class="hint" style="margin-bottom:10px;">Заполнит месяц по кругу: N дней в день → N дней выходных → N дней в ночь → N дней выходных — и снова сначала. Выходные дни используют тип «Выходной».</div>
-          <div class="hint" style="margin-bottom:10px;">Например, при N = 2 получится: 2 в день, 2 выходных, 2 в ночь, 2 выходных.</div>
-        </div>
-
-        <button class="btn btn-primary" id="btn-apply-rotation">Заполнить месяц по шаблону</button>
-      </div>
-
-      <div class="section-title">Календарь</div>
-      <div class="card">
-        <div class="field" style="margin-bottom:12px;">
-          <label>Показать график</label>
-          <select id="cal-filter-select"></select>
-        </div>
-        <div class="cal-grid" id="cal-weekdays"></div>
-        <div class="cal-grid" id="cal-grid" style="margin-top:6px;"></div>
-      </div>
-
-      <div class="card" id="day-editor-card" style="display:none;">
-        <div class="manage-block-title" id="day-editor-title" style="margin-bottom:8px;"></div>
-        <div id="day-editor-rows"></div>
-        <button class="btn btn-primary" id="btn-save-day-schedule" style="margin-top:12px;">Сохранить</button>
-      </div>
-    </div>
-
-    <!-- ---- ЗАРПЛАТА ---- -->
-    <div id="tab-payroll" class="content" style="display:none;">
-      <div class="field" style="margin-bottom:16px;">
-        <label>Месяц</label>
-        <input type="month" id="payroll-month">
-      </div>
-
-      <div class="card" style="margin-bottom:6px;">
-        <div class="manage-block-title">📊 Расчёт по средней стоимости изделия</div>
-        <div class="hint" style="margin:6px 0 0;">
-          <b>Средняя стоимость изделия</b> = зарплата за прошлый месяц ÷ выработка за прошлый месяц.<br>
-          <b>Расчётная зарплата</b> = средняя стоимость изделия × выработка за выбранный месяц.
-        </div>
-        <label class="calc-autofill">
-          <input type="checkbox" id="payroll-autofill">
-          Автоматически подставлять расчётную зарплату в поле «Расчёт»
-        </label>
-      </div>
-
-      <div class="section-title">Зарплата по работникам</div>
-      <div id="payroll-list"></div>
-
-      <button class="btn btn-primary" id="btn-save-payroll" style="margin-top:4px;">Сохранить</button>
-    </div>
-
-    <!-- ---- ОТЧЁТ ---- -->
-    <div id="tab-report" class="content" style="display:none;">
-      <div class="card">
-        <div class="field">
-          <label>Тип отчёта</label>
-          <div class="seg-control" id="report-mode">
-            <button class="seg-btn active" data-mode="brigade">Бригада за смену</button>
-            <button class="seg-btn" data-mode="day">Моя сделка — день</button>
-            <button class="seg-btn" data-mode="month">Моя сделка — месяц</button>
-            <button class="seg-btn" data-mode="worker">Работник — месяц</button>
-            <button class="seg-btn" data-mode="naryad">Бланк для печати</button>
-          </div>
-        </div>
-        <div class="field" id="rep-worker-field" style="display:none;">
-          <label>Работник</label>
-          <select id="rep-worker-select"></select>
-        </div>
-        <div class="field" id="rep-date-field">
-          <label>Дата отчёта</label>
-          <input type="date" id="rep-date">
-        </div>
-        <div class="field" id="rep-month-field" style="display:none;">
-          <label>Месяц</label>
-          <input type="month" id="rep-month">
-        </div>
-        <button class="btn btn-secondary" id="btn-build-report">Сформировать выписку для мастера</button>
-      </div>
-      <div id="report-output"></div>
-    </div>
-
-    <div class="tabbar">
-      <button class="tab-btn active" data-tab="entry">
-        <span class="tab-icon">📝</span><span class="tab-label">Ввод</span>
-      </button>
-      <button class="tab-btn" data-tab="team">
-        <span class="tab-icon">👥</span><span class="tab-label">Бригада</span>
-      </button>
-      <button class="tab-btn" data-tab="schedule">
-        <span class="tab-icon">📅</span><span class="tab-label">График</span>
-      </button>
-      <button class="tab-btn" data-tab="payroll">
-        <span class="tab-icon">💰</span><span class="tab-label">Зарплата</span>
-      </button>
-      <button class="tab-btn" data-tab="report">
-        <span class="tab-icon">📄</span><span class="tab-label">Отчёт</span>
-      </button>
-    </div>
-  </div>
-
-</div>
-
-<div class="toast" id="toast"></div>
-
-<!-- Скрытый вход в админ-режим: 5 тапов по имени в шапке -->
-<div id="admin-pin-card" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:250; align-items:center; justify-content:center;">
-  <div class="card" style="width:85%; max-width:320px; margin:0;">
-    <div class="field">
-      <label>Админ-код</label>
-      <input type="password" id="admin-pin-input" placeholder="••••" inputmode="numeric">
-    </div>
-    <button class="btn btn-primary" id="btn-admin-pin-confirm">Войти</button>
-    <button class="btn btn-secondary" id="btn-admin-pin-cancel" style="margin-top:8px;">Отмена</button>
-  </div>
-</div>
-
-<!-- Админ-панель: все бригады и все пользователи бота -->
-<div id="admin-overlay" style="display:none; position:fixed; inset:0; background:var(--bg); z-index:200; max-width:480px; margin:0 auto; overflow-y:auto;">
-  <div class="topbar">
-    <div class="topbar-row">
-      <div class="topbar-title">🛠 Все пользователи бота</div>
-      <button class="icon-btn" id="btn-close-admin">✕</button>
-    </div>
-  </div>
-  <div class="content" id="admin-content"></div>
-</div>
+<nav class="tabs hidden" id="tabs">
+  <button class="tab active" data-tab="input"><span class="ico">📝</span>Ввод</button>
+  <button class="tab" data-tab="brigade"><span class="ico">👥</span>Бригада</button>
+  <button class="tab" data-tab="schedule"><span class="ico">📅</span>График</button>
+  <button class="tab" data-tab="salary"><span class="ico">💰</span>Зарплата</button>
+  <button class="tab" data-tab="history"><span class="ico">🔍</span>История</button>
+  <button class="tab" data-tab="report"><span class="ico">📄</span>Отчёт</button>
+</nav>
 
 <script>
-const $ = (id) => document.getElementById(id);
-
-// =====================================================================
-// ЗАПОЛНИТЕ СВОИМИ ДАННЫМИ ИЗ FIREBASE (бесплатно, см. инструкцию в чате)
-// =====================================================================
-const firebaseConfig = {
-  apiKey: "AIzaSyDXSBSd3BY3R4BqCmcO3n6D9ArsifgiK_Y",
-  authDomain: "uchet-b8c60.firebaseapp.com",
-  databaseURL: "https://uchet-b8c60-default-rtdb.firebaseio.com",
-  projectId: "uchet-b8c60",
-  storageBucket: "uchet-b8c60.firebasestorage.app", // не обязателен, сейчас не используется
+/* =========================================================
+   ХРАНИЛИЩЕ (localStorage)
+   ========================================================= */
+const DB = {
+  load(key, def) { try { return JSON.parse(localStorage.getItem(key)) ?? def; } catch { return def; } },
+  save(key, val) { localStorage.setItem(key, JSON.stringify(val)); },
 };
-// =====================================================================
 
-// =====================================================================
-// НАСТРОЙКА ОТПРАВКИ PDF В TELEGRAM ЧЕРЕЗ CLOUDFLARE WORKER (см. инструкцию в чате)
-// =====================================================================
-const CLOUDFLARE_WORKER_URL = "https://naryad-bot-relay.tema-tatarinov2013.workers.dev";
-const APP_SHARED_SECRET = "naryad2026xyz"; // тот же, что в настройках воркера (APP_SECRET)
-// =====================================================================
+let state = {
+  currentUser: DB.load('currentUser', null),
+  users: DB.load('users', []),
+  brigades: DB.load('brigades', []),
+  records: DB.load('records', []),
+  categories: DB.load('categories', [
+    { id: 'c1', name: 'Корпус' }, { id: 'c2', name: 'Крышка' }, { id: 'c3', name: 'Вал' }
+  ]),
+  details: DB.load('details', [
+    { id: 'd1', name: 'Корпус-100', categoryId: 'c1' },
+    { id: 'd2', name: 'Крышка-50', categoryId: 'c2' },
+    { id: 'd3', name: 'Вал-200', categoryId: 'c3' }
+  ]),
+  changeLog: DB.load('changeLog', []),
+  salarySettings: DB.load('salarySettings', {}), // { userId: { lastMonthSalary, lastMonthOutput } }
+  schedule: DB.load('schedule', {}), // { userId: { 'YYYY-MM-DD': 'day'|'night'|'off' } }
+  currentTab: 'input',
+};
 
-let db = null;
-let firebaseReady = false;
-
-function initFirebase(){
-  if(!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") return false;
-  try{
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.database();
-    firebaseReady = true;
-    return true;
-  }catch(e){ return false; }
+function persist() {
+  DB.save('currentUser', state.currentUser);
+  DB.save('users', state.users);
+  DB.save('brigades', state.brigades);
+  DB.save('records', state.records);
+  DB.save('categories', state.categories);
+  DB.save('details', state.details);
+  DB.save('changeLog', state.changeLog);
+  DB.save('salarySettings', state.salarySettings);
+  DB.save('schedule', state.schedule);
 }
 
-let PROFILE = null;   // { fio, factory, code, isOwner }  — хранится локально на устройстве
-let ENTRIES = [];     // { id, worker, category, part, qty, date, time, ts } — общие для всей бригады
-let CATEGORIES = [];
-let CATALOG = [];      // [{ name, category }]
-let WORKERS = [];      // ["Иванов Иван Иванович", ...]
-let SHIFT_TYPES = [];  // [{ id, name, color }]
-let SCHEDULE = {};     // { [date]: { [worker]: shiftTypeId } }
-let PAYROLL = {};      // { [worker]: { advance, final } } — только за выбранный месяц
-let EXCLUDED_CATEGORIES = []; // категории, которые не учитываются в ежедневном отчёте бригады
-let selectedCalDate = null;
+const uid = () => Math.random().toString(36).slice(2, 10);
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const monthKey = (d) => d.slice(0, 7);
+const fmtMoney = (n) => (Math.round(n) || 0).toLocaleString('ru-RU') + ' ₽';
+const fmtDate = (iso) => {
+  const [y, m, d] = iso.split('-');
+  return `${d}.${m}.${y}`;
+};
+const monthName = (key) => {
+  const [y, m] = key.split('-');
+  const names = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  return `${names[+m - 1]} ${y}`;
+};
 
-const DEFAULT_SHIFT_TYPES = [
-  { id: 'day',      name: 'День',        color: '#3390EC' },
-  { id: 'night',    name: 'Ночь',        color: '#7B5EEA' },
-  { id: 'off',      name: 'Выходной',    color: '#C7C7CC' },
-  { id: 'vacation', name: 'Отпуск',      color: '#34A853' },
-  { id: 'sick',     name: 'Больничный',  color: '#E5A93B' },
-];
-// Эти типы будут автоматически добавлены и в уже существующие бригады,
-// у которых типы смен уже были настроены раньше (см. ensureShiftTypesSeeded).
-const NEW_SHIFT_TYPE_IDS_TO_MERGE = ['vacation', 'sick'];
-
-function showToast(msg){
-  const t = $('toast');
+function toast(msg, err) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (err ? ' err' : '');
   t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 1800);
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
 }
 
-function showRoot(name){
-  $('view-setup').style.display = name === 'setup' ? 'block' : 'none';
-  $('view-register').style.display = name === 'register' ? 'block' : 'none';
-  $('view-main').style.display = name === 'main' ? 'block' : 'none';
-}
-
-async function switchTab(name){
-  await refreshBrigadeData();
-  ['entry','team','schedule','payroll','report'].forEach(t=>{
-    $('tab-'+t).style.display = (t===name) ? 'block' : 'none';
+/* =========================================================
+   ЛОГ ИЗМЕНЕНИЙ
+   ========================================================= */
+function logChange(recordId, field, oldValue, newValue, who) {
+  state.changeLog.push({
+    id: uid(),
+    ts: new Date().toISOString(),
+    userId: who,
+    recordId,
+    field,
+    old: oldValue,
+    new: newValue,
   });
-  document.querySelectorAll('.tab-btn').forEach(b=>{
-    b.classList.toggle('active', b.getAttribute('data-tab')===name);
-  });
-  refreshAllCategorySelects();
-  refreshAllPartSelects();
-  refreshWorkerSelect();
-  renderManageChips();
-  renderWorkerChips();
-  if(name === 'entry'){ renderEntries(); renderUsersList(); renderMiniDashboard(); refreshMyPayroll(); refreshMyCalc(); if(isOwner()) refreshPayrollSummary(); }
-  if(name === 'team') renderTeam();
-  if(name === 'schedule'){
-    refreshRotWorkerSelect();
-    refreshRotShiftSelect();
-    renderShiftTypeChips();
-    renderCalendar();
-  }
-  if(name === 'payroll') renderPayroll();
+  persist();
 }
-document.querySelectorAll('.tab-btn').forEach(btn=>{
-  btn.addEventListener('click', ()=> switchTab(btn.getAttribute('data-tab')));
+
+function getUserName(id) {
+  const u = state.users.find(x => x.id === id);
+  return u ? `${u.lastName} ${u.firstName || ''}`.trim() : '—';
+}
+function getDetailName(id) {
+  const d = state.details.find(x => x.id === id);
+  return d ? d.name : '—';
+}
+function getCategoryName(id) {
+  const c = state.categories.find(x => x.id === id);
+  return c ? c.name : '—';
+}
+
+/* =========================================================
+   РОУТЕР ВКЛАДОК
+   ========================================================= */
+document.getElementById('tabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab');
+  if (!btn) return;
+  state.currentTab = btn.dataset.tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === btn));
+  render();
 });
 
-// ---------- Локальное хранилище профиля (на этом устройстве) ----------
-const LOCAL_TIMEOUT_MS = 3500;
-let cloudBroken = false;
-let cloudBrokenNotified = false;
-const memoryFallback = {};
+/* =========================================================
+   РЕНДЕР
+   ========================================================= */
+const app = document.getElementById('app');
+const tabsEl = document.getElementById('tabs');
+const headerSub = document.getElementById('headerSub');
 
-function withTimeout(promise, ms, timeoutValue){
-  return new Promise((resolve) => {
-    let settled = false;
-    const timer = setTimeout(() => {
-      if(!settled){ settled = true; cloudBroken = true; notifyCloudBrokenOnce(); resolve(timeoutValue); }
-    }, ms);
-    promise.then((v) => {
-      if(!settled){ settled = true; clearTimeout(timer); resolve(v); }
-    }).catch(() => {
-      if(!settled){ settled = true; clearTimeout(timer); cloudBroken = true; notifyCloudBrokenOnce(); resolve(timeoutValue); }
-    });
-  });
-}
+function render() {
+  if (!state.currentUser) { renderAuth(); tabsEl.classList.add('hidden'); headerSub.textContent = 'Войдите или создайте бригаду'; return; }
+  tabsEl.classList.remove('hidden');
+  const u = state.users.find(x => x.id === state.currentUser);
+  const b = state.brigades.find(x => x.id === u.brigadeId);
+  headerSub.textContent = `${u.lastName} ${u.firstName} · ${b ? b.name : '—'}`;
 
-// Как withTimeout, но без побочных эффектов на Telegram CloudStorage —
-// для операций, не связанных с локальным облаком (например, загрузка в Firebase Storage).
-function withPlainTimeout(promise, ms, timeoutValue){
-  return new Promise((resolve) => {
-    let settled = false;
-    const timer = setTimeout(() => { if(!settled){ settled = true; resolve(timeoutValue); } }, ms);
-    promise.then((v) => { if(!settled){ settled = true; clearTimeout(timer); resolve(v); } })
-      .catch((e) => { if(!settled){ settled = true; clearTimeout(timer); console.error(e); resolve(timeoutValue); } });
-  });
-}
-function notifyCloudBrokenOnce(){
-  if(cloudBrokenNotified) return;
-  cloudBrokenNotified = true;
-  try{ showToast('⚠️ Локальное облако Telegram не отвечает — профиль сохранится только в этой сессии'); }catch(e){}
-}
-function hasTelegramCloud(){
-  const wa = window.Telegram && window.Telegram.WebApp;
-  if(!wa || !wa.CloudStorage) return false;
-  if(cloudBroken) return false;
-  if(wa.isVersionAtLeast && !wa.isVersionAtLeast('6.9')) return false;
-  return true;
-}
-function localRawGet(key){
-  if(hasTelegramCloud()){
-    const p = new Promise((resolve) => {
-      try{ window.Telegram.WebApp.CloudStorage.getItem(key, (err, value) => resolve(err || !value ? null : value)); }
-      catch(e){ resolve(null); }
-    });
-    return withTimeout(p, LOCAL_TIMEOUT_MS, null);
-  }
-  if(window.storage){
-    return window.storage.get(key, false).then(res => res ? res.value : null).catch(() => null);
-  }
-  return Promise.resolve((key in memoryFallback) ? memoryFallback[key] : null);
-}
-function localRawSet(key, value){
-  if(hasTelegramCloud()){
-    const p = new Promise((resolve) => {
-      try{ window.Telegram.WebApp.CloudStorage.setItem(key, value, (err) => resolve(!err)); }
-      catch(e){ resolve(false); }
-    });
-    return withTimeout(p, LOCAL_TIMEOUT_MS, false);
-  }
-  if(window.storage){ return window.storage.set(key, value, false).then(()=>true).catch(()=>false); }
-  memoryFallback[key] = value;
-  return Promise.resolve(true);
-}
-async function loadLocalProfile(){
-  const raw = await localRawGet('profile');
-  if(!raw) return null;
-  try{ return JSON.parse(raw); }catch(e){ return null; }
-}
-async function saveLocalProfile(p){ await localRawSet('profile', JSON.stringify(p)); }
-
-// ---------- Firebase: общие данные бригады ----------
-function bp(sub){ return `brigades/${PROFILE.code}/${sub}`; }
-
-async function fbGet(path){
-  if(!firebaseReady) return null;
-  try{ const snap = await db.ref(path).once('value'); return snap.exists() ? snap.val() : null; }
-  catch(e){ return null; }
-}
-async function fbSet(path, value){
-  if(!firebaseReady) return false;
-  try{ await db.ref(path).set(value); return true; }catch(e){ return false; }
-}
-async function fbPush(path, value){
-  if(!firebaseReady) return null;
-  try{ const ref = db.ref(path).push(); await ref.set(value); return ref.key; }catch(e){ return null; }
-}
-// Частичное обновление ветки, не затирая соседние поля (например, аванс/расчёт мастера)
-async function fbUpdate(path, value){
-  if(!firebaseReady) return false;
-  try{ await db.ref(path).update(value); return true; }catch(e){ return false; }
-}
-async function fbRemove(path){
-  if(!firebaseReady) return false;
-  try{ await db.ref(path).remove(); return true; }catch(e){ return false; }
-}
-
-function genCode(){
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let out = '';
-  for(let i=0;i<6;i++) out += chars[Math.floor(Math.random()*chars.length)];
-  return out;
-}
-async function generateUniqueCode(){
-  for(let i=0;i<5;i++){
-    const code = genCode();
-    const exists = await fbGet(`brigades/${code}`);
-    if(!exists) return code;
-  }
-  return genCode() + Date.now().toString(36).slice(-2).toUpperCase();
-}
-
-async function refreshBrigadeData(){
-  if(!PROFILE || !firebaseReady) return;
-  const [cats, cat, workers, entriesObj, shiftTypes, schedule, excludedCats] = await Promise.all([
-    fbGet(bp('categories')),
-    fbGet(bp('catalog')),
-    fbGet(bp('workers')),
-    fbGet(bp('entries')),
-    fbGet(bp('shiftTypes')),
-    fbGet(bp('schedule')),
-    fbGet(bp('excludedCategories')),
-  ]);
-  CATEGORIES = cats || [];
-  CATALOG = cat || [];
-  WORKERS = workers || [];
-  ENTRIES = entriesObj ? Object.keys(entriesObj).map(id => ({ id, ...entriesObj[id] })) : [];
-  SHIFT_TYPES = shiftTypes || [];
-  SCHEDULE = schedule || {};
-  EXCLUDED_CATEGORIES = excludedCats || [];
-}
-
-async function ensureInRoster(name){
-  const current = (await fbGet(bp('workers'))) || [];
-  if(!current.includes(name)){
-    current.push(name);
-    await fbSet(bp('workers'), current);
+  switch (state.currentTab) {
+    case 'input': renderInput(); break;
+    case 'brigade': renderBrigade(); break;
+    case 'schedule': renderSchedule(); break;
+    case 'salary': renderSalary(); break;
+    case 'history': renderHistory(); break;
+    case 'report': renderReport(); break;
   }
 }
 
-// Сохраняет настоящий Telegram ID пользователя (доступен только внутри Telegram),
-// привязанный к его ФИО — нужен внешнему скрипту, чтобы писать человеку напрямую.
-async function saveTelegramId(fio){
-  try{
-    const wa = window.Telegram && window.Telegram.WebApp;
-    const tgUser = wa && wa.initDataUnsafe && wa.initDataUnsafe.user;
-    if(!tgUser || !tgUser.id) return; // открыто не в Telegram — пропускаем, не мешаем работе
-    await fbSet(bp('telegramIds/' + fio.replace(/[.#$\[\]]/g, '_')), tgUser.id);
-  }catch(e){ /* не критично для работы приложения */ }
-}
-
-// ---------- Init ----------
-async function init(){
-  const fbOk = initFirebase();
-  if(!fbOk){ showRoot('setup'); return; }
-
-  PROFILE = await loadLocalProfile();
-  if(!PROFILE || !PROFILE.code){ showRoot('register'); return; }
-
-  const brigadeExists = await fbGet(`brigades/${PROFILE.code}`);
-  if(!brigadeExists){
-    showToast('Бригада с этим кодом больше не найдена');
-    showRoot('register');
-    return;
-  }
-
-  await refreshBrigadeData();
-  await saveTelegramId(PROFILE.fio);
-
-  $('home-fio').textContent = PROFILE.fio;
-  $('home-factory').textContent = PROFILE.factory;
-  $('home-code').textContent = 'Код: ' + PROFILE.code;
-  $('entry-date').value = toISODate(new Date());
-  $('team-date').value = toISODate(new Date());
-  $('rep-date').value = toISODate(new Date());
-  $('rep-month').value = toISODate(new Date()).slice(0,7);
-  $('sched-month').value = toISODate(new Date()).slice(0,7);
-  $('payroll-month').value = toISODate(new Date()).slice(0,7);
-
-  refreshAllCategorySelects();
-  refreshAllPartSelects();
-  refreshWorkerSelect();
-  renderManageChips();
-  renderWorkerChips();
-  renderEntries();
-  renderUsersList();
-  renderMiniDashboard();
-
-  applyRolePermissions();
-  refreshMyPayroll();
-  refreshMyCalc();
-
-  showRoot('main');
-  switchTab('entry');
-}
-
-// ---------- Права доступа: мастер (создал бригаду) vs присоединившийся работник ----------
-function isOwner(){
-  return !!(PROFILE && PROFILE.isOwner);
-}
-
-function applyRolePermissions(){
-  const owner = isOwner();
-
-  // Вкладка «Бригада» (роль-менеджмент, записи за других) — только у мастера
-  const teamTabBtn = document.querySelector('.tab-btn[data-tab="team"]');
-  if(teamTabBtn) teamTabBtn.style.display = owner ? 'flex' : 'none';
-
-  const payrollTabBtn = document.querySelector('.tab-btn[data-tab="payroll"]');
-  if(payrollTabBtn) payrollTabBtn.style.display = owner ? 'flex' : 'none';
-
-  const payrollBar = $('payroll-summary-bar');
-  if(payrollBar){
-    payrollBar.style.display = owner ? 'flex' : 'none';
-    if(owner) refreshPayrollSummary();
-  }
-
-  // Добавление/удаление категорий и деталей — только у мастера.
-  // Сами селекты остаются доступны всем, чтобы можно было выбрать деталь для своей записи.
-  $('btn-toggle-add-cat').style.display = owner ? 'flex' : 'none';
-  $('btn-toggle-add-part').style.display = owner ? 'flex' : 'none';
-  const manageDetails = document.querySelector('.manage-details');
-  if(manageDetails) manageDetails.style.display = owner ? 'block' : 'none';
-
-  // В отчёте у присоединившегося работника остаются только «свои» режимы
-  const brigadeBtn = document.querySelector('#report-mode .seg-btn[data-mode="brigade"]');
-  const workerBtn = document.querySelector('#report-mode .seg-btn[data-mode="worker"]');
-  if(brigadeBtn) brigadeBtn.style.display = owner ? 'block' : 'none';
-  if(workerBtn) workerBtn.style.display = owner ? 'block' : 'none';
-
-  // Управление типами смен и шаблоном ротации — только у мастера.
-  // Календарь при этом виден всем, чтобы работник мог посмотреть свой график.
-  const shiftTypesCard = $('shift-types-card');
-  const rotationCard = $('rotation-card');
-  if(shiftTypesCard) shiftTypesCard.style.display = owner ? 'block' : 'none';
-  if(rotationCard) rotationCard.style.display = owner ? 'block' : 'none';
-
-  if(!owner){
-    const dayBtn = document.querySelector('#report-mode .seg-btn[data-mode="day"]');
-    if(dayBtn) dayBtn.click();
-  }
-}
-
-// ---------- Регистрация: создать бригаду / присоединиться по коду ----------
-let regMode = 'create';
-document.querySelectorAll('#reg-mode .seg-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    regMode = btn.getAttribute('data-mode');
-    document.querySelectorAll('#reg-mode .seg-btn').forEach(b => b.classList.toggle('active', b === btn));
-    $('reg-create-fields').style.display = (regMode === 'create') ? 'block' : 'none';
-    $('reg-join-fields').style.display = (regMode === 'join') ? 'block' : 'none';
-  });
-});
-
-$('btn-register').addEventListener('click', async () => {
-  const fio = $('reg-fio').value.trim();
-  if(!fio){ showToast('Укажите ФИО'); return; }
-
-  const btn = $('btn-register');
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'Сохраняем...';
-
-  try{
-    if(regMode === 'create'){
-      const factory = $('reg-factory').value.trim();
-      if(!factory){ showToast('Укажите завод / цех'); btn.disabled=false; btn.textContent=originalText; return; }
-
-      const code = await generateUniqueCode();
-      PROFILE = { fio, factory, code, isOwner: true };
-      await fbSet(`brigades/${code}`, { factory, categories: [], catalog: [], workers: [fio], shiftTypes: DEFAULT_SHIFT_TYPES, schedule: {}, telegramIds: {} });
-      await saveLocalProfile(PROFILE);
-      await saveTelegramId(fio);
-
-      $('reg-fio').closest('.card').style.display = 'none';
-      $('code-reveal-card').style.display = 'block';
-      $('reveal-code-val').textContent = code;
-    }else{
-      const code = $('reg-code').value.trim().toUpperCase();
-      if(!code){ showToast('Введите код бригады'); btn.disabled=false; btn.textContent=originalText; return; }
-
-      const brigade = await fbGet(`brigades/${code}`);
-      if(!brigade){ showToast('Бригада с таким кодом не найдена'); btn.disabled=false; btn.textContent=originalText; return; }
-
-      PROFILE = { fio, factory: brigade.factory || '', code, isOwner: false };
-      await saveLocalProfile(PROFILE);
-      await ensureInRoster(fio);
-      await saveTelegramId(fio);
-      await init();
-    }
-  }catch(e){
-    showToast('Что-то пошло не так, попробуйте ещё раз');
-  }finally{
-    btn.disabled = false;
-    btn.textContent = originalText;
-  }
-});
-
-$('btn-copy-reveal-code').addEventListener('click', () => {
-  const code = $('reveal-code-val').textContent;
-  copyToClipboard(code);
-});
-$('btn-continue-after-reveal').addEventListener('click', async () => {
-  $('code-reveal-card').style.display = 'none';
-  $('reg-fio').closest('.card').style.display = 'block';
-  await init();
-});
-
-$('btn-edit-profile').addEventListener('click', () => {
-  $('reg-fio').value = PROFILE.fio;
-  if(PROFILE.isOwner){
-    regMode = 'create';
-    $('reg-factory').value = PROFILE.factory;
-  }else{
-    regMode = 'join';
-    $('reg-code').value = PROFILE.code;
-  }
-  document.querySelectorAll('#reg-mode .seg-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode')===regMode));
-  $('reg-create-fields').style.display = (regMode === 'create') ? 'block' : 'none';
-  $('reg-join-fields').style.display = (regMode === 'join') ? 'block' : 'none';
-  $('code-reveal-card').style.display = 'none';
-  $('reg-fio').closest('.card').style.display = 'block';
-  showRoot('register');
-});
-
-function copyToClipboard(text){
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(() => showToast('Код скопирован')).catch(() => fallbackCopy(text));
-  }else{
-    fallbackCopy(text);
-  }
-}
-function fallbackCopy(text){
-  const input = document.createElement('input');
-  input.value = text;
-  document.body.appendChild(input);
-  input.select();
-  try{ document.execCommand('copy'); showToast('Код скопирован'); }
-  catch(e){ showToast('Код: ' + text); }
-  document.body.removeChild(input);
-}
-$('btn-copy-code').addEventListener('click', () => copyToClipboard(PROFILE.code));
-$('btn-refresh').addEventListener('click', async () => {
-  await refreshBrigadeData();
-  refreshAllCategorySelects();
-  refreshAllPartSelects();
-  refreshWorkerSelect();
-  renderManageChips();
-  renderWorkerChips();
-  renderEntries();
-  renderUsersList();
-  renderMiniDashboard();
-  renderTeam();
-  refreshMyPayroll();
-  refreshMyCalc();
-  if(isOwner()) refreshPayrollSummary();
-  showToast('Данные бригады обновлены');
-});
-
-// ---------- Категории и детали (общий каталог бригады) ----------
-function refreshAllCategorySelects(){
-  [$('in-cat-select'), $('team-cat-select')].forEach(sel => {
-    const prev = sel.value;
-    if(CATEGORIES.length === 0){
-      sel.innerHTML = `<option value="">Сначала добавьте категорию</option>`;
-    }else{
-      sel.innerHTML = CATEGORIES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-      if(CATEGORIES.includes(prev)) sel.value = prev;
-    }
-  });
-}
-function refreshPartSelect(selectEl, category){
-  const parts = CATALOG.filter(p => p.category === category);
-  if(!category || parts.length === 0){
-    selectEl.innerHTML = `<option value="">Нет деталей в категории</option>`;
-  }else{
-    selectEl.innerHTML = parts.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join('');
-  }
-}
-function refreshAllPartSelects(){
-  refreshPartSelect($('in-part-select'), $('in-cat-select').value);
-  refreshPartSelect($('team-part-select'), $('team-cat-select').value);
-}
-$('in-cat-select').addEventListener('change', () => refreshPartSelect($('in-part-select'), $('in-cat-select').value));
-$('team-cat-select').addEventListener('change', () => refreshPartSelect($('team-part-select'), $('team-cat-select').value));
-
-$('btn-toggle-add-cat').addEventListener('click', () => { $('add-cat-panel').classList.toggle('open'); $('in-new-cat').focus(); });
-$('btn-toggle-add-part').addEventListener('click', () => {
-  if(!$('in-cat-select').value){ showToast('Сначала выберите или добавьте категорию'); return; }
-  $('add-part-panel').classList.toggle('open'); $('in-new-part').focus();
-});
-
-$('btn-save-cat').addEventListener('click', async () => {
-  if(!isOwner()){ showToast('Категории может менять только мастер бригады'); return; }
-  const name = $('in-new-cat').value.trim();
-  if(!name){ showToast('Введите название категории'); return; }
-  if(CATEGORIES.includes(name)){ showToast('Такая категория уже есть'); return; }
-  CATEGORIES.push(name);
-  await fbSet(bp('categories'), CATEGORIES);
-  $('in-new-cat').value = '';
-  $('add-cat-panel').classList.remove('open');
-  refreshAllCategorySelects();
-  $('in-cat-select').value = name;
-  refreshAllPartSelects();
-  renderManageChips();
-  showToast('Категория добавлена');
-});
-
-$('btn-save-part').addEventListener('click', async () => {
-  if(!isOwner()){ showToast('Детали может менять только мастер бригады'); return; }
-  const category = $('in-cat-select').value;
-  const name = $('in-new-part').value.trim();
-  if(!category){ showToast('Сначала выберите категорию'); return; }
-  if(!name){ showToast('Введите наименование детали'); return; }
-  if(CATALOG.some(p => p.category === category && p.name === name)){ showToast('Такая деталь уже есть в этой категории'); return; }
-  CATALOG.push({ name, category });
-  await fbSet(bp('catalog'), CATALOG);
-  $('in-new-part').value = '';
-  $('add-part-panel').classList.remove('open');
-  refreshPartSelect($('in-part-select'), category);
-  $('in-part-select').value = name;
-  renderManageChips();
-  showToast('Деталь добавлена');
-});
-
-function renderManageChips(){
-  const catWrap = $('cat-chip-list');
-  catWrap.innerHTML = CATEGORIES.length ? CATEGORIES.map(c => {
-    const excluded = EXCLUDED_CATEGORIES.includes(c);
-    return `
-    <span class="chip${excluded ? ' chip-excluded' : ''}">${escapeHtml(c)}${excluded ? ' <span style="font-size:10px;opacity:.8;">(вне отчёта)</span>' : ''}<button data-toggle-exclude="${escapeHtml(c)}" title="${excluded ? 'Учитывать в ежедневном отчёте бригады' : 'Не учитывать в ежедневном отчёте бригады'}">${excluded ? '👁' : '🚫'}</button><button data-cat="${escapeHtml(c)}" title="Удалить категорию">✕</button></span>`;
-  }).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет категорий</span>`;
-
-  catWrap.querySelectorAll('button[data-toggle-exclude]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if(!isOwner()){ showToast('Категории может менять только мастер бригады'); return; }
-      const cat = btn.getAttribute('data-toggle-exclude');
-      if(EXCLUDED_CATEGORIES.includes(cat)){
-        EXCLUDED_CATEGORIES = EXCLUDED_CATEGORIES.filter(c => c !== cat);
-      }else{
-        EXCLUDED_CATEGORIES.push(cat);
-      }
-      await fbSet(bp('excludedCategories'), EXCLUDED_CATEGORIES);
-      renderManageChips();
-      showToast(EXCLUDED_CATEGORIES.includes(cat) ? 'Категория исключена из ежедневного отчёта' : 'Категория возвращена в ежедневный отчёт');
-    });
-  });
-
-  catWrap.querySelectorAll('button[data-cat]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if(!isOwner()){ showToast('Категории может менять только мастер бригады'); return; }
-      const cat = btn.getAttribute('data-cat');
-      CATEGORIES = CATEGORIES.filter(c => c !== cat);
-      CATALOG = CATALOG.filter(p => p.category !== cat);
-      EXCLUDED_CATEGORIES = EXCLUDED_CATEGORIES.filter(c => c !== cat);
-      await fbSet(bp('categories'), CATEGORIES);
-      await fbSet(bp('catalog'), CATALOG);
-      await fbSet(bp('excludedCategories'), EXCLUDED_CATEGORIES);
-      refreshAllCategorySelects();
-      refreshAllPartSelects();
-      renderManageChips();
-      showToast('Категория удалена вместе с её деталями');
-    });
-  });
-
-  const partWrap = $('part-chip-list');
-  partWrap.innerHTML = CATALOG.length ? CATALOG.map(p => `
-    <span class="chip">${escapeHtml(p.category)} · ${escapeHtml(p.name)}<button data-name="${escapeHtml(p.name)}" data-cat="${escapeHtml(p.category)}" title="Удалить деталь">✕</button></span>
-  `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет деталей</span>`;
-  partWrap.querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if(!isOwner()){ showToast('Детали может менять только мастер бригады'); return; }
-      const name = btn.getAttribute('data-name');
-      const cat = btn.getAttribute('data-cat');
-      CATALOG = CATALOG.filter(p => !(p.name === name && p.category === cat));
-      await fbSet(bp('catalog'), CATALOG);
-      refreshAllPartSelects();
-      renderManageChips();
-      showToast('Деталь удалена');
-    });
-  });
-}
-
-// ---------- ВВОД: собственные записи (worker = я) ----------
-function renderMiniDashboard(){
-  if(!PROFILE) return;
-  const todayStr = toISODate(new Date());
-  const monthPrefix = todayStr.slice(0,7);
-
-  const weekDates = new Set();
-  for(let i=0;i<7;i++){
-    weekDates.add(toISODate(new Date(Date.now() - i*86400000)));
-  }
-
-  const own = ENTRIES.filter(e => e.worker === PROFILE.fio);
-  const todaySum = own.filter(e => e.date === todayStr).reduce((s,e)=> s + e.qty, 0);
-  const weekSum = own.filter(e => weekDates.has(e.date)).reduce((s,e)=> s + e.qty, 0);
-  const monthSum = own.filter(e => e.date.startsWith(monthPrefix)).reduce((s,e)=> s + e.qty, 0);
-
-  $('dash-today').textContent = todaySum;
-  $('dash-week').textContent = weekSum;
-  $('dash-month').textContent = monthSum;
-}
-
-function renderUsersList(){
-  const wrap = $('users-list-view');
-  const countEl = $('users-count');
-  if(!wrap || !countEl) return;
-
-  countEl.textContent = WORKERS.length;
-
-  if(WORKERS.length === 0){
-    wrap.innerHTML = `<div class="hint" style="margin-top:8px;">В бригаде пока никто не зарегистрирован.</div>`;
-    return;
-  }
-
-  const monthPrefix = toISODate(new Date()).slice(0,7);
-  wrap.innerHTML = WORKERS.map(w => {
-    const own = ENTRIES.filter(e => e.worker === w);
-    const monthQty = own.filter(e => e.date.startsWith(monthPrefix)).reduce((s,e)=> s + e.qty, 0);
-    const last = own.reduce((max,e)=> (!max || e.ts > max.ts) ? e : max, null);
-    const initials = w.trim().split(/\s+/).map(p=>p[0]).slice(0,2).join('').toUpperCase();
-    const isMe = PROFILE && w === PROFILE.fio;
-
-    return `
-      <div class="user-row">
-        <div class="user-info">
-          <div class="user-avatar">${initials}</div>
-          <div class="user-name-wrap">
-            <div class="user-name">${escapeHtml(w)}${isMe ? '<span class="user-tag">Вы</span>' : ''}</div>
-            <div class="user-meta">${last ? 'Была запись: ' + formatDateRu(last.date) : 'Записей ещё не было'}</div>
-          </div>
-        </div>
-        <div class="user-stat">
-          <div class="val">${monthQty}</div>
-          <div class="lbl">шт / мес.</div>
-        </div>
-      </div>`;
-  }).join('');
-}
-
-function renderEntries(){
-  const dateStr = $('entry-date').value || toISODate(new Date());
-  const list = $('entries-list');
-  const dayEntries = ENTRIES.filter(e => e.worker === PROFILE.fio && e.date === dateStr).sort((a,b)=> b.ts - a.ts);
-  const total = dayEntries.reduce((s,e)=> s + e.qty, 0);
-  $('day-total').textContent = total;
-
-  if(dayEntries.length === 0){
-    list.innerHTML = `
-      <div class="empty-state">
-        <div class="emoji">🗂️</div>
-        <div class="msg">На эту дату записей нет.<br>Выберите категорию и деталь выше.</div>
-      </div>`;
-    return;
-  }
-
-  list.innerHTML = '';
-  dayEntries.forEach(e => {
-    const row = document.createElement('div');
-    row.className = 'entry-row';
-    row.innerHTML = `
-      <div class="entry-info">
-        <div class="entry-part">${escapeHtml(e.part)}</div>
-        <div class="entry-meta">${escapeHtml(e.category)} · ${e.time}</div>
+/* ---------- АВТОРИЗАЦИЯ ---------- */
+function renderAuth() {
+  app.innerHTML = `
+    <div class="card">
+      <h2>🏭 Учёт выработки</h2>
+      <p style="font-size:13px;color:#6b7280;margin-bottom:10px">Укажите свои данные — они сохранятся.</p>
+      <label>Фамилия</label><input id="aLast" placeholder="Иванов">
+      <label>Имя</label><input id="aFirst" placeholder="Иван">
+      <label>Отчество</label><input id="aMid" placeholder="Иванович">
+      <div class="row" style="margin-top:12px">
+        <button onclick="openBrigadeFlow('create')">Создать бригаду</button>
+        <button class="secondary" onclick="openBrigadeFlow('join')">Присоединиться</button>
       </div>
-      <div class="entry-qty">${e.qty}</div>
-      <button class="entry-del" data-id="${e.id}" title="Удалить">🗑</button>
-    `;
-    list.appendChild(row);
-  });
-
-  list.querySelectorAll('.entry-del').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.getAttribute('data-id');
-      await fbRemove(bp('entries/' + id));
-      ENTRIES = ENTRIES.filter(e => e.id !== id);
-      renderEntries();
-  renderUsersList();
-  renderMiniDashboard();
-      refreshMyPayroll();
-      showToast('Запись удалена');
-    });
-  });
-}
-$('entry-date').addEventListener('change', renderEntries);
-
-$('btn-add').addEventListener('click', async () => {
-  const category = $('in-cat-select').value;
-  const part = $('in-part-select').value;
-  const qty = parseInt($('in-qty').value, 10);
-  if(!category){ showToast('Выберите категорию'); return; }
-  if(!part){ showToast('Выберите деталь'); return; }
-  if(!qty || qty <= 0){ showToast('Укажите количество'); return; }
-
-  const dateStr = $('entry-date').value || toISODate(new Date());
-  const now = new Date();
-  const entry = {
-    worker: PROFILE.fio, category, part, qty, date: dateStr,
-    time: now.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}),
-    ts: now.getTime()
-  };
-  const id = await fbPush(bp('entries'), entry);
-  if(id){ ENTRIES.push({ id, ...entry }); }
-  $('in-qty').value = '';
-  renderEntries();
-  renderUsersList();
-  renderMiniDashboard();
-  refreshMyPayroll();
-  showToast('Запись добавлена');
-});
-
-// ---------- БРИГАДА ----------
-function refreshWorkerSelect(){
-  const sel = $('in-worker-select');
-  const prev = sel.value;
-  if(WORKERS.length === 0){
-    sel.innerHTML = `<option value="">Сначала добавьте работника</option>`;
-  }else{
-    sel.innerHTML = WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
-    if(WORKERS.includes(prev)) sel.value = prev;
-  }
-  refreshReportWorkerSelect();
+    </div>
+    <div id="brigadeFlow"></div>
+  `;
 }
 
-function renderWorkerChips(){
-  const wrap = $('worker-chip-list');
-  wrap.innerHTML = WORKERS.length ? WORKERS.map(w => `
-    <span class="chip">${escapeHtml(w)}<button data-worker="${escapeHtml(w)}" title="Удалить">✕</button></span>
-  `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет работников</span>`;
-  wrap.querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if(!isOwner()){ showToast('Список работников может менять только мастер бригады'); return; }
-      const w = btn.getAttribute('data-worker');
-      WORKERS = WORKERS.filter(x => x !== w);
-      await fbSet(bp('workers'), WORKERS);
-      refreshWorkerSelect();
-      renderWorkerChips();
-      showToast('Работник удалён из списка');
-    });
-  });
-}
+window.openBrigadeFlow = (mode) => {
+  const last = document.getElementById('aLast').value.trim();
+  const first = document.getElementById('aFirst').value.trim();
+  const mid = document.getElementById('aMid').value.trim();
+  if (!last) { toast('Введите фамилию', true); return; }
 
-$('btn-add-worker').addEventListener('click', async () => {
-  if(!isOwner()){ showToast('Список работников может менять только мастер бригады'); return; }
-  const name = $('in-new-worker').value.trim();
-  if(!name){ showToast('Введите ФИО работника'); return; }
-  if(WORKERS.includes(name)){ showToast('Такой работник уже есть'); return; }
-  WORKERS.push(name);
-  await fbSet(bp('workers'), WORKERS);
-  $('in-new-worker').value = '';
-  refreshWorkerSelect();
-  renderWorkerChips();
-  showToast('Работник добавлен');
-});
-
-function renderTeam(){
-  const dateStr = $('team-date').value || toISODate(new Date());
-  const list = $('team-list');
-  const dayEntries = ENTRIES.filter(e => e.date === dateStr).sort((a,b)=> a.ts - b.ts);
-
-  const total = dayEntries.reduce((s,e)=> s + e.qty, 0);
-  $('team-day-total').textContent = total;
-
-  if(dayEntries.length === 0){
-    list.innerHTML = `
-      <div class="empty-state">
-        <div class="emoji">👥</div>
-        <div class="msg">За эту смену записей нет.</div>
-      </div>`;
-    return;
-  }
-
-  const byWorker = {};
-  dayEntries.forEach(e => { (byWorker[e.worker] = byWorker[e.worker] || []).push(e); });
-
-  list.innerHTML = '';
-  Object.keys(byWorker).forEach(worker => {
-    const items = byWorker[worker];
-    const subtotal = items.reduce((s,e)=> s + e.qty, 0);
-    const initials = worker.trim().split(/\s+/).map(p=>p[0]).slice(0,2).join('').toUpperCase();
-    const block = document.createElement('div');
-    block.className = 'worker-block';
-    block.innerHTML = `
-      <div class="worker-header">
-        <div class="worker-name"><span class="avatar">${initials}</span>${escapeHtml(worker)}</div>
-        <div class="worker-subtotal">${subtotal} шт</div>
+  const flow = document.getElementById('brigadeFlow');
+  if (mode === 'create') {
+    flow.innerHTML = `
+      <div class="card">
+        <h2>Новая бригада</h2>
+        <label>Наименование завода / цеха</label>
+        <input id="bName" placeholder="Цех №5">
+        <button style="margin-top:12px" onclick="createBrigade()">Создать</button>
       </div>
     `;
-    items.forEach(e => {
-      const canDelete = isOwner() || e.worker === PROFILE.fio;
-      const row = document.createElement('div');
-      row.className = 'entry-row';
-      row.innerHTML = `
-        <div class="entry-info">
-          <div class="entry-part">${escapeHtml(e.part)}</div>
-          <div class="entry-meta">${escapeHtml(e.category)} · ${e.time}</div>
-        </div>
-        <div class="entry-qty">${e.qty}</div>
-        ${canDelete ? `<button class="entry-del" data-id="${e.id}" title="Удалить">🗑</button>` : ''}
-      `;
-      block.appendChild(row);
-    });
-    list.appendChild(block);
-  });
-
-  list.querySelectorAll('.entry-del').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.getAttribute('data-id');
-      const target = ENTRIES.find(e => e.id === id);
-      if(target && !isOwner() && target.worker !== PROFILE.fio){
-        showToast('Можно удалять только свои записи');
-        return;
-      }
-      await fbRemove(bp('entries/' + id));
-      ENTRIES = ENTRIES.filter(e => e.id !== id);
-      renderTeam();
-      showToast('Запись удалена');
-    });
-  });
-}
-$('team-date').addEventListener('change', renderTeam);
-
-$('btn-team-add').addEventListener('click', async () => {
-  if(!isOwner()){ showToast('Записи за других работников может вносить только мастер бригады'); return; }
-  const worker = $('in-worker-select').value;
-  const category = $('team-cat-select').value;
-  const part = $('team-part-select').value;
-  const qty = parseInt($('in-team-qty').value, 10);
-  if(!worker){ showToast('Выберите работника'); return; }
-  if(!category){ showToast('Выберите категорию'); return; }
-  if(!part){ showToast('Выберите деталь'); return; }
-  if(!qty || qty <= 0){ showToast('Укажите количество'); return; }
-
-  const dateStr = $('team-date').value || toISODate(new Date());
-  const now = new Date();
-  const entry = {
-    worker, category, part, qty, date: dateStr,
-    time: now.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}),
-    ts: now.getTime()
-  };
-  const id = await fbPush(bp('entries'), entry);
-  if(id){ ENTRIES.push({ id, ...entry }); }
-  $('in-team-qty').value = '';
-  renderTeam();
-  showToast('Запись добавлена');
-});
-
-// ---------- ГРАФИК СМЕН ----------
-const WEEKDAY_NAMES = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-
-function shiftTypeById(id){
-  return SHIFT_TYPES.find(t => t.id === id) || null;
-}
-
-async function ensureShiftTypesSeeded(){
-  if(!isOwner()) return;
-  let changed = false;
-
-  if(SHIFT_TYPES.length === 0){
-    SHIFT_TYPES = DEFAULT_SHIFT_TYPES.slice();
-    changed = true;
-  }else{
-    // бригада уже существовала раньше — донесём только новые типы (отпуск/больничный),
-    // не трогая то, что мастер мог сам поменять или удалить
-    NEW_SHIFT_TYPE_IDS_TO_MERGE.forEach(id => {
-      if(!SHIFT_TYPES.some(t => t.id === id)){
-        const def = DEFAULT_SHIFT_TYPES.find(t => t.id === id);
-        if(def){ SHIFT_TYPES.push(def); changed = true; }
-      }
-    });
-  }
-
-  if(changed) await fbSet(bp('shiftTypes'), SHIFT_TYPES);
-}
-
-function renderShiftTypeChips(){
-  const wrap = $('shift-type-chip-list');
-  if(!wrap) return;
-  wrap.innerHTML = SHIFT_TYPES.length ? SHIFT_TYPES.map(t => `
-    <span class="chip"><span class="shift-dot" style="background:${t.color};display:inline-block;"></span>${escapeHtml(t.name)}<button data-id="${escapeHtml(t.id)}" title="Удалить">✕</button></span>
-  `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Нет типов смен</span>`;
-  wrap.querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if(!isOwner()){ showToast('Типы смен может менять только мастер бригады'); return; }
-      const id = btn.getAttribute('data-id');
-      SHIFT_TYPES = SHIFT_TYPES.filter(t => t.id !== id);
-      await fbSet(bp('shiftTypes'), SHIFT_TYPES);
-      renderShiftTypeChips();
-      refreshRotShiftSelect();
-      renderCalendar();
-      showToast('Тип смены удалён');
-    });
-  });
-}
-
-$('btn-add-shift-type').addEventListener('click', async () => {
-  if(!isOwner()){ showToast('Типы смен может менять только мастер бригады'); return; }
-  const name = $('in-new-shift-name').value.trim();
-  const color = $('in-new-shift-color').value || '#3390EC';
-  if(!name){ showToast('Введите название типа смены'); return; }
-  const id = 'shift_' + Date.now().toString(36);
-  SHIFT_TYPES.push({ id, name, color });
-  await fbSet(bp('shiftTypes'), SHIFT_TYPES);
-  $('in-new-shift-name').value = '';
-  renderShiftTypeChips();
-  refreshRotShiftSelect();
-  showToast('Тип смены добавлен');
-});
-
-function refreshRotWorkerSelect(){
-  const sel = $('rot-worker-select');
-  if(!sel) return;
-  const prev = sel.value;
-  sel.innerHTML = WORKERS.length
-    ? WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('')
-    : `<option value="">Сначала добавьте работника</option>`;
-  if(WORKERS.includes(prev)) sel.value = prev;
-}
-
-function refreshRotShiftSelect(){
-  [$('rot-shift-select'), $('rot-day-shift-select'), $('rot-night-shift-select')].forEach(sel => {
-    if(!sel) return;
-    const prev = sel.value;
-    sel.innerHTML = SHIFT_TYPES.length
-      ? SHIFT_TYPES.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join('')
-      : `<option value="">Сначала добавьте тип смены</option>`;
-    if(SHIFT_TYPES.some(t => t.id === prev)) sel.value = prev;
-  });
-  // удобные значения по умолчанию для шаблона день/ночь
-  const dayType = shiftTypeById('day') || SHIFT_TYPES[0];
-  const nightType = shiftTypeById('night') || SHIFT_TYPES[1];
-  if(dayType && $('rot-day-shift-select') && !$('rot-day-shift-select').value) $('rot-day-shift-select').value = dayType.id;
-  if(nightType && $('rot-night-shift-select') && !$('rot-night-shift-select').value) $('rot-night-shift-select').value = nightType.id;
-}
-
-let rotPatternMode = 'simple';
-document.querySelectorAll('#rot-pattern-mode .seg-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    rotPatternMode = btn.getAttribute('data-pattern');
-    document.querySelectorAll('#rot-pattern-mode .seg-btn').forEach(b => b.classList.toggle('active', b === btn));
-    $('rot-simple-fields').style.display = (rotPatternMode === 'simple') ? 'block' : 'none';
-    $('rot-3block-fields').style.display = (rotPatternMode === 'dayoffnight') ? 'block' : 'none';
-  });
-});
-
-$('sched-month').addEventListener('change', renderCalendar);
-
-$('btn-apply-rotation').addEventListener('click', async () => {
-  if(!isOwner()){ showToast('График может менять только мастер бригады'); return; }
-  const worker = $('rot-worker-select').value;
-  const startDateStr = $('rot-start-date').value;
-  const monthVal = $('sched-month').value || toISODate(new Date()).slice(0,7);
-  const [y, m] = monthVal.split('-').map(Number);
-  const daysInMonth = new Date(y, m, 0).getDate();
-
-  if(!worker){ showToast('Выберите работника'); return; }
-  if(!startDateStr){ showToast('Укажите дату начала отсчёта'); return; }
-
-  const startDate = new Date(startDateStr + 'T00:00:00');
-  const offType = shiftTypeById('off');
-
-  function setDay(dateStr, shiftId){
-    SCHEDULE[dateStr] = SCHEDULE[dateStr] || {};
-    if(shiftId){ SCHEDULE[dateStr][worker] = shiftId; }
-    else{ delete SCHEDULE[dateStr][worker]; }
-    if(Object.keys(SCHEDULE[dateStr]).length === 0) delete SCHEDULE[dateStr];
-  }
-
-  if(rotPatternMode === 'simple'){
-    const shiftId = $('rot-shift-select').value;
-    const workDays = parseInt($('rot-work-days').value, 10) || 2;
-    const offDays = parseInt($('rot-off-days').value, 10) || 0;
-    if(!shiftId){ showToast('Выберите тип смены'); return; }
-
-    const cycleLen = workDays + offDays;
-    for(let d = 1; d <= daysInMonth; d++){
-      const dateObj = new Date(y, m-1, d);
-      const dateStr = toISODate(dateObj);
-      const diffDays = Math.round((dateObj - startDate) / 86400000);
-      if(diffDays < 0) continue;
-      const pos = ((diffDays % cycleLen) + cycleLen) % cycleLen;
-      setDay(dateStr, pos < workDays ? shiftId : (offType ? offType.id : null));
-    }
-  }else{
-    // День / выходной / ночь / выходной — по N дней в каждом блоке, по кругу
-    const dayShiftId = $('rot-day-shift-select').value;
-    const nightShiftId = $('rot-night-shift-select').value;
-    const blockDays = parseInt($('rot-block-days').value, 10) || 2;
-    if(!dayShiftId || !nightShiftId){ showToast('Выберите типы смен для дня и ночи'); return; }
-    if(!offType){ showToast('В списке типов смен нет «Выходной» — добавьте его сначала'); return; }
-
-    const cycleLen = blockDays * 4;
-    for(let d = 1; d <= daysInMonth; d++){
-      const dateObj = new Date(y, m-1, d);
-      const dateStr = toISODate(dateObj);
-      const diffDays = Math.round((dateObj - startDate) / 86400000);
-      if(diffDays < 0) continue;
-      const pos = ((diffDays % cycleLen) + cycleLen) % cycleLen;
-      let shiftId;
-      if(pos < blockDays) shiftId = dayShiftId;               // 1) N дней в день
-      else if(pos < blockDays*2) shiftId = offType.id;         // 2) N дней выходных
-      else if(pos < blockDays*3) shiftId = nightShiftId;       // 3) N дней в ночь
-      else shiftId = offType.id;                                // 4) N дней выходных
-      setDay(dateStr, shiftId);
-    }
-  }
-
-  await fbSet(bp('schedule'), SCHEDULE);
-  renderCalendar();
-  showToast('Месяц заполнен по шаблону');
-});
-
-function refreshCalFilterSelect(){
-  const sel = $('cal-filter-select');
-  if(!sel) return;
-  const prev = sel.value;
-  sel.innerHTML = `<option value="">Вся бригада</option>` +
-    WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
-  if(prev && (prev === '' || WORKERS.includes(prev))) sel.value = prev;
-}
-$('cal-filter-select').addEventListener('change', renderCalendar);
-
-function renderCalendar(){
-  ensureShiftTypesSeeded().then(() => { renderShiftTypeChips(); refreshRotShiftSelect(); });
-  refreshCalFilterSelect();
-
-  const weekdaysEl = $('cal-weekdays');
-  if(weekdaysEl && weekdaysEl.children.length === 0){
-    weekdaysEl.innerHTML = WEEKDAY_NAMES.map(w => `<div class="cal-weekday">${w}</div>`).join('');
-  }
-
-  const monthVal = $('sched-month').value || toISODate(new Date()).slice(0,7);
-  const [y, m] = monthVal.split('-').map(Number);
-  const daysInMonth = new Date(y, m, 0).getDate();
-  const firstDay = new Date(y, m-1, 1);
-  const leadOffset = (firstDay.getDay() + 6) % 7; // Пн = 0
-  const todayStr = toISODate(new Date());
-  const filterWorker = $('cal-filter-select').value;
-
-  const grid = $('cal-grid');
-  let html = '';
-  for(let i=0; i<leadOffset; i++){ html += `<div class="cal-day empty"></div>`; }
-
-  for(let d=1; d<=daysInMonth; d++){
-    const dateObj = new Date(y, m-1, d);
-    const dateStr = toISODate(dateObj);
-    const dayShifts = SCHEDULE[dateStr] || {};
-
-    let workerIds = Object.keys(dayShifts);
-    if(filterWorker) workerIds = workerIds.filter(w => w === filterWorker);
-
-    const colors = workerIds.slice(0, 4).map(worker => {
-      const t = shiftTypeById(dayShifts[worker]);
-      return t ? t.color : '#C7C7CC';
-    });
-
-    const fillHtml = colors.length
-      ? `<div class="cal-day-fill">${colors.map(c => `<div style="background:${c};"></div>`).join('')}</div>`
-      : '';
-
-    html += `
-      <div class="cal-day${dateStr===todayStr ? ' today' : ''}" data-date="${dateStr}">
-        ${fillHtml}
-        <div class="cal-day-num">${d}</div>
-      </div>`;
-  }
-  grid.innerHTML = html;
-
-  grid.querySelectorAll('.cal-day:not(.empty)').forEach(cell => {
-    cell.addEventListener('click', () => openDayEditor(cell.getAttribute('data-date')));
-  });
-}
-
-function openDayEditor(dateStr){
-  selectedCalDate = dateStr;
-  document.querySelectorAll('.cal-day').forEach(c => c.classList.toggle('selected', c.getAttribute('data-date')===dateStr));
-
-  const card = $('day-editor-card');
-  card.style.display = 'block';
-  $('day-editor-title').textContent = formatDateRu(dateStr);
-
-  const dayShifts = SCHEDULE[dateStr] || {};
-  const owner = isOwner();
-  const rows = WORKERS.length ? WORKERS : (PROFILE ? [PROFILE.fio] : []);
-
-  $('day-editor-rows').innerHTML = rows.map(worker => {
-    const current = dayShifts[worker] || '';
-    const options = `<option value="">—</option>` + SHIFT_TYPES.map(t =>
-      `<option value="${escapeHtml(t.id)}" ${t.id===current ? 'selected' : ''}>${escapeHtml(t.name)}</option>`
-    ).join('');
-    return `
-      <div class="day-editor-row">
-        <div class="day-editor-worker">${escapeHtml(worker)}</div>
-        <select data-worker="${escapeHtml(worker)}" ${owner ? '' : 'disabled'}>${options}</select>
-      </div>`;
-  }).join('') || `<div class="hint">В бригаде пока нет работников</div>`;
-
-  $('btn-save-day-schedule').style.display = owner ? 'flex' : 'none';
-}
-
-$('btn-save-day-schedule').addEventListener('click', async () => {
-  if(!isOwner()){ showToast('График может менять только мастер бригады'); return; }
-  if(!selectedCalDate) return;
-
-  const dayData = {};
-  document.querySelectorAll('#day-editor-rows select').forEach(sel => {
-    const worker = sel.getAttribute('data-worker');
-    if(sel.value) dayData[worker] = sel.value;
-  });
-
-  if(Object.keys(dayData).length > 0){
-    SCHEDULE[selectedCalDate] = dayData;
-  }else{
-    delete SCHEDULE[selectedCalDate];
-  }
-  await fbSet(bp('schedule'), SCHEDULE);
-  renderCalendar();
-  showToast('График сохранён');
-});
-
-
-// ---------- ЗАРПЛАТА (только мастер) ----------
-// Расчёт по средней стоимости изделия:
-//   средняя стоимость изделия = зарплата за прошлый месяц ÷ выработка за прошлый месяц
-//   расчётная зарплата        = средняя стоимость изделия × выработка за выбранный месяц
-
-// Сдвиг месяца формата "ГГГГ-ММ" на delta месяцев (например, -1 — прошлый месяц)
-function shiftMonth(monthKey, delta){
-  const base = (monthKey || toISODate(new Date()).slice(0,7)).split('-').map(Number);
-  const d = new Date(base[0], base[1] - 1 + delta, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-function monthTitleRu(monthKey){
-  const p = monthKey.split('-').map(Number);
-  return new Date(p[0], p[1] - 1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
-}
-// Выработка работника (сумма шт) за месяц "ГГГГ-ММ"
-function qtyForMonth(worker, monthKey){
-  return ENTRIES
-    .filter(e => e.worker === worker && (e.date || '').startsWith(monthKey))
-    .reduce((s, e) => s + (Number(e.qty) || 0), 0);
-}
-// Основной расчёт: на входе ЗП за прошлый месяц, на выходе выработка, средняя стоимость и ЗП текущего месяца
-function calcSalaryByAverage(worker, monthKey, prevSalary){
-  const prevKey = shiftMonth(monthKey, -1);
-  const prevQty = qtyForMonth(worker, prevKey);
-  const curQty = qtyForMonth(worker, monthKey);
-  const avgCost = prevQty > 0 ? (Number(prevSalary) || 0) / prevQty : 0;
-  const salary = Math.round(avgCost * curQty);
-  return { prevKey, prevQty, curQty, avgCost, salary };
-}
-function fmtMoney(n){ return (Number(n) || 0).toLocaleString('ru-RU'); }
-function fmtMoney2(n){
-  return (Number(n) || 0).toLocaleString('ru-RU', { minimumFractionDigits:2, maximumFractionDigits:2 });
-}
-function calcStatsHtml(c, curLabel){
-  return `
-    <div class="calc-stat"><span>Выработка за прошлый месяц</span><b>${fmtMoney(c.prevQty)} шт</b></div>
-    <div class="calc-stat"><span>Средняя стоимость изделия</span><b>${fmtMoney2(c.avgCost)} ₽/шт</b></div>
-    <div class="calc-stat"><span>${curLabel || 'Выработка за выбранный месяц'}</span><b>${fmtMoney(c.curQty)} шт</b></div>`;
-}
-function updatePayrollRowTotal(safeId){
-  const a = $('pr-adv-' + safeId);
-  const f = $('pr-fin-' + safeId);
-  const t = $('pr-total-' + safeId);
-  if(!t) return;
-  const adv = a ? (parseFloat(a.value) || 0) : 0;
-  const fin = f ? (parseFloat(f.value) || 0) : 0;
-  t.textContent = fmtMoney(adv + fin) + ' ₽';
-}
-// Настройка: подставлять расчётную зарплату в поле «Расчёт» автоматически
-function isAutoFillCalc(){
-  try{
-    const v = localStorage.getItem('payroll_autofill');
-    return v === null ? true : v === '1';
-  }catch(e){ return true; }
-}
-
-$('payroll-month').addEventListener('change', renderPayroll);
-
-const payrollAutofillEl = $('payroll-autofill');
-if(payrollAutofillEl){
-  payrollAutofillEl.addEventListener('change', () => {
-    try{ localStorage.setItem('payroll_autofill', payrollAutofillEl.checked ? '1' : '0'); }catch(e){}
-    renderPayroll();
-  });
-}
-
-async function renderPayroll(){
-  const monthVal = $('payroll-month').value || toISODate(new Date()).slice(0,7);
-  PAYROLL = (await fbGet(bp('payroll/' + monthVal))) || {};
-
-  const prevMonthVal = shiftMonth(monthVal, -1);
-  const autofill = isAutoFillCalc();
-  const autofillEl = $('payroll-autofill');
-  if(autofillEl) autofillEl.checked = autofill;
-
-  const wrap = $('payroll-list');
-  if(WORKERS.length === 0){
-    wrap.innerHTML = `<div class="empty-state"><div class="emoji">👥</div><div class="msg">В бригаде пока нет работников</div></div>`;
-    return;
-  }
-
-  wrap.innerHTML = WORKERS.map(worker => {
-    const rec = PAYROLL[worker] || {};
-    const advance = rec.advance || 0;
-    const final = rec.final || 0;
-    const total = advance + final;
-    const prevSalary = rec.prevSalary || 0;
-    const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
-    const c = calcSalaryByAverage(worker, monthVal, prevSalary);
-
-    return `
-      <div class="payroll-row">
-        <div class="payroll-worker">${escapeHtml(worker)}</div>
-
-        <details class="payroll-calc" open>
-          <summary>Расчёт по средней стоимости изделия</summary>
-          <div class="field" style="margin:10px 0 0;">
-            <label>Зарплата за прошлый месяц (${escapeHtml(monthTitleRu(prevMonthVal))}), ₽</label>
-            <input type="number" class="payroll-prev-salary" data-worker="${escapeHtml(worker)}" id="pr-prev-${safeId}" value="${prevSalary || ''}" placeholder="0" min="0" inputmode="decimal">
-          </div>
-          <div class="calc-stats" id="pr-stats-${safeId}">${calcStatsHtml(c)}</div>
-          <div class="calc-salary">
-            <span class="lbl">Расчётная зарплата за ${escapeHtml(monthTitleRu(monthVal))}</span>
-            <span class="val" id="pr-calc-${safeId}">${fmtMoney(c.salary)} ₽</span>
-          </div>
-          <button type="button" class="btn btn-secondary btn-apply-calc" data-worker="${escapeHtml(worker)}" id="pr-apply-${safeId}" style="margin-top:10px;">Подставить в «Расчёт»</button>
-        </details>
-
-        <div class="field-row" style="margin-top:12px;">
-          <div class="field">
-            <label>Аванс, ₽</label>
-            <input type="number" class="payroll-advance" data-worker="${escapeHtml(worker)}" id="pr-adv-${safeId}" value="${advance || ''}" placeholder="0" min="0" inputmode="decimal">
-          </div>
-          <div class="field">
-            <label>Расчёт, ₽</label>
-            <input type="number" class="payroll-final" data-worker="${escapeHtml(worker)}" id="pr-fin-${safeId}" value="${final || ''}" placeholder="0" min="0" inputmode="decimal">
-          </div>
-        </div>
-        <div class="payroll-total">
-          <span>Итого за месяц</span>
-          <span class="val" id="pr-total-${safeId}">${fmtMoney(total)} ₽</span>
-        </div>
-      </div>`;
-  }).join('');
-
-  // Ручной ввод аванса/расчёта — пересчитываем «Итого»
-  wrap.querySelectorAll('.payroll-advance, .payroll-final').forEach(input => {
-    input.addEventListener('input', () => {
-      const safeId = input.getAttribute('data-worker').replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
-      updatePayrollRowTotal(safeId);
-    });
-  });
-
-  // Ввод зарплаты за прошлый месяц — пересчитываем среднюю стоимость и расчётную зарплату
-  wrap.querySelectorAll('.payroll-prev-salary').forEach(input => {
-    input.addEventListener('input', () => {
-      const worker = input.getAttribute('data-worker');
-      const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
-      const c = calcSalaryByAverage(worker, monthVal, parseFloat(input.value) || 0);
-      const statsEl = $('pr-stats-' + safeId);
-      if(statsEl) statsEl.innerHTML = calcStatsHtml(c);
-      const calcEl = $('pr-calc-' + safeId);
-      if(calcEl) calcEl.textContent = fmtMoney(c.salary) + ' ₽';
-      if(isAutoFillCalc()){
-        const finInput = $('pr-fin-' + safeId);
-        if(finInput){ finInput.value = c.salary ? c.salary : ''; updatePayrollRowTotal(safeId); }
-      }
-    });
-  });
-
-  // Кнопка «Подставить в Расчёт»
-  wrap.querySelectorAll('.btn-apply-calc').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const worker = btn.getAttribute('data-worker');
-      const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
-      const prevInput = $('pr-prev-' + safeId);
-      const c = calcSalaryByAverage(worker, monthVal, prevInput ? (parseFloat(prevInput.value) || 0) : 0);
-      const finInput = $('pr-fin-' + safeId);
-      if(finInput){ finInput.value = c.salary ? c.salary : ''; updatePayrollRowTotal(safeId); }
-      showToast('Расчётная зарплата подставлена');
-    });
-  });
-
-  // Автоподстановка при загрузке списка
-  if(autofill){
-    wrap.querySelectorAll('.payroll-prev-salary').forEach(input => {
-      const worker = input.getAttribute('data-worker');
-      const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
-      const prevSalary = parseFloat(input.value) || 0;
-      if(prevSalary > 0){
-        const c = calcSalaryByAverage(worker, monthVal, prevSalary);
-        const finInput = $('pr-fin-' + safeId);
-        // Не затираем «Расчёт», если мастер уже вписал его вручную
-        if(finInput && !finInput.value){ finInput.value = c.salary ? c.salary : ''; updatePayrollRowTotal(safeId); }
-      }
-    });
-  }
-}
-
-$('btn-save-payroll').addEventListener('click', async () => {
-  if(!isOwner()){ showToast('Зарплату может вносить только мастер бригады'); return; }
-  const monthVal = $('payroll-month').value || toISODate(new Date()).slice(0,7);
-
-  const updated = {};
-  WORKERS.forEach(worker => {
-    const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
-    const prevInput = $('pr-prev-' + safeId);
-    const advInput = $('pr-adv-' + safeId);
-    const finInput = $('pr-fin-' + safeId);
-    const prevSalary = prevInput ? (parseFloat(prevInput.value) || 0) : 0;
-    const advance = advInput ? (parseFloat(advInput.value) || 0) : 0;
-    const final = finInput ? (parseFloat(finInput.value) || 0) : 0;
-    if(advance || final || prevSalary){
-      updated[worker] = {
-        advance, final, prevSalary,
-        calc: calcSalaryByAverage(worker, monthVal, prevSalary).salary
-      };
-    }
-  });
-
-  PAYROLL = updated;
-  await fbSet(bp('payroll/' + monthVal), PAYROLL);
-  await refreshPayrollSummary();
-  await refreshMyPayroll();
-  await refreshMyCalc();
-  showToast('Зарплата сохранена');
-});
-
-// Итог по работнику: ручные аванс+расчёт, а если их нет — расчёт по средней стоимости
-function payrollRecordTotal(rec){
-  if(!rec) return 0;
-  const manual = (rec.advance || 0) + (rec.final || 0);
-  return manual || (rec.calc || 0);
-}
-
-// Общая сумма зарплаты бригады за текущий месяц — показывается мастеру на вкладке «Ввод»
-async function refreshPayrollSummary(){
-  const bar = $('payroll-summary-bar');
-  const valEl = $('payroll-summary-val');
-  if(!bar || !valEl || !isOwner()) return;
-
-  const monthVal = toISODate(new Date()).slice(0,7);
-  const data = (await fbGet(bp('payroll/' + monthVal))) || {};
-  const total = Object.values(data).reduce((s, r) => s + payrollRecordTotal(r), 0);
-  valEl.textContent = fmtMoney(total) + ' ₽';
-}
-
-// Последняя загруженная запись «Моей зарплаты» (чтобы живой пересчёт не терял ручную сумму)
-let lastMyPayrollRec = {};
-
-// Личная зарплата за месяц — показывается каждому на его вкладке «Ввод», и мастеру тоже.
-// В значении выводится РАСЧЁТНАЯ зарплата за текущий месяц (по средней стоимости изделия),
-// а ручная сумма по нарядам показывается подсказкой, если она отличается.
-function renderMyPayrollBar(rec, prevSalaryOverride){
-  const valEl = $('my-payroll-val');
-  if(!valEl || !PROFILE) return;
-
-  const monthVal = toISODate(new Date()).slice(0,7);
-  const r = rec || {};
-  const manual = (r.advance || 0) + (r.final || 0);
-  const prevSalary = (prevSalaryOverride === undefined || prevSalaryOverride === null)
-    ? (r.prevSalary || 0) : (Number(prevSalaryOverride) || 0);
-
-  const c = calcSalaryByAverage(PROFILE.fio, monthVal, prevSalary);
-  const hasCalc = prevSalary > 0;
-
-  valEl.textContent = fmtMoney(hasCalc ? c.salary : manual) + ' ₽';
-
-  const hintEl = $('my-payroll-hint');
-  if(!hintEl) return;
-  if(hasCalc && manual > 0 && manual !== c.salary){
-    hintEl.textContent = 'По нарядам: ' + fmtMoney(manual) + ' ₽';
-    hintEl.style.display = '';
-  } else if(!hasCalc && manual <= 0){
-    hintEl.textContent = 'Введите зарплату за прошлый месяц ниже';
-    hintEl.style.display = '';
+    window._pendingUser = { last, first, mid };
   } else {
-    hintEl.textContent = '';
-    hintEl.style.display = 'none';
+    flow.innerHTML = `
+      <div class="card">
+        <h2>Присоединиться по коду</h2>
+        <label>Код бригады</label>
+        <input id="bCode" placeholder="Например: A3F9K2" style="text-transform:uppercase">
+        <p style="font-size:12px;color:#6b7280;margin-top:6px">Код даёт мастер бригады.</p>
+        <button style="margin-top:12px" onclick="joinBrigade()">Продолжить</button>
+      </div>
+    `;
+    window._pendingUser = { last, first, mid };
   }
-}
-
-async function refreshMyPayroll(){
-  const valEl = $('my-payroll-val');
-  if(!valEl || !PROFILE) return;
-
-  const monthVal = toISODate(new Date()).slice(0,7);
-  const data = (await fbGet(bp('payroll/' + monthVal))) || {};
-  lastMyPayrollRec = data[PROFILE.fio] || {};
-  renderMyPayrollBar(lastMyPayrollRec);
-}
-
-// ---------- «Моя зарплата» на вкладке «Ввод»: пользователь сам вносит ЗП за прошлый месяц ----------
-async function refreshMyCalc(){
-  const input = $('my-calc-prev-salary');
-  const statsEl = $('my-calc-stats');
-  const salaryEl = $('my-calc-salary');
-  const monthLbl = $('my-calc-prev-month');
-  if(!input || !statsEl || !salaryEl || !PROFILE) return;
-
-  const monthVal = toISODate(new Date()).slice(0,7);
-  const prevKey = shiftMonth(monthVal, -1);
-  if(monthLbl) monthLbl.textContent = monthTitleRu(prevKey);
-
-  const data = (await fbGet(bp('payroll/' + monthVal))) || {};
-  const rec = data[PROFILE.fio] || {};
-  const saved = rec.prevSalary || 0;
-  if(document.activeElement !== input) input.value = saved ? saved : '';
-
-  const c = calcSalaryByAverage(PROFILE.fio, monthVal, parseFloat(input.value) || 0);
-  statsEl.innerHTML = calcStatsHtml(c, 'Выработка за текущий месяц');
-  salaryEl.textContent = fmtMoney(c.salary) + ' ₽';
-}
-
-const myCalcPrevInput = $('my-calc-prev-salary');
-if(myCalcPrevInput){
-  myCalcPrevInput.addEventListener('input', () => {
-    if(!PROFILE) return;
-    const monthVal = toISODate(new Date()).slice(0,7);
-    const c = calcSalaryByAverage(PROFILE.fio, monthVal, parseFloat(myCalcPrevInput.value) || 0);
-    const statsEl = $('my-calc-stats');
-    const salaryEl = $('my-calc-salary');
-    if(statsEl) statsEl.innerHTML = calcStatsHtml(c, 'Выработка за текущий месяц');
-    if(salaryEl) salaryEl.textContent = fmtMoney(c.salary) + ' ₽';
-    renderMyPayrollBar(lastMyPayrollRec, parseFloat(myCalcPrevInput.value) || 0);
-  });
-}
-const btnSaveMyCalc = $('btn-save-my-calc');
-if(btnSaveMyCalc){
-  btnSaveMyCalc.addEventListener('click', async () => {
-    if(!PROFILE) return;
-    const monthVal = toISODate(new Date()).slice(0,7);
-    const prevSalary = parseFloat(myCalcPrevInput.value) || 0;
-    const c = calcSalaryByAverage(PROFILE.fio, monthVal, prevSalary);
-    const ok = await fbUpdate(bp('payroll/' + monthVal + '/' + PROFILE.fio), { prevSalary, calc: c.salary });
-    showToast(ok ? 'Зарплата за прошлый месяц сохранена' : 'Не удалось сохранить расчёт');
-    await refreshMyPayroll();
-    await refreshMyCalc();
-  });
-}
-
-
-// ---------- ОТЧЁТ: переключение режима ----------
-let REPORT_MODE = 'brigade';
-const REPORT_BTN_LABELS = {
-  brigade: 'Сформировать выписку для мастера',
-  day: 'Сформировать мою выписку за день',
-  month: 'Сформировать мою выписку за месяц',
-  worker: 'Сформировать выписку по работнику',
-  naryad: 'Сформировать бланк для печати'
 };
 
-function refreshReportWorkerSelect(){
-  const sel = $('rep-worker-select');
-  if(!sel) return;
-  const prev = sel.value;
-  if(WORKERS.length === 0){
-    sel.innerHTML = `<option value="">Сначала добавьте работника во вкладке «Бригада»</option>`;
-  }else{
-    sel.innerHTML = WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
-    if(WORKERS.includes(prev)) sel.value = prev;
-  }
+window.createBrigade = () => {
+  const name = document.getElementById('bName').value.trim() || 'Моя бригада';
+  const code = uid().slice(0, 6).toUpperCase();
+  const brigade = { id: uid(), name, code, members: [] };
+  const u = window._pendingUser;
+  const user = { id: uid(), lastName: u.last, firstName: u.first, middleName: u.mid, brigadeId: brigade.id, role: 'master' };
+  brigade.members.push(user.id);
+  state.brigades.push(brigade);
+  state.users.push(user);
+  state.currentUser = user.id;
+  persist();
+  toast('Бригада создана. Код: ' + code);
+  render();
+  showBrigadeCode(code);
+};
+
+window.joinBrigade = () => {
+  const code = document.getElementById('bCode').value.trim().toUpperCase();
+  const brigade = state.brigades.find(b => b.code === code);
+  if (!brigade) { toast('Код не найден', true); return; }
+  const u = window._pendingUser;
+  const user = { id: uid(), lastName: u.last, firstName: u.first, middleName: u.mid, brigadeId: brigade.id, role: 'worker' };
+  brigade.members.push(user.id);
+  state.users.push(user);
+  state.currentUser = user.id;
+  persist();
+  toast('Вы присоединились к бригаде');
+  render();
+};
+
+function showBrigadeCode(code) {
+  openModal(`
+    <h2>Код вашей бригады</h2>
+    <p style="font-size:13px;color:#6b7280">Сохраните и отправьте работникам:</p>
+    <div class="code-box">${code}</div>
+    <div class="row">
+      <button onclick="navigator.clipboard.writeText('${code}');toast('Скопировано')">📋 Скопировать</button>
+      <button class="secondary" onclick="closeModal()">Продолжить</button>
+    </div>
+  `);
 }
 
-// Для бланка наряда: у мастера — выбор любого работника, у остальных — только сам(а) собой
-function refreshNaryadWorkerSelect(){
-  const sel = $('rep-worker-select');
-  if(!sel) return;
-  if(isOwner()){
-    refreshReportWorkerSelect();
-  }else{
-    sel.innerHTML = `<option value="${escapeHtml(PROFILE.fio)}">${escapeHtml(PROFILE.fio)} (я)</option>`;
-  }
-}
+/* ---------- ВВОД ---------- */
+function renderInput() {
+  const me = state.users.find(u => u.id === state.currentUser);
+  const date = todayISO();
+  const myRecs = state.records.filter(r => r.workerId === me.id && r.date === date);
+  const total = myRecs.reduce((s, r) => s + (+r.quantity || 0), 0);
 
-document.querySelectorAll('#report-mode .seg-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    REPORT_MODE = btn.getAttribute('data-mode');
-    document.querySelectorAll('#report-mode .seg-btn').forEach(b => b.classList.toggle('active', b === btn));
-    $('rep-date-field').style.display = (REPORT_MODE === 'brigade' || REPORT_MODE === 'day') ? 'block' : 'none';
-    $('rep-month-field').style.display = (REPORT_MODE === 'month' || REPORT_MODE === 'worker' || REPORT_MODE === 'naryad') ? 'block' : 'none';
-    $('rep-worker-field').style.display = (REPORT_MODE === 'worker' || REPORT_MODE === 'naryad') ? 'block' : 'none';
-    if(REPORT_MODE === 'worker') refreshReportWorkerSelect();
-    if(REPORT_MODE === 'naryad') refreshNaryadWorkerSelect();
-    $('btn-build-report').textContent = REPORT_BTN_LABELS[REPORT_MODE];
-    $('report-output').innerHTML = '';
-  });
-});
+  app.innerHTML = `
+    <div class="card">
+      <h2>📝 Новая запись · ${fmtDate(date)}</h2>
+      <label>Категория</label>
+      <select id="inCat">
+        <option value="">— выберите —</option>
+        ${state.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+      </select>
+      <label>Наименование детали</label>
+      <select id="inDet">
+        <option value="">— выберите —</option>
+        ${state.details.map(d => `<option value="${d.id}" data-cat="${d.categoryId}">${d.name} (${getCategoryName(d.categoryId)})</option>`).join('')}
+      </select>
+      <label>Количество, шт</label>
+      <input id="inQty" type="number" min="0" placeholder="0">
+      <button style="margin-top:12px;width:100%" onclick="addRecord()">+ Добавить запись</button>
+    </div>
 
-$('btn-build-report').addEventListener('click', async () => {
-  if(!isOwner() && (REPORT_MODE === 'brigade' || REPORT_MODE === 'worker')){
-    showToast('Этот отчёт доступен только мастеру бригады');
-    return;
-  }
-  await refreshBrigadeData();
-  if(REPORT_MODE === 'brigade'){
-    buildBrigadeReport($('rep-date').value || toISODate(new Date()));
-  }else if(REPORT_MODE === 'day'){
-    const d = $('rep-date').value || toISODate(new Date());
-    buildPersonalReport(d, d, formatDateRu(d), false);
-  }else if(REPORT_MODE === 'month'){
-    const monthVal = $('rep-month').value || toISODate(new Date()).slice(0,7);
-    const [y,m] = monthVal.split('-').map(Number);
-    const from = `${monthVal}-01`;
-    const lastDay = new Date(y, m, 0).getDate();
-    const to = `${monthVal}-${String(lastDay).padStart(2,'0')}`;
-    const monthLabel = new Date(y, m-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
-    buildPersonalReport(from, to, monthLabel, true);
-  }else if(REPORT_MODE === 'worker'){
-    const worker = $('rep-worker-select').value;
-    if(!worker){ showToast('Выберите работника'); return; }
-    const monthVal = $('rep-month').value || toISODate(new Date()).slice(0,7);
-    const [y,m] = monthVal.split('-').map(Number);
-    const from = `${monthVal}-01`;
-    const lastDay = new Date(y, m, 0).getDate();
-    const to = `${monthVal}-${String(lastDay).padStart(2,'0')}`;
-    const monthLabel = new Date(y, m-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
-    buildWorkerReport(worker, from, to, monthLabel);
-  }else{
-    const worker = isOwner() ? $('rep-worker-select').value : PROFILE.fio;
-    if(!worker){ showToast('Выберите работника'); return; }
-    const monthVal = $('rep-month').value || toISODate(new Date()).slice(0,7);
-    buildNaryadBlank(worker, monthVal);
-  }
-});
-
-// ---------- ОТЧЁТ ДЛЯ МАСТЕРА (вся бригада за смену, без ФИО) ----------
-function buildBrigadeReport(dateStr){
-  const combined = ENTRIES.filter(e => e.date === dateStr && !EXCLUDED_CATEGORIES.includes(e.category));
-
-  const byKey = {};
-  combined.forEach(e => {
-    const key = e.category + '||' + e.part;
-    if(!byKey[key]) byKey[key] = { category: e.category, part: e.part, qty: 0 };
-    byKey[key].qty += e.qty;
-  });
-
-  const byCategory = {};
-  Object.values(byKey).forEach(row => {
-    (byCategory[row.category] = byCategory[row.category] || []).push(row);
-  });
-  const categories = Object.keys(byCategory).sort((a,b)=> a.localeCompare(b,'ru'));
-  const total = Object.values(byKey).reduce((s,r)=> s + r.qty, 0);
-
-  let rowsHtml = '';
-  categories.forEach(cat => {
-    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
-    rowsHtml += `<tr class="cat-row"><td>${escapeHtml(cat)}</td><td style="text-align:right;">${catTotal} шт</td></tr>`;
-    byCategory[cat].sort((a,b)=> b.qty - a.qty).forEach(r => {
-      rowsHtml += `<tr><td>${escapeHtml(r.part)}</td><td class="qty">${r.qty}</td></tr>`;
-    });
-  });
-  if(categories.length === 0){
-    rowsHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за эту дату</td></tr>`;
-  }
-
-  $('report-output').innerHTML = `
-    <div class="report-doc" id="report-doc">
-      <h2>Выписка по цеху</h2>
-      <div class="report-meta">Сформировано: ${new Date().toLocaleDateString('ru-RU')}</div>
-      <div class="report-field"><span>Завод / цех</span><span>${escapeHtml(PROFILE.factory)}</span></div>
-      <div class="report-field"><span>Дата</span><span>${formatDateRu(dateStr)}</span></div>
-      <table class="report-table">
-        <thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
-        <tbody>${rowsHtml}</tbody>
-      </table>
-      <div class="report-total"><span>Итого по бригаде, шт</span><span class="val">${total}</span></div>
+    <div class="card">
+      <h2>Мои записи за сегодня · итого: <span class="badge">${total} шт</span></h2>
+      ${myRecs.length === 0 ? '<div class="empty">Пока нет записей</div>' :
+        myRecs.map(r => recordHTML(r, me.id)).join('')}
     </div>
   `;
 
-  if(categories.length > 0){
-    const actions = document.createElement('div');
-    actions.className = 'report-actions';
-    actions.innerHTML = `
-      <button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button>
-      <button class="btn btn-primary" id="btn-print">🖨 Печать / PDF</button>
-      <button class="btn btn-whatsapp" id="btn-report-whatsapp">📤 WhatsApp</button>
-      <button class="btn btn-telegram" id="btn-report-telegram">✈️ Telegram</button>
-      <button class="btn btn-vk" id="btn-report-vk">VK</button>
-    `;
-    $('report-output').appendChild(actions);
-
-    const buildShareText = () => {
-      let text = `📋 Выписка по цеху\n`;
-      text += `Завод/цех: ${PROFILE.factory}\n`;
-      text += `Дата: ${formatDateRu(dateStr)}\n\n`;
-      categories.forEach(cat => {
-        const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
-        text += `🔧 ${cat} — ${catTotal} шт\n`;
-        byCategory[cat].forEach(r => { text += `   • ${r.part}: ${r.qty} шт\n`; });
-        text += `\n`;
-      });
-      text += `———————————————\n`;
-      text += `Итого по бригаде: ${total} шт`;
-      return text;
-    };
-
-    $('btn-print').addEventListener('click', () => { setPrintOrientation(false); window.print(); });
-    $('btn-download-file').addEventListener('click', () => downloadBrigadeReport(byCategory, categories, total, dateStr));
-    $('btn-report-whatsapp').addEventListener('click', () => shareToWhatsApp(buildShareText()));
-    $('btn-report-telegram').addEventListener('click', () => shareToTelegram(buildShareText()));
-    $('btn-report-vk').addEventListener('click', () => shareToVK(buildShareText()));
-  }
-}
-
-function downloadBrigadeReport(byCategory, categories, total, dateStr){
-  let text = 'ВЫПИСКА ПО ЦЕХУ\r\n';
-  text += `Сформировано: ${new Date().toLocaleDateString('ru-RU')}\r\n`;
-  text += `Завод/цех: ${PROFILE.factory}\r\n`;
-  text += `Дата: ${formatDateRu(dateStr)}\r\n`;
-  text += '----------------------------------------\r\n';
-  categories.forEach(cat => {
-    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
-    text += `\r\n${cat.toUpperCase()} — Итого: ${catTotal} шт\r\n`;
-    byCategory[cat].forEach(r => { text += `  ${r.part}\t${r.qty}\r\n`; });
-  });
-  text += '\r\n----------------------------------------\r\n';
-  text += `ИТОГО ПО БРИГАДЕ: ${total} шт.\r\n`;
-
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Выписка_${PROFILE.factory.replace(/[\s«»]+/g,'_')}_${dateStr}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('Файл скачан');
-}
-
-// ---------- МОЯ ВЫПИСКА (день / месяц, только мои записи, с ФИО) ----------
-function buildPersonalReport(fromDate, toDate, periodLabel, showDailyBreakdown){
-  const own = ENTRIES.filter(e => e.worker === PROFILE.fio && e.date >= fromDate && e.date <= toDate);
-
-  const byKey = {};
-  own.forEach(e => {
-    const key = e.category + '||' + e.part;
-    if(!byKey[key]) byKey[key] = { category: e.category, part: e.part, qty: 0 };
-    byKey[key].qty += e.qty;
-  });
-
-  const byCategory = {};
-  Object.values(byKey).forEach(row => {
-    (byCategory[row.category] = byCategory[row.category] || []).push(row);
-  });
-  const categories = Object.keys(byCategory).sort((a,b)=> a.localeCompare(b,'ru'));
-  const total = Object.values(byKey).reduce((s,r)=> s + r.qty, 0);
-
-  const byDate = {};
-  own.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
-  const workDates = Object.keys(byDate).sort();
-
-  let dailyHtml = '';
-  if(showDailyBreakdown){
-    workDates.forEach(date => {
-      const items = byDate[date].sort((a,b)=> a.ts - b.ts);
-      const dayTotal = items.reduce((s,e)=> s + e.qty, 0);
-      dailyHtml += `<tr class="cat-row"><td>${formatDateRu(date)}</td><td style="text-align:right;">${dayTotal} шт</td></tr>`;
-      items.forEach(e => {
-        dailyHtml += `<tr><td>${escapeHtml(e.category)} — ${escapeHtml(e.part)}</td><td class="qty">${e.qty}</td></tr>`;
-      });
-    });
-    if(workDates.length === 0){
-      dailyHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
-    }
-  }
-
-  let rowsHtml = '';
-  categories.forEach(cat => {
-    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
-    rowsHtml += `<tr class="cat-row"><td>${escapeHtml(cat)}</td><td style="text-align:right;">${catTotal} шт</td></tr>`;
-    byCategory[cat].sort((a,b)=> b.qty - a.qty).forEach(r => {
-      rowsHtml += `<tr><td>${escapeHtml(r.part)}</td><td class="qty">${r.qty}</td></tr>`;
+  document.getElementById('inCat').addEventListener('change', (e) => {
+    const catId = e.target.value;
+    const sel = document.getElementById('inDet');
+    [...sel.options].forEach(o => {
+      o.hidden = catId && o.dataset.cat !== catId;
     });
   });
-  if(categories.length === 0){
-    rowsHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
-  }
+}
 
-  const dailySectionHtml = showDailyBreakdown ? `
-      <div class="report-section-title">Разбивка по сменам</div>
-      <table class="report-table">
-        <thead><tr><th>Дата / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
-        <tbody>${dailyHtml}</tbody>
-      </table>
-      <div class="report-section-title" style="margin-top:18px;">Итого по категориям за период</div>
+function recordHTML(r, currentUserId) {
+  const logs = state.changeLog.filter(l => l.recordId === r.id);
+  const logsHTML = logs.length ? `
+    <div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb">
+      <div style="font-size:11px;color:#6b7280;margin-bottom:4px">История изменений (${logs.length}):</div>
+      ${logs.slice(-5).reverse().map(l => `
+        <div class="log-entry">
+          <div class="ts">${new Date(l.ts).toLocaleString('ru-RU')} · ${getUserName(l.userId)}</div>
+          <div>${fieldLabel(l.field)}: <b>${l.old ?? '—'}</b> → <b>${l.new ?? '—'}</b></div>
+        </div>
+      `).join('')}
+      ${logs.length > 5 ? `<div style="font-size:11px;color:#9ca3af;margin-top:4px">…и ещё ${logs.length - 5}</div>` : ''}
+    </div>
   ` : '';
 
-  $('report-output').innerHTML = `
-    <div class="report-doc" id="report-doc">
-      <h2>Моя выписка о выполненных работах</h2>
-      <div class="report-meta">Сформировано: ${new Date().toLocaleDateString('ru-RU')}</div>
-      <div class="report-field"><span>Ф.И.О.</span><span>${escapeHtml(PROFILE.fio)}</span></div>
-      <div class="report-field"><span>Завод / цех</span><span>${escapeHtml(PROFILE.factory)}</span></div>
-      <div class="report-field"><span>Период</span><span>${periodLabel}</span></div>
-      ${dailySectionHtml}
-      <table class="report-table">
-        <thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
-        <tbody>${rowsHtml}</tbody>
-      </table>
-      <div class="report-total"><span>Итого изготовлено, шт</span><span class="val">${total}</span></div>
+  return `
+    <div class="record">
+      <div class="top">
+        <div>
+          <div><b>${getDetailName(r.detailId)}</b> <span class="badge">${getCategoryName(r.categoryId)}</span></div>
+          <div class="meta">📅 ${fmtDate(r.date)} · автор: ${getUserName(r.createdBy)}</div>
+        </div>
+        <div class="qty">${r.quantity} шт</div>
+      </div>
+      <div class="actions" style="margin-top:8px">
+        <button class="small secondary" onclick="editRecord('${r.id}')">✎ Изменить</button>
+        <button class="small danger" onclick="deleteRecord('${r.id}')">🗑 Удалить</button>
+      </div>
+      ${logsHTML}
     </div>
   `;
-
-  if(categories.length > 0){
-    const actions = document.createElement('div');
-    actions.className = 'report-actions';
-    actions.innerHTML = `
-      <button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button>
-      <button class="btn btn-primary" id="btn-print">🖨 Печать / PDF</button>
-      <button class="btn btn-whatsapp" id="btn-report-whatsapp">📤 WhatsApp</button>
-      <button class="btn btn-telegram" id="btn-report-telegram">✈️ Telegram</button>
-      <button class="btn btn-vk" id="btn-report-vk">VK</button>
-    `;
-    $('report-output').appendChild(actions);
-
-    const buildShareText = () => {
-      let text = `📄 Моя выписка о выполненных работах\n`;
-      text += `Ф.И.О.: ${PROFILE.fio}\n`;
-      text += `Завод/цех: ${PROFILE.factory}\n`;
-      text += `Период: ${periodLabel}\n\n`;
-      if(showDailyBreakdown){
-        text += `— Разбивка по сменам —\n\n`;
-        workDates.forEach(date => {
-          const items = byDate[date].sort((a,b)=> a.ts - b.ts);
-          const dayTotal = items.reduce((s,e)=> s + e.qty, 0);
-          text += `📅 ${formatDateRu(date)} — ${dayTotal} шт\n`;
-          items.forEach(e => { text += `   • ${e.category} — ${e.part}: ${e.qty} шт\n`; });
-          text += `\n`;
-        });
-        text += `— Итого по категориям —\n\n`;
-      }
-      categories.forEach(cat => {
-        const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
-        text += `🔧 ${cat} — ${catTotal} шт\n`;
-        byCategory[cat].forEach(r => { text += `   • ${r.part}: ${r.qty} шт\n`; });
-        text += `\n`;
-      });
-      text += `———————————————\n`;
-      text += `Итого: ${total} шт`;
-      return text;
-    };
-
-    $('btn-print').addEventListener('click', () => { setPrintOrientation(false); window.print(); });
-    $('btn-download-file').addEventListener('click', () => downloadPersonalReport(byCategory, categories, total, periodLabel, byDate, workDates, showDailyBreakdown));
-    $('btn-report-whatsapp').addEventListener('click', () => shareToWhatsApp(buildShareText()));
-    $('btn-report-telegram').addEventListener('click', () => shareToTelegram(buildShareText()));
-    $('btn-report-vk').addEventListener('click', () => shareToVK(buildShareText()));
-  }
 }
 
-function downloadPersonalReport(byCategory, categories, total, periodLabel, byDate, workDates, showDailyBreakdown){
-  let text = 'МОЯ ВЫПИСКА О ВЫПОЛНЕННЫХ РАБОТАХ\r\n';
-  text += `Сформировано: ${new Date().toLocaleDateString('ru-RU')}\r\n`;
-  text += `Ф.И.О.: ${PROFILE.fio}\r\n`;
-  text += `Завод/цех: ${PROFILE.factory}\r\n`;
-  text += `Период: ${periodLabel}\r\n`;
-  text += '----------------------------------------\r\n';
-
-  if(showDailyBreakdown){
-    text += '\r\nРАЗБИВКА ПО СМЕНАМ\r\n';
-    workDates.forEach(date => {
-      const items = byDate[date].sort((a,b)=> a.ts - b.ts);
-      const dayTotal = items.reduce((s,e)=> s + e.qty, 0);
-      text += `\r\n${formatDateRu(date)} — Итого: ${dayTotal} шт\r\n`;
-      items.forEach(e => { text += `  ${e.category} — ${e.part}\t${e.qty}\r\n`; });
-    });
-    text += '\r\n----------------------------------------\r\n';
-    text += 'ИТОГО ПО КАТЕГОРИЯМ ЗА ПЕРИОД\r\n';
-  }
-
-  categories.forEach(cat => {
-    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
-    text += `\r\n${cat.toUpperCase()} — Итого: ${catTotal} шт\r\n`;
-    byCategory[cat].forEach(r => { text += `  ${r.part}\t${r.qty}\r\n`; });
-  });
-  text += '\r\n----------------------------------------\r\n';
-  text += `ИТОГО: ${total} шт.\r\n`;
-
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Моя_выписка_${PROFILE.fio.replace(/\s+/g,'_')}_${periodLabel.replace(/\s+/g,'_')}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('Файл скачан');
+function fieldLabel(f) {
+  return { quantity: 'Количество', detailId: 'Деталь', categoryId: 'Категория', date: 'Дата', workerId: 'Работник' }[f] || f;
 }
 
-// ---------- ВЫПИСКА ПО РАБОТНИКУ (месяц, из общих записей бригады) ----------
-function buildWorkerReport(worker, fromDate, toDate, periodLabel){
-  const items = ENTRIES.filter(e => e.worker === worker && e.date >= fromDate && e.date <= toDate);
+window.addRecord = () => {
+  const detId = document.getElementById('inDet').value;
+  const qty = +document.getElementById('inQty').value;
+  if (!detId) { toast('Выберите деталь', true); return; }
+  if (!qty || qty <= 0) { toast('Укажите количество', true); return; }
+  const det = state.details.find(d => d.id === detId);
+  const r = {
+    id: uid(),
+    workerId: state.currentUser,
+    date: todayISO(),
+    categoryId: det.categoryId,
+    detailId: detId,
+    quantity: qty,
+    createdAt: new Date().toISOString(),
+    createdBy: state.currentUser,
+  };
+  state.records.push(r);
+  logChange(r.id, 'quantity', null, qty, state.currentUser);
+  logChange(r.id, 'detailId', null, det.name, state.currentUser);
+  persist();
+  toast('Запись добавлена');
+  render();
+};
 
-  const byKey = {};
-  items.forEach(e => {
-    const key = e.category + '||' + e.part;
-    if(!byKey[key]) byKey[key] = { category: e.category, part: e.part, qty: 0 };
-    byKey[key].qty += e.qty;
-  });
+window.deleteRecord = (id) => {
+  if (!confirm('Удалить запись?')) return;
+  state.records = state.records.filter(r => r.id !== id);
+  state.changeLog = state.changeLog.filter(l => l.recordId !== id);
+  persist();
+  toast('Удалено');
+  render();
+};
 
-  const byCategory = {};
-  Object.values(byKey).forEach(row => {
-    (byCategory[row.category] = byCategory[row.category] || []).push(row);
-  });
-  const categories = Object.keys(byCategory).sort((a,b)=> a.localeCompare(b,'ru'));
-  const total = Object.values(byKey).reduce((s,r)=> s + r.qty, 0);
+window.editRecord = (id) => {
+  const r = state.records.find(x => x.id === id);
+  if (!r) return;
+  openModal(`
+    <h2>✎ Редактирование записи</h2>
+    <label>Дата</label>
+    <input type="date" id="eDate" value="${r.date}">
+    <label>Категория</label>
+    <select id="eCat">
+      ${state.categories.map(c => `<option value="${c.id}" ${c.id === r.categoryId ? 'selected' : ''}>${c.name}</option>`).join('')}
+    </select>
+    <label>Деталь</label>
+    <select id="eDet">
+      ${state.details.map(d => `<option value="${d.id}" ${d.id === r.detailId ? 'selected' : ''}>${d.name}</option>`).join('')}
+    </select>
+    <label>Количество, шт</label>
+    <input type="number" id="eQty" value="${r.quantity}" min="0">
+    <div class="row" style="margin-top:14px">
+      <button class="secondary" onclick="closeModal()">Отмена</button>
+      <button onclick="saveEdit('${id}')">Сохранить</button>
+    </div>
+  `);
+};
 
-  const byDate = {};
-  items.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
-  const workDates = Object.keys(byDate).sort();
+window.saveEdit = (id) => {
+  const r = state.records.find(x => x.id === id);
+  const newDate = document.getElementById('eDate').value;
+  const newCat = document.getElementById('eCat').value;
+  const newDet = document.getElementById('eDet').value;
+  const newQty = +document.getElementById('eQty').value;
 
-  let dailyHtml = '';
-  workDates.forEach(date => {
-    const dayItems = byDate[date].sort((a,b)=> a.ts - b.ts);
-    const dayTotal = dayItems.reduce((s,e)=> s + e.qty, 0);
-    dailyHtml += `<tr class="cat-row"><td>${formatDateRu(date)}</td><td style="text-align:right;">${dayTotal} шт</td></tr>`;
-    dayItems.forEach(e => {
-      dailyHtml += `<tr><td>${escapeHtml(e.category)} — ${escapeHtml(e.part)}</td><td class="qty">${e.qty}</td></tr>`;
-    });
-  });
-  if(workDates.length === 0){
-    dailyHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
-  }
+  if (r.date !== newDate) logChange(id, 'date', r.date, newDate, state.currentUser);
+  if (r.categoryId !== newCat) logChange(id, 'categoryId', getCategoryName(r.categoryId), getCategoryName(newCat), state.currentUser);
+  if (r.detailId !== newDet) logChange(id, 'detailId', getDetailName(r.detailId), getDetailName(newDet), state.currentUser);
+  if (r.quantity !== newQty) logChange(id, 'quantity', r.quantity, newQty, state.currentUser);
 
-  let rowsHtml = '';
-  categories.forEach(cat => {
-    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
-    rowsHtml += `<tr class="cat-row"><td>${escapeHtml(cat)}</td><td style="text-align:right;">${catTotal} шт</td></tr>`;
-    byCategory[cat].sort((a,b)=> b.qty - a.qty).forEach(r => {
-      rowsHtml += `<tr><td>${escapeHtml(r.part)}</td><td class="qty">${r.qty}</td></tr>`;
-    });
-  });
-  if(categories.length === 0){
-    rowsHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
-  }
+  r.date = newDate; r.categoryId = newCat; r.detailId = newDet; r.quantity = newQty;
+  persist();
+  closeModal();
+  toast('Изменения сохранены');
+  render();
+};
 
-  $('report-output').innerHTML = `
-    <div class="report-doc" id="report-doc">
-      <h2>Выписка по работнику</h2>
-      <div class="report-meta">Сформировано: ${new Date().toLocaleDateString('ru-RU')}</div>
-      <div class="report-field"><span>Работник</span><span>${escapeHtml(worker)}</span></div>
-      <div class="report-field"><span>Завод / цех</span><span>${escapeHtml(PROFILE.factory)}</span></div>
-      <div class="report-field"><span>Период</span><span>${periodLabel}</span></div>
-      <div class="report-section-title">Разбивка по сменам</div>
-      <table class="report-table">
-        <thead><tr><th>Дата / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
-        <tbody>${dailyHtml}</tbody>
-      </table>
-      <div class="report-section-title" style="margin-top:18px;">Итого по категориям за период</div>
-      <table class="report-table">
-        <thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
-        <tbody>${rowsHtml}</tbody>
-      </table>
-      <div class="report-total"><span>Итого изготовлено, шт</span><span class="val">${total}</span></div>
+/* ---------- БРИГАДА ---------- */
+function renderBrigade() {
+  const me = state.users.find(u => u.id === state.currentUser);
+  const b = state.brigades.find(x => x.id === me.brigadeId);
+  const members = state.users.filter(u => u.brigadeId === b.id);
+  const others = members.filter(m => m.id !== me.id);
+
+  const todayRecs = state.records.filter(r => r.date === todayISO() && members.some(m => m.id === r.workerId));
+  const total = todayRecs.reduce((s, r) => s + (+r.quantity || 0), 0);
+
+  app.innerHTML = `
+    <div class="card">
+      <h2>👥 ${b.name}</h2>
+      <div class="stat"><span>Код бригады</span><span class="v">${b.code}</span></div>
+      <div class="stat"><span>Участников</span><span class="v">${members.length}</span></div>
+      <div class="stat"><span>Итого сегодня</span><span class="v">${total} шт</span></div>
+    </div>
+
+    <div class="card">
+      <h3>Участники</h3>
+      ${members.map(m => `
+        <div class="stat">
+          <span>${m.lastName} ${m.firstName || ''} ${m.role === 'master' ? '<span class="badge">мастер</span>' : ''}</span>
+          <span class="v">${state.records.filter(r => r.workerId === m.id && r.date === todayISO()).reduce((s,r)=>s+r.quantity,0)} шт</span>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="card">
+      <h2>Сдельная запись за другого работника</h2>
+      <label>Работник</label>
+      <select id="brWorker">
+        ${members.map(m => `<option value="${m.id}">${m.lastName} ${m.firstName || ''}</option>`).join('')}
+      </select>
+      <label>Деталь</label>
+      <select id="brDet">
+        ${state.details.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+      </select>
+      <label>Количество, шт</label>
+      <input id="brQty" type="number" min="0" placeholder="0">
+      <button style="margin-top:12px;width:100%" onclick="addBrigadeRecord()">+ Добавить</button>
     </div>
   `;
-
-  if(categories.length > 0){
-    const actions = document.createElement('div');
-    actions.className = 'report-actions';
-    actions.innerHTML = `
-      <button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button>
-      <button class="btn btn-primary" id="btn-print">🖨 Печать / PDF</button>
-      <button class="btn btn-whatsapp" id="btn-report-whatsapp">📤 WhatsApp</button>
-      <button class="btn btn-telegram" id="btn-report-telegram">✈️ Telegram</button>
-      <button class="btn btn-vk" id="btn-report-vk">VK</button>
-    `;
-    $('report-output').appendChild(actions);
-
-    const buildShareText = () => {
-      let text = `📄 Выписка по работнику\n`;
-      text += `Работник: ${worker}\n`;
-      text += `Завод/цех: ${PROFILE.factory}\n`;
-      text += `Период: ${periodLabel}\n\n`;
-      text += `— Разбивка по сменам —\n\n`;
-      workDates.forEach(date => {
-        const dayItems = byDate[date].sort((a,b)=> a.ts - b.ts);
-        const dayTotal = dayItems.reduce((s,e)=> s + e.qty, 0);
-        text += `📅 ${formatDateRu(date)} — ${dayTotal} шт\n`;
-        dayItems.forEach(e => { text += `   • ${e.category} — ${e.part}: ${e.qty} шт\n`; });
-        text += `\n`;
-      });
-      text += `— Итого по категориям —\n\n`;
-      categories.forEach(cat => {
-        const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
-        text += `🔧 ${cat} — ${catTotal} шт\n`;
-        byCategory[cat].forEach(r => { text += `   • ${r.part}: ${r.qty} шт\n`; });
-        text += `\n`;
-      });
-      text += `———————————————\n`;
-      text += `Итого: ${total} шт`;
-      return text;
-    };
-
-    $('btn-print').addEventListener('click', () => { setPrintOrientation(false); window.print(); });
-    $('btn-download-file').addEventListener('click', () => downloadWorkerReport(worker, byCategory, categories, total, periodLabel, byDate, workDates));
-    $('btn-report-whatsapp').addEventListener('click', () => shareToWhatsApp(buildShareText()));
-    $('btn-report-telegram').addEventListener('click', () => shareToTelegram(buildShareText()));
-    $('btn-report-vk').addEventListener('click', () => shareToVK(buildShareText()));
-  }
 }
 
-function downloadWorkerReport(worker, byCategory, categories, total, periodLabel, byDate, workDates){
-  let text = 'ВЫПИСКА ПО РАБОТНИКУ\r\n';
-  text += `Сформировано: ${new Date().toLocaleDateString('ru-RU')}\r\n`;
-  text += `Работник: ${worker}\r\n`;
-  text += `Завод/цех: ${PROFILE.factory}\r\n`;
-  text += `Период: ${periodLabel}\r\n`;
-  text += '----------------------------------------\r\n';
+window.addBrigadeRecord = () => {
+  const wId = document.getElementById('brWorker').value;
+  const dId = document.getElementById('brDet').value;
+  const qty = +document.getElementById('brQty').value;
+  if (!qty || qty <= 0) { toast('Укажите количество', true); return; }
+  const det = state.details.find(d => d.id === dId);
+  const r = {
+    id: uid(), workerId: wId, date: todayISO(),
+    categoryId: det.categoryId, detailId: dId, quantity: qty,
+    createdAt: new Date().toISOString(), createdBy: state.currentUser,
+  };
+  state.records.push(r);
+  logChange(r.id, 'quantity', null, qty, state.currentUser);
+  persist();
+  toast('Запись добавлена');
+  render();
+};
 
-  text += '\r\nРАЗБИВКА ПО СМЕНАМ\r\n';
-  workDates.forEach(date => {
-    const dayItems = byDate[date].sort((a,b)=> a.ts - b.ts);
-    const dayTotal = dayItems.reduce((s,e)=> s + e.qty, 0);
-    text += `\r\n${formatDateRu(date)} — Итого: ${dayTotal} шт\r\n`;
-    dayItems.forEach(e => { text += `  ${e.category} — ${e.part}\t${e.qty}\r\n`; });
-  });
+/* ---------- ГРАФИК ---------- */
+function renderSchedule() {
+  const me = state.users.find(u => u.id === state.currentUser);
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+  const mySched = state.schedule[me.id] || {};
 
-  text += '\r\n----------------------------------------\r\n';
-  text += 'ИТОГО ПО КАТЕГОРИЯМ ЗА ПЕРИОД\r\n';
-  categories.forEach(cat => {
-    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
-    text += `\r\n${cat.toUpperCase()} — Итого: ${catTotal} шт\r\n`;
-    byCategory[cat].forEach(r => { text += `  ${r.part}\t${r.qty}\r\n`; });
-  });
-  text += '\r\n----------------------------------------\r\n';
-  text += `ИТОГО: ${total} шт.\r\n`;
-
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Выписка_${worker.replace(/\s+/g,'_')}_${periodLabel.replace(/\s+/g,'_')}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('Файл скачан');
-}
-
-// ---------- Официальное скачивание файла через Telegram.WebApp.downloadFile ----------
-// Требует Bot API 8.0+ и настоящей https-ссылки на файл, поэтому сначала загружаем
-// PDF во временное хранилище Firebase Storage, получаем ссылку — и уже её передаём Telegram.
-async function tryTelegramNativeDownload(blob, fileName){
-  const wa = window.Telegram && window.Telegram.WebApp;
-  if(!wa || typeof wa.downloadFile !== 'function') return false;
-  if(wa.isVersionAtLeast && !wa.isVersionAtLeast('8.0')) return false;
-  if(!firebaseReady || typeof firebase.storage !== 'function') return false;
-
-  try{
-    const storage = firebase.storage();
-    const path = `naryad_pdfs/${PROFILE.code}/${Date.now()}_${fileName}`;
-    const ref = storage.ref(path);
-    await ref.put(blob, { contentType: 'application/pdf' });
-    const url = await ref.getDownloadURL();
-
-    const accepted = await withTimeout(new Promise((resolve) => {
-      try{
-        wa.downloadFile({ url, file_name: fileName }, (result) => resolve(!!result));
-      }catch(e){ resolve(false); }
-    }), 8000, false);
-
-    if(accepted) showToast('Загрузка началась — файл появится в папке загрузок');
-    return accepted;
-  }catch(e){
-    console.error('Telegram downloadFile не сработал:', e);
-    return false;
-  }
-}
-
-// ---------- Ориентация печати (для альбомного бланка наряда) ----------
-function setPrintOrientation(landscape){
-  let style = document.getElementById('dynamic-page-style');
-  if(!style){
-    style = document.createElement('style');
-    style.id = 'dynamic-page-style';
-    document.head.appendChild(style);
-  }
-  style.textContent = landscape ? '@page{ size: landscape; margin: 10mm; }' : '';
-}
-
-// ---------- БЛАНК НАРЯДА ДЛЯ ПЕЧАТИ (без категорий, с запасом на оставшиеся смены) ----------
-function buildNaryadBlank(worker, monthVal){
-  const [y, m] = monthVal.split('-').map(Number);
-  const daysInMonth = new Date(y, m, 0).getDate();
-  const monthLabel = new Date(y, m-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
-
-  // до какого числа месяц уже "прожит" — дальше оставляем пустые клетки под будущие смены
-  const todayStr = toISODate(new Date());
-  const currentMonthStr = todayStr.slice(0,7);
-  let cutoffDay;
-  if(monthVal === currentMonthStr) cutoffDay = parseInt(todayStr.split('-')[2], 10);
-  else if(monthVal < currentMonthStr) cutoffDay = daysInMonth;
-  else cutoffDay = 0;
-
-  const items = ENTRIES.filter(e => e.worker === worker && e.date.startsWith(monthVal));
-
-  // группируем по связке "категория + деталь" — категория идёт префиксом перед названием
-  const byPart = {};
-  items.forEach(e => {
-    const label = `${e.category} ${e.part}`.trim();
-    if(!byPart[label]) byPart[label] = {};
-    const day = parseInt(e.date.split('-')[2], 10);
-    byPart[label][day] = (byPart[label][day] || 0) + e.qty;
-  });
-  const usedParts = Object.keys(byPart).sort((a,b)=> a.localeCompare(b,'ru'));
-
-  // запас пустых строк под оставшиеся смены (как в бумажном бланке)
-  const totalRows = Math.max(usedParts.length + 8, 16);
-  const blankRowsCount = totalRows - usedParts.length;
-
-  // шапка с числами месяца
-  let headRow = '<tr><th style="min-width:150px;">Наименование детали</th>';
-  for(let d=1; d<=daysInMonth; d++){ headRow += `<th class="${d>cutoffDay ? 'naryad-future' : ''}">${d}</th>`; }
-  headRow += '<th>Итого</th></tr>';
-
-  // строки с уже известными данными
-  let bodyRows = '';
-  const dayTotals = Array(daysInMonth+1).fill(0);
-  usedParts.forEach(part => {
-    let rowTotal = 0;
-    let cells = '';
-    for(let d=1; d<=daysInMonth; d++){
-      const qty = (byPart[part][d]) || 0;
-      if(qty){ dayTotals[d] += qty; rowTotal += qty; }
-      cells += `<td class="${d>cutoffDay ? 'naryad-future' : ''}">${qty || ''}</td>`;
-    }
-    bodyRows += `<tr><td class="naryad-name">${escapeHtml(part)}</td>${cells}<td class="naryad-total">${rowTotal}</td></tr>`;
-  });
-
-  // пустые строки — под оставшиеся смены, дозаполняются от руки
-  for(let i=0; i<blankRowsCount; i++){
-    let cells = '';
-    for(let d=1; d<=daysInMonth; d++){ cells += `<td class="${d>cutoffDay ? 'naryad-future' : ''}"></td>`; }
-    bodyRows += `<tr><td class="naryad-name">&nbsp;</td>${cells}<td></td></tr>`;
+  let cells = '';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const v = mySched[iso] || '';
+    const color = v === 'day' ? '#059669' : v === 'night' ? '#7c3aed' : v === 'off' ? '#9ca3af' : '#e5e7eb';
+    cells += `<div style="background:${color};color:#fff;padding:6px;text-align:center;border-radius:6px;font-size:12px;cursor:pointer" onclick="cycleDay('${me.id}','${iso}')">${d}<br><span style="font-size:10px">${v === 'day' ? 'Д' : v === 'night' ? 'Н' : v === 'off' ? 'В' : '·'}</span></div>`;
   }
 
-  // итоговая строка по дням
-  let sumCells = '<td>Итого за день</td>';
-  let grandTotal = 0;
-  for(let d=1; d<=daysInMonth; d++){
-    grandTotal += dayTotals[d];
-    sumCells += `<td class="${d>cutoffDay ? 'naryad-future' : ''}">${dayTotals[d] || ''}</td>`;
-  }
-  sumCells += `<td class="naryad-total">${grandTotal}</td>`;
+  app.innerHTML = `
+    <div class="card">
+      <h2>📅 График · ${monthName(key)}</h2>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">${cells}</div>
+      <p style="font-size:12px;color:#6b7280;margin-top:10px">Нажимайте на день, чтобы переключить: Д (день) → Н (ночь) → В (выход) → пусто.</p>
+    </div>
 
-  $('report-output').innerHTML = `
-    <div class="naryad-doc" id="naryad-doc">
-      <div class="naryad-head">
-        <h2>Наряд на сдельную работу</h2>
-        <div class="row"><span>Ф.И.О.</span><span>${escapeHtml(worker)}</span></div>
-        <div class="row"><span>Завод / цех</span><span>${escapeHtml(PROFILE.factory)}</span></div>
-        <div class="row"><span>Месяц</span><span>${monthLabel}</span></div>
-        <div class="row"><span>Сформировано</span><span>${new Date().toLocaleDateString('ru-RU')}${cutoffDay < daysInMonth ? ` — данные по ${cutoffDay || '0'}-е число, дальше пустые клетки под оставшиеся смены` : ''}</span></div>
+    <div class="card">
+      <h3>Шаблон ротации</h3>
+      <div class="row">
+        <div><label>Дней смены</label><input type="number" id="tplOn" value="2" min="1"></div>
+        <div><label>Дней отдыха</label><input type="number" id="tplOff" value="2" min="0"></div>
       </div>
-      <div class="naryad-scroll">
-        <table class="naryad-table">
-          <thead>${headRow}</thead>
-          <tbody>
-            ${bodyRows}
-            <tr class="naryad-sum-row">${sumCells}</tr>
-          </tbody>
-        </table>
+      <label>Тип</label>
+      <select id="tplType">
+        <option value="day">День</option>
+        <option value="night">Ночь</option>
+      </select>
+      <button style="margin-top:10px;width:100%" onclick="applyTemplate()">Заполнить месяц</button>
+    </div>
+  `;
+}
+
+window.cycleDay = (uid_, iso) => {
+  if (!state.schedule[uid_]) state.schedule[uid_] = {};
+  const cur = state.schedule[uid_][iso] || '';
+  const next = cur === '' ? 'day' : cur === 'day' ? 'night' : cur === 'night' ? 'off' : '';
+  if (next) state.schedule[uid_][iso] = next;
+  else delete state.schedule[uid_][iso];
+  persist();
+  render();
+};
+
+window.applyTemplate = () => {
+  const on = +document.getElementById('tplOn').value;
+  const off = +document.getElementById('tplOff').value;
+  const type = document.getElementById('tplType').value;
+  const me = state.users.find(u => u.id === state.currentUser);
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  if (!state.schedule[me.id]) state.schedule[me.id] = {};
+  const cycle = on + off;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const pos = (d - 1) % cycle;
+    if (pos < on) state.schedule[me.id][iso] = type;
+    else delete state.schedule[me.id][iso];
+  }
+  persist();
+  toast('Шаблон применён');
+  render();
+};
+
+/* ---------- ЗАРПЛАТА ---------- */
+function renderSalary() {
+  const me = state.users.find(u => u.id === state.currentUser);
+  const settings = state.salarySettings[me.id] || {};
+  const now = new Date();
+  const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonth = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+
+  const curOutput = state.records.filter(r => r.workerId === me.id && monthKey(r.date) === curMonth).reduce((s, r) => s + (+r.quantity || 0), 0);
+  const prevOutput = settings.lastMonthOutput ?? state.records.filter(r => r.workerId === me.id && monthKey(r.date) === prevMonth).reduce((s, r) => s + (+r.quantity || 0), 0);
+  const lastSalary = settings.lastMonthSalary ?? 0;
+  const avgPrice = prevOutput > 0 ? lastSalary / prevOutput : 0;
+  const calcSalary = avgPrice * curOutput;
+
+  app.innerHTML = `
+    <details class="summary" open>
+      <summary>📊 Моя зарплата по средней стоимости изделия</summary>
+      <div class="body">
+        <p style="font-size:12px;color:#6b7280;margin-bottom:8px">
+          Средняя стоимость = зарплата за прошлый месяц ÷ выработка за прошлый месяц.<br>
+          Расчётная зарплата = средняя стоимость × выработка за текущий месяц.
+        </p>
+        <label>Моя зарплата за прошлый месяц (${monthName(prevMonth)}), ₽</label>
+        <input type="number" id="sLastSal" value="${lastSalary || ''}" placeholder="0">
+        <label>Выработка за прошлый месяц, шт (авто или вручную)</label>
+        <input type="number" id="sLastOut" value="${prevOutput || ''}" placeholder="0">
+        <div class="stat"><span>Средняя стоимость изделия</span><span class="v">${avgPrice ? avgPrice.toFixed(2) + ' ₽' : '—'}</span></div>
+        <div class="stat"><span>Выработка за ${monthName(curMonth)}</span><span class="v">${curOutput} шт</span></div>
+        <div class="stat"><span>Расчётная зарплата за текущий месяц</span><span class="v">${fmtMoney(calcSalary)}</span></div>
+        <button style="margin-top:10px;width:100%" onclick="saveSalary()">Сохранить</button>
       </div>
-      <div class="naryad-sign">
-        <div>Подпись работника</div>
-        <div>Подпись мастера</div>
+    </details>
+
+    <div class="card">
+      <h2>💰 Зарплата по работникам бригады</h2>
+      ${brigadeSalaryTable(curMonth)}
+    </div>
+  `;
+}
+
+function brigadeSalaryTable(month) {
+  const me = state.users.find(u => u.id === state.currentUser);
+  const b = state.brigades.find(x => x.id === me.brigadeId);
+  const members = state.users.filter(u => u.brigadeId === b.id);
+  const rows = members.map(m => {
+    const out = state.records.filter(r => r.workerId === m.id && monthKey(r.date) === month).reduce((s, r) => s + (+r.quantity || 0), 0);
+    const s = state.salarySettings[m.id] || {};
+    const prevOut = s.lastMonthOutput ?? 0;
+    const lastSal = s.lastMonthSalary ?? 0;
+    const avg = prevOut > 0 ? lastSal / prevOut : 0;
+    const calc = avg * out;
+    return `<div class="stat"><span>${m.lastName} ${m.firstName || ''}<br><small style="color:#6b7280">${out} шт · ср. ${avg.toFixed(2)} ₽/шт</small></span><span class="v">${fmtMoney(calc)}</span></div>`;
+  }).join('');
+  return rows || '<div class="empty">Нет данных</div>';
+}
+
+window.saveSalary = () => {
+  const me = state.users.find(u => u.id === state.currentUser);
+  state.salarySettings[me.id] = {
+    lastMonthSalary: +document.getElementById('sLastSal').value || 0,
+    lastMonthOutput: +document.getElementById('sLastOut').value || 0,
+  };
+  persist();
+  toast('Сохранено');
+  render();
+};
+
+/* ---------- ИСТОРИЯ (поиск, фильтры, архивы) ---------- */
+function renderHistory() {
+  const me = state.users.find(u => u.id === state.currentUser);
+  const b = state.brigades.find(x => x.id === me.brigadeId);
+  const members = state.users.filter(u => u.brigadeId === b.id);
+
+  // все месяцы, по которым есть записи
+  const months = [...new Set(state.records.map(r => monthKey(r.date)))].sort().reverse();
+
+  app.innerHTML = `
+    <div class="card">
+      <h2>🔍 История · поиск и фильтры</h2>
+      <div class="filter-bar">
+        <input id="fSearch" placeholder="🔎 Поиск по детали / работнику..." class="full">
+        <select id="fWorker">
+          <option value="">Все работники</option>
+          ${members.map(m => `<option value="${m.id}">${m.lastName} ${m.firstName || ''}</option>`).join('')}
+        </select>
+        <select id="fDetail">
+          <option value="">Все детали</option>
+          ${state.details.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+        </select>
+        <input type="month" id="fMonth" value="${months[0] || ''}">
+        <div>
+          <label style="margin:0;font-size:12px">Период с</label>
+          <input type="date" id="fFrom">
+        </div>
+        <div>
+          <label style="margin:0;font-size:12px">Период по</label>
+          <input type="date" id="fTo">
+        </div>
+      </div>
+      <div class="row">
+        <button class="secondary" onclick="clearFilters()">Сбросить</button>
+        <button onclick="applyFilters()">Применить</button>
       </div>
     </div>
+
+    <div id="historyResult"></div>
   `;
 
-  const actions = document.createElement('div');
-  actions.className = 'report-actions';
-  actions.innerHTML = `<button class="btn btn-primary" id="btn-print-naryad">📄 Скачать PDF</button>`;
-  $('report-output').appendChild(actions);
-  $('btn-print-naryad').addEventListener('click', async () => {
-    try{
-      await downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount });
-    }catch(e){
-      console.error('Ошибка формирования PDF:', e);
-      showToast('Ошибка: ' + (e && e.message ? e.message : 'не удалось сформировать PDF'));
-    }
-  });
-}
-
-// Строит настоящий PDF-файл (не диалог печати браузера) и сразу скачивает его на устройство —
-// внутри Telegram-вебвью системная печать работает нестабильно, а прямое скачивание — надёжно.
-// Отправляет PDF в Telegram-чат текущего пользователя через свой Cloudflare Worker —
-// воркер пересылает файл в Telegram как обычное вложение (sendDocument), используя
-// секретный токен бота, который никогда не попадает в код мини-приложения.
-async function sendPdfViaBot(blob, fileName){
-  if(!PROFILE) return { ok: false, reason: 'Профиль не загружен' };
-  if(!CLOUDFLARE_WORKER_URL || CLOUDFLARE_WORKER_URL.includes('YOUR-WORKER-NAME')){
-    return { ok: false, reason: 'Адрес Cloudflare Worker не настроен в коде' };
-  }
-
-  const key = PROFILE.fio.replace(/[.#$\[\]]/g, '_');
-  const chatId = await fbGet(bp('telegramIds/' + key));
-  if(!chatId){
-    return { ok: false, reason: 'Нет сохранённого Telegram ID — откройте приложение через настоящий Telegram и повторите' };
-  }
-
-  const form = new FormData();
-  form.append('chat_id', chatId);
-  form.append('file_name', fileName);
-  form.append('file', blob, fileName);
-
-  let res;
-  try{
-    res = await withPlainTimeout(
-      fetch(CLOUDFLARE_WORKER_URL, {
-        method: 'POST',
-        headers: { 'X-App-Secret': APP_SHARED_SECRET },
-        body: form,
-      }),
-      15000,
-      null
-    );
-  }catch(e){
-    return { ok: false, reason: 'Сетевая ошибка при обращении к Worker: ' + e.message };
-  }
-
-  if(!res){
-    return { ok: false, reason: 'Worker не ответил за 15 секунд (таймаут)' };
-  }
-
-  const data = await res.json().catch(() => null);
-
-  if(!res.ok){
-    const errText = (data && (data.error || (data.description))) || `HTTP ${res.status}`;
-    return { ok: false, reason: 'Worker вернул ошибку: ' + errText };
-  }
-
-  if(!data || !data.ok){
-    const errText = (data && data.description) || 'неизвестная ошибка Telegram API';
-    return { ok: false, reason: 'Telegram отклонил отправку: ' + errText };
-  }
-
-  return { ok: true };
-}
-
-// Стандартные шрифты jsPDF (Helvetica и т.п.) не содержат кириллицу — без этого
-// русский текст в PDF превращается в набор случайных латинских символов.
-// Подключаем шрифт с кириллицей (Roboto) прямо из CDN в момент создания файла.
-let cyrillicFontBase64Cache = null;
-
-function arrayBufferToBase64(buffer){
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  for(let i = 0; i < bytes.length; i += chunkSize){
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
-
-async function registerCyrillicFont(doc){
-  const candidateUrls = [
-    'https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans.ttf',
-    'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.ttf',
-    'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/static/Roboto-Regular.ttf',
-    'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/Roboto-Regular.ttf',
-  ];
-
-  try{
-    if(!cyrillicFontBase64Cache){
-      let lastError = null;
-      for(const fontUrl of candidateUrls){
-        try{
-          const res = await fetch(fontUrl);
-          if(!res.ok) throw new Error('HTTP ' + res.status);
-          const buf = await res.arrayBuffer();
-          if(buf.byteLength < 10000) throw new Error('Файл слишком маленький, похоже не тот формат');
-          cyrillicFontBase64Cache = arrayBufferToBase64(buf);
-          break;
-        }catch(e){
-          lastError = e;
-          console.error('Не удалось загрузить шрифт с ' + fontUrl + ':', e);
-        }
-      }
-      if(!cyrillicFontBase64Cache) throw lastError || new Error('Ни один источник шрифта не сработал');
-    }
-    doc.addFileToVFS('Roboto-Regular.ttf', cyrillicFontBase64Cache);
-    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'bold'); // тот же файл — без него жирный текст снова слетит на стандартный шрифт
-    return true;
-  }catch(e){
-    console.error('Не удалось подключить кириллический шрифт:', e);
-    return false;
-  }
-}
-
-async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount }){
-  if(!window.jspdf){ showToast('Не удалось загрузить модуль PDF, попробуйте ещё раз'); return; }
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
-  showToast('Готовим PDF...');
-  const cyrillicFontOk = await registerCyrillicFont(doc);
-  const fontName = cyrillicFontOk ? 'Roboto' : undefined; // undefined = стандартный шрифт jsPDF (без кириллицы)
-  if(fontName) doc.setFont(fontName);
-  if(!cyrillicFontOk){
-    showToast('⚠️ Не удалось загрузить кириллический шрифт — текст в PDF может отображаться некорректно');
-  }
-
-  doc.setFontSize(13);
-  doc.text('Наряд на сдельную работу', 148.5, 10, { align: 'center' });
-  doc.setFontSize(9);
-  const infoLine = `Ф.И.О.: ${worker}      Завод/цех: ${PROFILE.factory}      Месяц: ${monthLabel}      Сформировано: ${new Date().toLocaleDateString('ru-RU')}`;
-  doc.text(infoLine, 148.5, 16, { align: 'center' });
-
-  const head = [['Наименование детали', ...Array.from({length: daysInMonth}, (_,i)=> String(i+1)), 'Итого']];
-  const body = [];
-
-  usedParts.forEach(part => {
-    let rowTotal = 0;
-    const row = [part];
-    for(let d=1; d<=daysInMonth; d++){
-      const qty = byPart[part][d] || 0;
-      if(qty) rowTotal += qty;
-      row.push(qty || '');
-    }
-    row.push(rowTotal);
-    body.push(row);
+  // обработчики
+  ['fSearch','fWorker','fDetail','fMonth','fFrom','fTo'].forEach(id => {
+    document.getElementById(id).addEventListener('input', applyFilters);
+    document.getElementById(id).addEventListener('change', applyFilters);
   });
 
-  for(let i=0; i<blankRowsCount; i++){
-    body.push(['', ...Array(daysInMonth).fill(''), '']);
+  applyFilters();
+}
+
+window.clearFilters = () => {
+  ['fSearch','fWorker','fDetail','fMonth','fFrom','fTo'].forEach(id => document.getElementById(id).value = '');
+  applyFilters();
+};
+
+window.applyFilters = () => {
+  const me = state.users.find(u => u.id === state.currentUser);
+  const b = state.brigades.find(x => x.id === me.brigadeId);
+  const memberIds = new Set(b.members);
+
+  const search = (document.getElementById('fSearch')?.value || '').toLowerCase().trim();
+  const wId = document.getElementById('fWorker')?.value || '';
+  const dId = document.getElementById('fDetail')?.value || '';
+  const month = document.getElementById('fMonth')?.value || '';
+  const from = document.getElementById('fFrom')?.value || '';
+  const to = document.getElementById('fTo')?.value || '';
+
+  let list = state.records.filter(r => memberIds.has(r.workerId));
+  if (wId) list = list.filter(r => r.workerId === wId);
+  if (dId) list = list.filter(r => r.detailId === dId);
+  if (month) list = list.filter(r => monthKey(r.date) === month);
+  if (from) list = list.filter(r => r.date >= from);
+  if (to) list = list.filter(r => r.date <= to);
+  if (search) {
+    list = list.filter(r => {
+      const dn = getDetailName(r.detailId).toLowerCase();
+      const cn = getCategoryName(r.categoryId).toLowerCase();
+      const wn = getUserName(r.workerId).toLowerCase();
+      return dn.includes(search) || cn.includes(search) || wn.includes(search);
+    });
   }
 
-  const grandTotal = dayTotals.reduce((s,v)=> s + (v||0), 0);
-  const sumRow = ['Итого за день', ...Array.from({length: daysInMonth}, (_,i)=> dayTotals[i+1] || ''), grandTotal];
-  body.push(sumRow);
-  const sumRowIndex = body.length - 1;
-
-  // Считаем ширину колонок так, чтобы таблица занимала всю страницу целиком,
-  // независимо от того, 28, 30 или 31 день в месяце.
-  const pageMargin = 6;
-  const nameColWidth = 34;
-  const totalColWidth = 13;
-  const pageWidthMM = doc.internal.pageSize.getWidth();
-  const pageHeightMM = doc.internal.pageSize.getHeight();
-  const usableWidth = pageWidthMM - pageMargin * 2;
-  const dayColWidth = (usableWidth - nameColWidth - totalColWidth) / daysInMonth;
-
-  const dayColStyles = {};
-  for(let d=1; d<=daysInMonth; d++){
-    dayColStyles[d] = { cellWidth: dayColWidth, fillColor: d > cutoffDay ? [250,250,250] : undefined };
-  }
-
-  // Считаем высоту одной строки так, чтобы вся таблица (шапка+строки+итог) заполнила
-  // страницу и по высоте тоже, а не только по ширине.
-  const startY = 20;
-  const bottomReserve = 20; // место под подписи внизу
-  const availableHeight = pageHeightMM - startY - bottomReserve;
-  const totalRows = body.length + 1; // +1 за строку заголовка
-  const rowHeight = Math.max(4, availableHeight / totalRows);
-
-  doc.autoTable({
-    head,
-    body,
-    startY,
-    theme: 'grid',
-    margin: { left: pageMargin, right: pageMargin },
-    tableWidth: usableWidth,
-    styles: { font: fontName, fontSize: 6, cellPadding: 1, halign: 'center', valign: 'middle', minCellHeight: rowHeight },
-    headStyles: { font: fontName, fillColor: [244,244,245], textColor: [30,30,30], fontStyle: 'bold', minCellHeight: rowHeight },
-    columnStyles: { 0: { cellWidth: nameColWidth, halign: 'left', fontStyle: 'bold' }, ...dayColStyles, [daysInMonth+1]: { cellWidth: totalColWidth, fontStyle: 'bold' } },
-    didParseCell: (data) => {
-      if(data.row.index === sumRowIndex){
-        data.cell.styles.fillColor = [234,243,254];
-        data.cell.styles.fontStyle = 'bold';
-      }
-    },
+  // группировка по месяцам
+  const groups = {};
+  list.forEach(r => {
+    const k = monthKey(r.date);
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(r);
   });
+  const sortedKeys = Object.keys(groups).sort().reverse();
 
-  const finalY = doc.lastAutoTable.finalY + 8;
-  doc.setFontSize(9);
-  if(fontName) doc.setFont(fontName);
-  doc.text('_____________________________', 30, finalY);
-  doc.text('Подпись работника', 30, finalY + 5);
-  doc.text('_____________________________', 180, finalY);
-  doc.text('Подпись мастера', 180, finalY + 5);
-
-  const fileName = `Наряд_${worker.replace(/\s+/g,'_')}_${monthVal}.pdf`;
-  const blob = doc.output('blob');
-
-  // Способ 1 (самый надёжный): отправляем PDF через свой Cloudflare Worker,
-  // а он пересылает его в Telegram как обычное вложение в чат с ботом —
-  // это не зависит от скачивания через веб-страницу и работает всегда.
-  showToast('Отправляем PDF в Telegram...');
-  const botResult = await sendPdfViaBot(blob, fileName).catch((e) => ({ ok: false, reason: 'Неожиданная ошибка: ' + e.message }));
-  if(botResult.ok){
-    showToast('Готово — файл придёт сообщением в этот чат');
-    return;
-  }
-  console.error('sendPdfViaBot не сработал:', botResult.reason);
-  showToast('⚠️ ' + botResult.reason + ' — пробуем запасной способ...');
-  await new Promise(r => setTimeout(r, 2500)); // даём время прочитать причину, прежде чем показать следующий тост
-
-  // Способ 2 (запасной, если воркер ещё не настроен): нативное меню «Поделиться»
-  let handled = false;
-  if(navigator.share && navigator.canShare){
-    try{
-      const file = new File([blob], fileName, { type: 'application/pdf' });
-      if(navigator.canShare({ files: [file] })){
-        await navigator.share({ files: [file], title: fileName });
-        handled = true;
-        showToast('Готово — выберите, куда сохранить PDF');
-      }
-    }catch(e){
-      // Пользователь мог просто закрыть окно «Поделиться» — это не ошибка, второй раз не пробуем
-      handled = true;
-    }
-  }
-
-  if(!handled){
-    try{
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-      showToast('PDF сохранён. Если файла нигде не видно — попробуйте открыть приложение в обычном браузере телефона');
-    }catch(e){
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      showToast('PDF открыт в новой вкладке — сохраните вручную через меню браузера');
-    }
-  }
-}
-
-// Показывает готовую прямую ссылку на PDF с кнопкой копирования — самый надёжный
-// способ скачать файл именно внутри Telegram-вебвью: копируешь ссылку и открываешь
-// её в обычном браузере телефона, где скачивание работает штатно.
-function showNaryadLink(url, fileName){
-  const wrap = document.createElement('div');
-  wrap.className = 'card';
-  wrap.style.marginTop = '10px';
-  wrap.innerHTML = `
-    <div style="font-size:13px;font-weight:600;margin-bottom:8px;">🔗 Ссылка на PDF готова</div>
-    <div class="hint" style="margin-top:0;margin-bottom:10px;">
-      Скопируй ссылку и открой её в обычном браузере телефона (Chrome, Yandex и т.п.),
-      не внутри Telegram — скачивание начнётся сразу.
-    </div>
-    <div class="field">
-      <input type="text" id="naryad-link-input" value="${url}" readonly style="font-size:11px;">
-    </div>
-    <div class="report-actions" style="margin-top:0;">
-      <button class="btn btn-primary" id="btn-copy-naryad-link">📋 Скопировать ссылку</button>
-      <button class="btn btn-secondary" id="btn-open-naryad-link">↗ Открыть в браузере</button>
-    </div>
-  `;
-  $('report-output').appendChild(wrap);
-
-  $('btn-copy-naryad-link').addEventListener('click', () => copyToClipboard(url));
-  $('btn-open-naryad-link').addEventListener('click', () => {
-    if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink){
-      window.Telegram.WebApp.openLink(url);
-    }else{
-      window.open(url, '_blank');
-    }
-  });
-  showToast('Ссылка готова');
-}
-
-// ---------- Шеринг ----------
-function shareToWhatsApp(text){
-  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-}
-function shareToTelegram(text){
-  const url = `https://t.me/share/url?url=&text=${encodeURIComponent(text)}`;
-  if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink){
-    window.Telegram.WebApp.openTelegramLink(url);
-  }else{
-    window.open(url, '_blank');
-  }
-}
-function shareToVK(text){
-  const url = `https://vk.com/share.php?title=${encodeURIComponent(text)}`;
-  window.open(url, '_blank');
-}
-
-// ---------- Utils ----------
-function toISODate(d){
-  // Берём локальную дату устройства, а не UTC — иначе toISOString() может
-  // сдвинуть число на день в зависимости от часового пояса и времени суток.
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-function formatDateRu(isoDate){ const [y,m,d] = isoDate.split('-'); return `${d}.${m}.${y}`; }
-function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
-
-// ---------- Админ-режим: список всех бригад и пользователей бота ----------
-// ВАЖНО: смените этот код на свой собственный секрет перед публикацией.
-const ADMIN_SECRET = "1234";
-
-let adminTapCount = 0;
-let adminTapTimer = null;
-$('home-fio').addEventListener('click', () => {
-  adminTapCount++;
-  clearTimeout(adminTapTimer);
-  adminTapTimer = setTimeout(() => { adminTapCount = 0; }, 1800);
-  if(adminTapCount >= 5){
-    adminTapCount = 0;
-    $('admin-pin-input').value = '';
-    $('admin-pin-card').style.display = 'flex';
-    $('admin-pin-input').focus();
-  }
-});
-
-$('btn-admin-pin-cancel').addEventListener('click', () => {
-  $('admin-pin-card').style.display = 'none';
-});
-
-$('btn-admin-pin-confirm').addEventListener('click', async () => {
-  if($('admin-pin-input').value !== ADMIN_SECRET){ showToast('Неверный код'); return; }
-  $('admin-pin-card').style.display = 'none';
-  await openAdminOverlay();
-});
-
-$('btn-close-admin').addEventListener('click', () => {
-  $('admin-overlay').style.display = 'none';
-});
-
-async function openAdminOverlay(){
-  $('admin-overlay').style.display = 'block';
-  $('admin-content').innerHTML = `<div class="empty-state"><div class="msg">Загрузка...</div></div>`;
-
-  const allBrigades = await fbGet('brigades');
-  if(!allBrigades){
-    $('admin-content').innerHTML = `<div class="empty-state"><div class="emoji">🗂️</div><div class="msg">Пока нет ни одной бригады</div></div>`;
+  const container = document.getElementById('historyResult');
+  if (sortedKeys.length === 0) {
+    container.innerHTML = '<div class="card"><div class="empty">Ничего не найдено</div></div>';
     return;
   }
 
-  const codes = Object.keys(allBrigades);
-  const uniqueUsers = new Set();
-  let cardsHtml = '';
+  container.innerHTML = sortedKeys.map(k => {
+    const recs = groups[k].sort((a, b) => b.date.localeCompare(a.date));
+    const total = recs.reduce((s, r) => s + (+r.quantity || 0), 0);
+    return `
+      <div class="month-group">
+        <h3>📦 ${monthName(k)} · ${recs.length} записей · итого: ${total} шт</h3>
+        <div class="body">
+          ${recs.map(r => `
+            <div class="record">
+              <div class="top">
+                <div>
+                  <div><b>${getDetailName(r.detailId)}</b> <span class="badge">${getCategoryName(r.categoryId)}</span></div>
+                  <div class="meta">📅 ${fmtDate(r.date)} · 👤 ${getUserName(r.workerId)} · автор: ${getUserName(r.createdBy)}</div>
+                </div>
+                <div class="qty">${r.quantity} шт</div>
+              </div>
+              <div class="actions" style="margin-top:8px">
+                <button class="small secondary" onclick="editRecord('${r.id}')">✎ Изменить</button>
+                <button class="small danger" onclick="deleteRecord('${r.id}')">🗑 Удалить</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+};
 
-  codes.forEach(code => {
-    const b = allBrigades[code] || {};
-    const workers = b.workers || [];
-    workers.forEach(w => uniqueUsers.add(w));
-    const entryCount = b.entries ? Object.keys(b.entries).length : 0;
+/* ---------- ОТЧЁТ ---------- */
+function renderReport() {
+  const me = state.users.find(u => u.id === state.currentUser);
+  const b = state.brigades.find(x => x.id === me.brigadeId);
+  const members = state.users.filter(u => u.brigadeId === b.id);
 
-    cardsHtml += `
+  app.innerHTML = `
+    <div class="card">
+      <h2>📄 Отчёт</h2>
+      <label>Тип отчёта</label>
+      <select id="rType">
+        <option value="brigade-day">Бригада за смену</option>
+        <option value="worker-month">Работник — месяц</option>
+        <option value="my-month">Моя сделка — месяц</option>
+      </select>
+      <label>Месяц</label>
+      <input type="month" id="rMonth" value="${todayISO().slice(0, 7)}">
+      <label>Работник (если нужно)</label>
+      <select id="rWorker">
+        ${members.map(m => `<option value="${m.id}">${m.lastName} ${m.firstName || ''}</option>`).join('')}
+      </select>
+      <button style="margin-top:12px;width:100%" onclick="generateReport()">Сформировать</button>
+    </div>
+    <div id="reportOut"></div>
+  `;
+}
+
+window.generateReport = () => {
+  const type = document.getElementById('rType').value;
+  const month = document.getElementById('rMonth').value;
+  const wId = document.getElementById('rWorker').value;
+  const out = document.getElementById('reportOut');
+
+  if (type === 'worker-month' || type === 'my-month') {
+    const target = type === 'my-month' ? state.currentUser : wId;
+    const recs = state.records.filter(r => r.workerId === target && monthKey(r.date) === month);
+    const byDetail = {};
+    recs.forEach(r => {
+      const k = getDetailName(r.detailId);
+      byDetail[k] = (byDetail[k] || 0) + (+r.quantity || 0);
+    });
+    const total = recs.reduce((s, r) => s + (+r.quantity || 0), 0);
+    out.innerHTML = `
       <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">
-          <div style="font-weight:700;font-size:14.5px;">${escapeHtml(b.factory || '(без названия)')}</div>
-        </div>
-        <div class="hint" style="margin-top:0;margin-bottom:10px;">Код: <span style="font-family:var(--mono);">${escapeHtml(code)}</span> · записей: ${entryCount}</div>
-        <div class="chip-list" style="margin-bottom:0;">
-          ${workers.length ? workers.map(w=>`<span class="chip">${escapeHtml(w)}</span>`).join('') : '<span style="font-size:12.5px;color:var(--text-secondary);">Нет участников</span>'}
-        </div>
-      </div>`;
-  });
-
-  $('admin-content').innerHTML = `
-    <div class="day-total-bar" style="margin-bottom:16px;">
-      <span class="label">Бригад / пользователей всего</span>
-      <span class="val">${codes.length} / ${uniqueUsers.size}</span>
-    </div>
-    ${cardsHtml}
-  `;
-}
-
-function initTelegramEnv(){
-  if(hasTelegramCloud()){
-    const wa = window.Telegram.WebApp;
-    try{ wa.ready(); wa.expand(); }catch(e){}
-    try{ wa.setHeaderColor('#3390EC'); }catch(e){}
-    try{ wa.setBackgroundColor('#F0F1F3'); }catch(e){}
+        <h2>Выписка · ${getUserName(target)} · ${monthName(month)}</h2>
+        ${Object.entries(byDetail).map(([n, q]) => `<div class="stat"><span>${n}</span><span class="v">${q} шт</span></div>`).join('')}
+        <div class="stat"><span><b>Итого</b></span><span class="v">${total} шт</span></div>
+        <button style="margin-top:10px;width:100%" onclick="window.print()">🖨 Печать</button>
+      </div>
+    `;
+  } else {
+    const me = state.users.find(u => u.id === state.currentUser);
+    const b = state.brigades.find(x => x.id === me.brigadeId);
+    const members = state.users.filter(u => u.brigadeId === b.id);
+    const todayRecs = state.records.filter(r => r.date === todayISO() && members.some(m => m.id === r.workerId));
+    out.innerHTML = `
+      <div class="card">
+        <h2>Бригада за смену · ${fmtDate(todayISO())}</h2>
+        ${members.map(m => {
+          const q = todayRecs.filter(r => r.workerId === m.id).reduce((s,r)=>s+r.quantity,0);
+          return `<div class="stat"><span>${m.lastName} ${m.firstName || ''}</span><span class="v">${q} шт</span></div>`;
+        }).join('')}
+        <div class="stat"><span><b>Итого</b></span><span class="v">${todayRecs.reduce((s,r)=>s+r.quantity,0)} шт</span></div>
+        <button style="margin-top:10px;width:100%" onclick="window.print()">🖨 Печать</button>
+      </div>
+    `;
   }
-}
-initTelegramEnv();
-init();
-</script>
+};
 
+/* ---------- МОДАЛКИ ---------- */
+function openModal(html) {
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'modalBg';
+  bg.innerHTML = `<div class="modal">${html}</div>`;
+  bg.addEventListener('click', (e) => { if (e.target === bg) closeModal(); });
+  document.body.appendChild(bg);
+}
+window.closeModal = () => document.getElementById('modalBg')?.remove();
+
+/* ---------- СТАРТ ---------- */
+render();
+</script>
 </body>
 </html>
