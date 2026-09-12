@@ -148,6 +148,7 @@
   }
   .payroll-total .val{ font-family:var(--mono); font-size:16px; font-weight:800; color:var(--accent); }
 
+  /* Блок расчёта зарплаты по средней стоимости изделия */
   .payroll-calc{
     border:1px dashed var(--border); border-radius:12px; padding:10px 12px;
     background:#FAFBFF; margin-bottom:4px;
@@ -176,6 +177,7 @@
   }
   .calc-autofill input{ width:auto; margin:0; }
 
+  /* Прогноз зарплаты */
   .forecast-card{
     background:linear-gradient(135deg, #EAF3FE 0%, #F5F8FF 100%);
     border:1px solid #CFE4FB; border-radius:12px;
@@ -415,7 +417,6 @@
   .cal-day.empty{ visibility:hidden; cursor:default; }
   .cal-day.today{ border-color:var(--accent); border-width:2px; }
   .cal-day.selected{ outline:2px solid var(--accent-dark); outline-offset:1px; }
-  .cal-day.readonly{ cursor:default; }
   .cal-day-fill{ position:absolute; inset:0; display:flex; flex-direction:column; }
   .cal-day-fill > div{ flex:1; }
   .cal-day-num{
@@ -477,4 +478,3428 @@
   .filter-row:last-child{ margin-bottom:0; }
   .filter-row .field{ flex:1; min-width:120px; margin-bottom:0; }
   .filter-results{ margin-top:10px; }
-  .
+  .filter-result-item{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;
+  }
+  .filter-result-item:last-child{ border-bottom:none; }
+  .archive-month-btn{
+    display:inline-flex; align-items:center; gap:4px;
+    background:#F4F4F5; border:1px solid var(--border); border-radius:8px;
+    padding:6px 12px; font-size:12.5px; cursor:pointer; margin:0 6px 6px 0;
+  }
+  .archive-month-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <div id="view-setup" style="display:none;">
+    <div class="reg-wrap">
+      <div class="reg-logo">⚙️</div>
+      <div class="reg-title">Нужна настройка</div>
+      <div class="reg-sub">
+        Чтобы работники могли присоединяться со своих телефонов, приложению нужна
+        бесплатная база Firebase. Впишите свои ключи в переменную
+        <b>firebaseConfig</b> в начале &lt;script&gt; — инструкция дана отдельно.
+        Пока ключи не вписаны, регистрация недоступна.
+      </div>
+    </div>
+  </div>
+
+  <div id="view-register" style="display:none;">
+    <div class="reg-wrap">
+      <div class="reg-logo">🏭</div>
+      <div class="reg-title">Учёт выработки</div>
+      <div class="reg-sub">Укажите свои данные — они сохранятся,<br>и при следующем входе вводить их не нужно</div>
+      <div class="card reg-card">
+        <div class="field">
+          <label>Фамилия Имя Отчество</label>
+          <input type="text" id="reg-fio" placeholder="Иванов Иван Иванович" autocomplete="off">
+        </div>
+
+        <div class="field">
+          <label>Бригада</label>
+          <div class="seg-control" id="reg-mode">
+            <button class="seg-btn active" data-mode="create">Создать новую</button>
+            <button class="seg-btn" data-mode="join">Присоединиться по коду</button>
+          </div>
+        </div>
+
+        <div id="reg-create-fields">
+          <div class="field">
+            <label>Наименование завода / цеха</label>
+            <input type="text" id="reg-factory" placeholder="ООО «Металлист», цех №3" autocomplete="off">
+          </div>
+        </div>
+
+        <div id="reg-join-fields" style="display:none;">
+          <div class="field">
+            <label>Код бригады</label>
+            <input type="text" id="reg-code" placeholder="Например: A1B2C3" autocomplete="off" style="text-transform:uppercase;">
+            <div class="hint">Код даёт мастер бригады — он получил его при создании</div>
+          </div>
+        </div>
+
+        <div class="field" style="margin-top:4px;">
+          <button class="btn btn-primary" id="btn-register">Продолжить</button>
+        </div>
+      </div>
+
+      <div class="card reg-card" id="code-reveal-card" style="display:none;">
+        <div class="code-reveal">
+          <div style="font-size:12.5px;color:var(--text-secondary);">Код вашей бригады — сохраните и отправьте работникам</div>
+          <div class="code-val" id="reveal-code-val">——————</div>
+          <button class="btn btn-secondary" id="btn-copy-reveal-code">📋 Скопировать код</button>
+        </div>
+        <button class="btn btn-primary" style="margin-top:12px;" id="btn-continue-after-reveal">Продолжить в приложение</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-main" style="display:none;">
+
+    <div class="topbar">
+      <div class="topbar-row">
+        <div>
+          <div class="topbar-title" id="home-fio">—</div>
+          <div class="topbar-sub" id="home-factory">—</div>
+          <div class="topbar-code" id="home-code">Код: ——————</div>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-btn" id="btn-copy-code" title="Скопировать код бригады">📋</button>
+          <button class="icon-btn" id="btn-refresh" title="Обновить данные бригады">🔄</button>
+          <button class="icon-btn" id="btn-edit-profile" title="Изменить профиль">✎</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- ВВОД ---- -->
+    <div id="tab-entry" class="content">
+      <div class="mini-dash">
+        <div class="mini-dash-item">
+          <div class="mini-dash-val" id="dash-today">0</div>
+          <div class="mini-dash-lbl">Сегодня</div>
+        </div>
+        <div class="mini-dash-item">
+          <div class="mini-dash-val" id="dash-week">0</div>
+          <div class="mini-dash-lbl">За неделю</div>
+        </div>
+        <div class="mini-dash-item">
+          <div class="mini-dash-val" id="dash-month">0</div>
+          <div class="mini-dash-lbl">За месяц</div>
+        </div>
+      </div>
+
+      <div class="day-total-bar personal" id="my-payroll-bar" style="margin-bottom:14px;">
+        <div style="display:flex; flex-direction:column; min-width:0;">
+          <span class="label">Моя зарплата за месяц</span>
+          <span class="hint" id="my-payroll-hint" style="display:none; margin-top:2px; font-size:11.5px; opacity:.8;"></span>
+        </div>
+        <span class="val" id="my-payroll-val">0 ₽</span>
+      </div>
+
+      <!-- ПРОГНОЗ ЗАРПЛАТЫ -->
+      <div class="forecast-card" id="forecast-card" style="display:none;">
+        <div class="forecast-title">
+          <span>🔮 Прогноз на конец месяца</span>
+          <span class="badge" id="forecast-badge">—</span>
+        </div>
+        <div class="forecast-big" id="forecast-value">0 ₽</div>
+        <div class="forecast-sub" id="forecast-sub">—</div>
+        <div class="forecast-bars">
+          <div class="forecast-bar-row">
+            <span class="lbl">Выработка сейчас</span>
+            <span class="val" id="forecast-current-qty">0 шт</span>
+          </div>
+          <div class="forecast-bar-row">
+            <span class="lbl">Прогноз к концу месяца</span>
+            <span class="val" id="forecast-total-qty">0 шт</span>
+          </div>
+        </div>
+        <div class="forecast-progress">
+          <div class="forecast-progress-fill" id="forecast-progress-fill" style="width:0%;"></div>
+        </div>
+        <div class="forecast-hint" id="forecast-hint"></div>
+      </div>
+
+      <div class="day-total-bar" id="payroll-summary-bar" style="display:none;">
+        <span class="label">Зарплата бригады за месяц</span>
+        <span class="val" id="payroll-summary-val">0 ₽</span>
+      </div>
+
+      <details class="manage-details" id="users-panel" style="margin-bottom:16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px;">
+        <summary>👥 Участники бригады (<span id="users-count">0</span>)</summary>
+        <div class="manage-block" id="users-list-view"></div>
+      </details>
+
+      <div class="field" style="margin-bottom:16px;">
+        <label>Дата</label>
+        <input type="date" id="entry-date">
+      </div>
+
+      <div class="section-title">Новая запись</div>
+      <div class="card">
+        <!-- Кнопка повторной записи -->
+        <button class="btn btn-repeat" id="btn-repeat-last" style="display:none; margin-bottom:12px;">
+          <span>🔁</span><span id="btn-repeat-label">Повторить последнюю запись</span>
+        </button>
+
+        <div class="field">
+          <label>Категория</label>
+          <div class="select-with-btn">
+            <select id="in-cat-select"></select>
+            <button class="add-btn" id="btn-toggle-add-cat" title="Добавить категорию">+</button>
+          </div>
+          <div class="add-panel" id="add-cat-panel">
+            <input type="text" id="in-new-cat" placeholder="Новая категория">
+            <button class="save-btn" id="btn-save-cat">Сохранить</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Наименование детали</label>
+          <div class="select-with-btn">
+            <select id="in-part-select"></select>
+            <button class="add-btn" id="btn-toggle-add-part" title="Добавить деталь">+</button>
+          </div>
+          <div class="add-panel" id="add-part-panel">
+            <input type="text" id="in-new-part" placeholder="Новая деталь">
+            <button class="save-btn" id="btn-save-part">Сохранить</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Количество, шт</label>
+          <input type="number" id="in-qty" placeholder="0" min="1" inputmode="numeric">
+        </div>
+        <button class="btn btn-primary" id="btn-add">+ Добавить запись</button>
+
+        <details class="manage-details">
+          <summary>Управлять категориями и деталями</summary>
+          <div class="manage-block">
+            <div class="manage-block-title">Категории</div>
+            <div class="chip-list" id="cat-chip-list"></div>
+            <div class="manage-block-title">Детали</div>
+            <div class="chip-list" id="part-chip-list"></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="section-title">Мои записи за дату</div>
+      <div id="entries-list"></div>
+
+      <div class="day-total-bar">
+        <span class="label">Итого за дату, шт</span>
+        <span class="val" id="day-total">0</span>
+      </div>
+    </div>
+
+    <!-- ---- БРИГАДА ---- -->
+    <div id="tab-team" class="content" style="display:none;">
+      <div class="field" style="margin-bottom:16px;">
+        <label>Дата (смена)</label>
+        <input type="date" id="team-date">
+      </div>
+
+      <div class="section-title">Работники бригады</div>
+      <div class="card">
+        <div class="hint" style="margin-top:0;margin-bottom:12px;">
+          Работники, которые сами присоединятся по коду бригады на своём телефоне, появятся здесь
+          автоматически. Тут можно добавить и тех, у кого нет телефона с приложением — вручную.
+        </div>
+        <div class="select-with-btn">
+          <input type="text" id="in-new-worker" placeholder="ФИО работника">
+          <button class="add-btn" id="btn-add-worker" title="Добавить работника">+</button>
+        </div>
+        <div class="chip-list" id="worker-chip-list" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="section-title">Сдельная запись за другого работника</div>
+      <div class="card">
+        <div class="field">
+          <label>Работник</label>
+          <select id="in-worker-select"></select>
+        </div>
+        <div class="field">
+          <label>Категория</label>
+          <select id="team-cat-select"></select>
+        </div>
+        <div class="field">
+          <label>Наименование детали</label>
+          <select id="team-part-select"></select>
+        </div>
+        <div class="field">
+          <label>Количество, шт</label>
+          <input type="number" id="in-team-qty" placeholder="0" min="1" inputmode="numeric">
+        </div>
+        <button class="btn btn-primary" id="btn-team-add">+ Добавить запись</button>
+      </div>
+
+      <div class="section-title">Данные за смену (вся бригада)</div>
+      <div id="team-list"></div>
+
+      <div class="day-total-bar">
+        <span class="label">Итого по бригаде, шт</span>
+        <span class="val" id="team-day-total">0</span>
+      </div>
+    </div>
+
+    <!-- ---- ГРАФИК ---- -->
+    <div id="tab-schedule" class="content" style="display:none;">
+      <div class="field" style="margin-bottom:16px;">
+        <label>Месяц</label>
+        <input type="month" id="sched-month">
+      </div>
+
+      <div class="card" id="shift-types-card">
+        <div class="manage-block-title" style="margin-bottom:8px;">Типы смен</div>
+        <div class="chip-list" id="shift-type-chip-list"></div>
+        <div class="select-with-btn">
+          <input type="text" id="in-new-shift-name" placeholder="Название (например, Ночь)">
+          <input type="color" id="in-new-shift-color" value="#3390EC" style="width:44px;flex:0 0 44px;padding:2px;">
+          <button class="add-btn" id="btn-add-shift-type" title="Добавить тип смены">+</button>
+        </div>
+      </div>
+
+      <div class="card" id="rotation-card">
+        <div class="manage-block-title" style="margin-bottom:8px;">Шаблон ротации</div>
+        <div class="field">
+          <label>Работник</label>
+          <select id="rot-worker-select"></select>
+        </div>
+        <div class="field">
+          <label>Тип шаблона</label>
+          <div class="seg-control" id="rot-pattern-mode">
+            <button class="seg-btn active" data-pattern="simple">Смена / отдых</button>
+            <button class="seg-btn" data-pattern="dayoffnight">День / выходной / ночь</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Дата начала</label>
+          <input type="date" id="rot-start-date">
+        </div>
+
+        <div id="rot-simple-fields">
+          <div class="field-row">
+            <div class="field">
+              <label>Тип смены (рабочие дни)</label>
+              <select id="rot-shift-select"></select>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Дней в смене</label>
+              <input type="number" id="rot-work-days" placeholder="2" min="1">
+            </div>
+            <div class="field">
+              <label>Дней отдыха</label>
+              <input type="number" id="rot-off-days" placeholder="2" min="0">
+            </div>
+          </div>
+          <div class="hint" style="margin-bottom:10px;">Заполнит месяц по шаблону: N дней смены, затем M дней отдыха, и по кругу.</div>
+        </div>
+
+        <div id="rot-3block-fields" style="display:none;">
+          <div class="field-row">
+            <div class="field">
+              <label>Тип смены (день)</label>
+              <select id="rot-day-shift-select"></select>
+            </div>
+            <div class="field">
+              <label>Тип смены (ночь)</label>
+              <select id="rot-night-shift-select"></select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Дней в каждом блоке</label>
+            <input type="number" id="rot-block-days" placeholder="2" min="1">
+          </div>
+          <div class="hint" style="margin-bottom:10px;">Заполнит месяц по кругу: N дней в день → N дней выходных → N дней в ночь → N дней выходных — и снова сначала. Выходные дни используют тип «Выходной».</div>
+          <div class="hint" style="margin-bottom:10px;">Например, при N = 2 получится: 2 в день, 2 выходных, 2 в ночь, 2 выходных.</div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-apply-rotation">Заполнить месяц по шаблону</button>
+      </div>
+
+      <div class="section-title">Календарь</div>
+      <div class="card">
+        <div class="field" style="margin-bottom:12px;">
+          <label>Показать график</label>
+          <select id="cal-filter-select"></select>
+        </div>
+        <div class="cal-grid" id="cal-weekdays"></div>
+        <div class="cal-grid" id="cal-grid" style="margin-top:6px;"></div>
+      </div>
+
+      <div class="card" id="day-editor-card" style="display:none;">
+        <div class="manage-block-title" id="day-editor-title" style="margin-bottom:8px;"></div>
+        <div id="day-editor-rows"></div>
+        <button class="btn btn-primary" id="btn-save-day-schedule" style="margin-top:12px;">Сохранить</button>
+      </div>
+    </div>
+
+    <!-- ---- ЗАРПЛАТА ---- -->
+    <div id="tab-payroll" class="content" style="display:none;">
+      <div class="field" style="margin-bottom:16px;">
+        <label>Месяц</label>
+        <input type="month" id="payroll-month">
+      </div>
+
+      <details class="payroll-calc" id="my-payroll-calc-details" open>
+        <summary>📊 Моя зарплата по средней стоимости изделия</summary>
+        <div class="hint" style="margin:8px 0 12px;">
+          Введите свою зарплату за прошлый месяц. Приложение посчитает среднюю стоимость
+          изделия (зарплата ÷ выработка прошлого месяца) и умножит её на вашу выработку
+          за текущий месяц.
+        </div>
+        <div class="field" style="margin-bottom:10px;">
+          <label>Моя зарплата за прошлый месяц (<span id="my-calc-prev-month">—</span>), ₽</label>
+          <input type="number" id="my-calc-prev-salary" placeholder="0" min="0" inputmode="decimal">
+        </div>
+        <div class="calc-stats" id="my-calc-stats"></div>
+        <div class="calc-salary">
+          <span class="lbl">Расчётная зарплата за текущий месяц</span>
+          <span class="val" id="my-calc-salary">0 ₽</span>
+        </div>
+        <button class="btn btn-primary" id="btn-save-my-calc" style="margin-top:10px;">Сохранить</button>
+      </details>
+
+      <div class="card" style="margin-bottom:6px;">
+        <div class="manage-block-title">📊 Расчёт по средней стоимости изделия</div>
+        <div class="hint" style="margin:6px 0 0;">
+          <b>Средняя стоимость изделия</b> = зарплата за прошлый месяц ÷ выработка за прошлый месяц.<br>
+          <b>Расчётная зарплата</b> = средняя стоимость изделия × выработка за выбранный месяц.
+        </div>
+        <label class="calc-autofill">
+          <input type="checkbox" id="payroll-autofill">
+          Автоматически подставлять расчётную зарплату в поле «Расчёт»
+        </label>
+      </div>
+
+      <div class="section-title">Зарплата по работникам</div>
+      <div id="payroll-list"></div>
+
+      <button class="btn btn-primary" id="btn-save-payroll" style="margin-top:4px;">Сохранить</button>
+    </div>
+
+    <!-- ---- ОТЧЁТ ---- -->
+    <div id="tab-report" class="content" style="display:none;">
+      <div class="card">
+        <div class="field">
+          <label>Тип отчёта</label>
+          <div class="seg-control" id="report-mode">
+            <button class="seg-btn active" data-mode="brigade">Бригада за смену</button>
+            <button class="seg-btn" data-mode="day">Моя сделка — день</button>
+            <button class="seg-btn" data-mode="month">Моя сделка — месяц</button>
+            <button class="seg-btn" data-mode="worker">Работник — месяц</button>
+            <button class="seg-btn" data-mode="naryad">Бланк для печати</button>
+          </div>
+        </div>
+        <div class="field" id="rep-worker-field" style="display:none;">
+          <label>Работник</label>
+          <select id="rep-worker-select"></select>
+        </div>
+        <div class="field" id="rep-date-field">
+          <label>Дата отчёта</label>
+          <input type="date" id="rep-date">
+        </div>
+        <div class="field" id="rep-month-field" style="display:none;">
+          <label>Месяц</label>
+          <input type="month" id="rep-month">
+        </div>
+        <button class="btn btn-secondary" id="btn-build-report">Сформировать выписку для мастера</button>
+      </div>
+      <div id="report-output"></div>
+    </div>
+
+    <!-- ---- ПОИСК И ФИЛЬТРЫ ---- -->
+    <div id="tab-search" class="content" style="display:none;">
+      <div class="filters-card">
+        <div class="manage-block-title" style="margin-bottom:10px;">🔍 Поиск и фильтры</div>
+        <div class="filter-row">
+          <div class="field">
+            <label>Работник</label>
+            <select id="search-worker"><option value="">Все</option></select>
+          </div>
+          <div class="field">
+            <label>Категория</label>
+            <select id="search-category"><option value="">Все</option></select>
+          </div>
+        </div>
+        <div class="filter-row">
+          <div class="field">
+            <label>Деталь (поиск по названию)</label>
+            <input type="text" id="search-part" placeholder="Введите часть названия...">
+          </div>
+        </div>
+        <div class="filter-row">
+          <div class="field">
+            <label>С</label>
+            <input type="date" id="search-date-from">
+          </div>
+          <div class="field">
+            <label>По</label>
+            <input type="date" id="search-date-to">
+          </div>
+        </div>
+        <div class="filter-row" style="margin-top:6px;">
+          <button class="btn btn-primary" id="btn-search" style="flex:1;">Найти</button>
+          <button class="btn btn-secondary" id="btn-search-reset" style="flex:1;">Сбросить</button>
+        </div>
+      </div>
+
+      <div class="section-title">Архивы месяцев</div>
+      <div id="archive-months-list" style="margin-bottom:16px;"></div>
+
+      <div class="section-title">Результаты</div>
+      <div id="search-results"></div>
+
+      <details class="manage-details" style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-top:16px;">
+        <summary>📜 Лог изменений (последние 100)</summary>
+        <div class="manage-block" id="change-log-list" style="max-height:400px; overflow-y:auto;"></div>
+      </details>
+    </div>
+
+    <div class="tabbar">
+      <button class="tab-btn active" data-tab="entry">
+        <span class="tab-icon">📝</span><span class="tab-label">Ввод</span>
+      </button>
+      <button class="tab-btn" data-tab="team">
+        <span class="tab-icon">👥</span><span class="tab-label">Бригада</span>
+      </button>
+      <button class="tab-btn" data-tab="schedule">
+        <span class="tab-icon">📅</span><span class="tab-label">График</span>
+      </button>
+      <button class="tab-btn" data-tab="payroll">
+        <span class="tab-icon">💰</span><span class="tab-label">Зарплата</span>
+      </button>
+      <button class="tab-btn" data-tab="report">
+        <span class="tab-icon">📄</span><span class="tab-label">Отчёт</span>
+      </button>
+      <button class="tab-btn" data-tab="search">
+        <span class="tab-icon">🔍</span><span class="tab-label">Поиск</span>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div id="edit-modal" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-title">✏️ Редактировать запись</div>
+    <div class="field">
+      <label>Работник</label>
+      <select id="edit-worker"></select>
+    </div>
+    <div class="field">
+      <label>Категория</label>
+      <select id="edit-category"></select>
+    </div>
+    <div class="field">
+      <label>Деталь</label>
+      <select id="edit-part"></select>
+    </div>
+    <div class="field">
+      <label>Количество, шт</label>
+      <input type="number" id="edit-qty" min="1" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label>Дата</label>
+      <input type="date" id="edit-date">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-edit-cancel">Отмена</button>
+      <button class="btn btn-primary" id="btn-edit-save">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div id="admin-pin-card" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:250; align-items:center; justify-content:center;">
+  <div class="card" style="width:85%; max-width:320px; margin:0;">
+    <div class="field">
+      <label>Админ-код</label>
+      <input type="password" id="admin-pin-input" placeholder="••••" inputmode="numeric">
+    </div>
+    <button class="btn btn-primary" id="btn-admin-pin-confirm">Войти</button>
+    <button class="btn btn-secondary" id="btn-admin-pin-cancel" style="margin-top:8px;">Отмена</button>
+  </div>
+</div>
+
+<div id="admin-overlay" style="display:none; position:fixed; inset:0; background:var(--bg); z-index:200; max-width:480px; margin:0 auto; overflow-y:auto;">
+  <div class="topbar">
+    <div class="topbar-row">
+      <div class="topbar-title">🛠 Все пользователи бота</div>
+      <button class="icon-btn" id="btn-close-admin">✕</button>
+    </div>
+  </div>
+  <div class="content" id="admin-content"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDXSBSd3BY3R4BqCmcO3n6D9ArsifgiK_Y",
+  authDomain: "uchet-b8c60.firebaseapp.com",
+  databaseURL: "https://uchet-b8c60-default-rtdb.firebaseio.com",
+  projectId: "uchet-b8c60",
+  storageBucket: "uchet-b8c60.firebasestorage.app",
+};
+
+const CLOUDFLARE_WORKER_URL = "https://naryad-bot-relay.tema-tatarinov2013.workers.dev";
+const APP_SHARED_SECRET = "naryad2026xyz";
+
+let db = null;
+let firebaseReady = false;
+
+function initFirebase(){
+  if(!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") return false;
+  try{
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    firebaseReady = true;
+    return true;
+  }catch(e){ return false; }
+}
+
+let PROFILE = null;
+let ENTRIES = [];
+let CATEGORIES = [];
+let CATALOG = [];
+let WORKERS = [];
+let SHIFT_TYPES = [];
+let SCHEDULE = {};
+let PAYROLL = {};
+let EXCLUDED_CATEGORIES = [];
+let CHANGE_LOG = [];
+let selectedCalDate = null;
+
+const DEFAULT_SHIFT_TYPES = [
+  { id: 'day',      name: 'День',        color: '#3390EC' },
+  { id: 'night',    name: 'Ночь',        color: '#7B5EEA' },
+  { id: 'off',      name: 'Выходной',    color: '#C7C7CC' },
+  { id: 'vacation', name: 'Отпуск',      color: '#34A853' },
+  { id: 'sick',     name: 'Больничный',  color: '#E5A93B' },
+];
+const NEW_SHIFT_TYPE_IDS_TO_MERGE = ['vacation', 'sick'];
+
+function showToast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+function showRoot(name){
+  $('view-setup').style.display = name === 'setup' ? 'block' : 'none';
+  $('view-register').style.display = name === 'register' ? 'block' : 'none';
+  $('view-main').style.display = name === 'main' ? 'block' : 'none';
+}
+
+async function switchTab(name){
+  await refreshBrigadeData();
+  ['entry','team','schedule','payroll','report','search'].forEach(t=>{
+    $('tab-'+t).style.display = (t===name) ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab-btn').forEach(b=>{
+    b.classList.toggle('active', b.getAttribute('data-tab')===name);
+  });
+  refreshAllCategorySelects();
+  refreshAllPartSelects();
+  refreshWorkerSelect();
+  renderManageChips();
+  renderWorkerChips();
+  if(name === 'entry'){ renderEntries(); renderUsersList(); renderMiniDashboard(); refreshMyPayroll(); refreshForecast(); refreshRepeatButton(); if(isOwner()) refreshPayrollSummary(); }
+  if(name === 'team') renderTeam();
+  if(name === 'schedule'){
+    refreshRotWorkerSelect();
+    refreshRotShiftSelect();
+    renderShiftTypeChips();
+    renderCalendar();
+  }
+  if(name === 'payroll'){ renderPayroll(); refreshMyCalc(); }
+  if(name === 'search'){ renderSearchFilters(); renderArchiveMonths(); renderChangeLog(); }
+}
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=> switchTab(btn.getAttribute('data-tab')));
+});
+
+const LOCAL_TIMEOUT_MS = 3500;
+let cloudBroken = false;
+let cloudBrokenNotified = false;
+const memoryFallback = {};
+
+function withTimeout(promise, ms, timeoutValue){
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if(!settled){ settled = true; cloudBroken = true; notifyCloudBrokenOnce(); resolve(timeoutValue); }
+    }, ms);
+    promise.then((v) => {
+      if(!settled){ settled = true; clearTimeout(timer); resolve(v); }
+    }).catch(() => {
+      if(!settled){ settled = true; clearTimeout(timer); cloudBroken = true; notifyCloudBrokenOnce(); resolve(timeoutValue); }
+    });
+  });
+}
+
+function withPlainTimeout(promise, ms, timeoutValue){
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => { if(!settled){ settled = true; resolve(timeoutValue); } }, ms);
+    promise.then((v) => { if(!settled){ settled = true; clearTimeout(timer); resolve(v); } })
+      .catch((e) => { if(!settled){ settled = true; clearTimeout(timer); console.error(e); resolve(timeoutValue); } });
+  });
+}
+function notifyCloudBrokenOnce(){
+  if(cloudBrokenNotified) return;
+  cloudBrokenNotified = true;
+  try{ showToast('⚠️ Локальное облако Telegram не отвечает — профиль сохранится только в этой сессии'); }catch(e){}
+}
+function hasTelegramCloud(){
+  const wa = window.Telegram && window.Telegram.WebApp;
+  if(!wa || !wa.CloudStorage) return false;
+  if(cloudBroken) return false;
+  if(wa.isVersionAtLeast && !wa.isVersionAtLeast('6.9')) return false;
+  return true;
+}
+function localRawGet(key){
+  if(hasTelegramCloud()){
+    const p = new Promise((resolve) => {
+      try{ window.Telegram.WebApp.CloudStorage.getItem(key, (err, value) => resolve(err || !value ? null : value)); }
+      catch(e){ resolve(null); }
+    });
+    return withTimeout(p, LOCAL_TIMEOUT_MS, null);
+  }
+  if(window.storage){
+    return window.storage.get(key, false).then(res => res ? res.value : null).catch(() => null);
+  }
+  return Promise.resolve((key in memoryFallback) ? memoryFallback[key] : null);
+}
+function localRawSet(key, value){
+  if(hasTelegramCloud()){
+    const p = new Promise((resolve) => {
+      try{ window.Telegram.WebApp.CloudStorage.setItem(key, value, (err) => resolve(!err)); }
+      catch(e){ resolve(false); }
+    });
+    return withTimeout(p, LOCAL_TIMEOUT_MS, false);
+  }
+  if(window.storage){ return window.storage.set(key, value, false).then(()=>true).catch(()=>false); }
+  memoryFallback[key] = value;
+  return Promise.resolve(true);
+}
+async function loadLocalProfile(){
+  const raw = await localRawGet('profile');
+  if(!raw) return null;
+  try{ return JSON.parse(raw); }catch(e){ return null; }
+}
+async function saveLocalProfile(p){ await localRawSet('profile', JSON.stringify(p)); }
+
+function bp(sub){ return `brigades/${PROFILE.code}/${sub}`; }
+
+async function fbGet(path){
+  if(!firebaseReady) return null;
+  try{ const snap = await db.ref(path).once('value'); return snap.exists() ? snap.val() : null; }
+  catch(e){ return null; }
+}
+async function fbSet(path, value){
+  if(!firebaseReady) return false;
+  try{ await db.ref(path).set(value); return true; }catch(e){ return false; }
+}
+async function fbPush(path, value){
+  if(!firebaseReady) return null;
+  try{ const ref = db.ref(path).push(); await ref.set(value); return ref.key; }catch(e){ return null; }
+}
+async function fbUpdate(path, value){
+  if(!firebaseReady) return false;
+  try{ await db.ref(path).update(value); return true; }catch(e){ return false; }
+}
+async function fbRemove(path){
+  if(!firebaseReady) return false;
+  try{ await db.ref(path).remove(); return true; }catch(e){ return false; }
+}
+
+function genCode(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let out = '';
+  for(let i=0;i<6;i++) out += chars[Math.floor(Math.random()*chars.length)];
+  return out;
+}
+async function generateUniqueCode(){
+  for(let i=0;i<5;i++){
+    const code = genCode();
+    const exists = await fbGet(`brigades/${code}`);
+    if(!exists) return code;
+  }
+  return genCode() + Date.now().toString(36).slice(-2).toUpperCase();
+}
+
+async function refreshBrigadeData(){
+  if(!PROFILE || !firebaseReady) return;
+  const [cats, cat, workers, entriesObj, shiftTypes, schedule, excludedCats, logObj] = await Promise.all([
+    fbGet(bp('categories')),
+    fbGet(bp('catalog')),
+    fbGet(bp('workers')),
+    fbGet(bp('entries')),
+    fbGet(bp('shiftTypes')),
+    fbGet(bp('schedule')),
+    fbGet(bp('excludedCategories')),
+    fbGet(bp('changeLog')),
+  ]);
+  CATEGORIES = cats || [];
+  CATALOG = cat || [];
+  WORKERS = workers || [];
+  ENTRIES = entriesObj ? Object.keys(entriesObj).map(id => ({ id, ...entriesObj[id] })) : [];
+  SHIFT_TYPES = shiftTypes || [];
+  SCHEDULE = schedule || {};
+  EXCLUDED_CATEGORIES = excludedCats || [];
+  CHANGE_LOG = logObj ? Object.keys(logObj).map(id => ({ id, ...logObj[id] })).sort((a,b)=> b.timestamp - a.timestamp) : [];
+}
+
+async function ensureInRoster(name){
+  const current = (await fbGet(bp('workers'))) || [];
+  if(!current.includes(name)){
+    current.push(name);
+    await fbSet(bp('workers'), current);
+  }
+}
+
+async function saveTelegramId(fio){
+  try{
+    const wa = window.Telegram && window.Telegram.WebApp;
+    const tgUser = wa && wa.initDataUnsafe && wa.initDataUnsafe.user;
+    if(!tgUser || !tgUser.id) return;
+    await fbSet(bp('telegramIds/' + fio.replace(/[.#$\[\]]/g, '_')), tgUser.id);
+  }catch(e){}
+}
+
+async function logChange(action, oldValue, newValue){
+  if(!PROFILE) return;
+  const entry = {
+    action,
+    by: PROFILE.fio,
+    timestamp: Date.now(),
+    oldValue: oldValue || null,
+    newValue: newValue || null,
+  };
+  const id = await fbPush(bp('changeLog'), entry);
+  if(id) CHANGE_LOG.unshift({ id, ...entry });
+}
+
+async function init(){
+  const fbOk = initFirebase();
+  if(!fbOk){ showRoot('setup'); return; }
+
+  PROFILE = await loadLocalProfile();
+  if(!PROFILE || !PROFILE.code){ showRoot('register'); return; }
+
+  const brigadeExists = await fbGet(`brigades/${PROFILE.code}`);
+  if(!brigadeExists){
+    showToast('Бригада с этим кодом больше не найдена');
+    showRoot('register');
+    return;
+  }
+
+  await refreshBrigadeData();
+  await saveTelegramId(PROFILE.fio);
+
+  $('home-fio').textContent = PROFILE.fio;
+  $('home-factory').textContent = PROFILE.factory;
+  $('home-code').textContent = 'Код: ' + PROFILE.code;
+  $('entry-date').value = toISODate(new Date());
+  $('team-date').value = toISODate(new Date());
+  $('rep-date').value = toISODate(new Date());
+  $('rep-month').value = toISODate(new Date()).slice(0,7);
+  $('sched-month').value = toISODate(new Date()).slice(0,7);
+  $('payroll-month').value = toISODate(new Date()).slice(0,7);
+
+  refreshAllCategorySelects();
+  refreshAllPartSelects();
+  refreshWorkerSelect();
+  renderManageChips();
+  renderWorkerChips();
+  renderEntries();
+  renderUsersList();
+  renderMiniDashboard();
+
+  applyRolePermissions();
+  refreshMyPayroll();
+  refreshForecast();
+  refreshRepeatButton();
+
+  showRoot('main');
+  switchTab('entry');
+}
+
+function isOwner(){
+  return !!(PROFILE && PROFILE.isOwner);
+}
+
+function applyRolePermissions(){
+  const owner = isOwner();
+
+  const teamTabBtn = document.querySelector('.tab-btn[data-tab="team"]');
+  if(teamTabBtn) teamTabBtn.style.display = owner ? 'flex' : 'none';
+
+  const payrollTabBtn = document.querySelector('.tab-btn[data-tab="payroll"]');
+  if(payrollTabBtn) payrollTabBtn.style.display = owner ? 'flex' : 'none';
+
+  const payrollBar = $('payroll-summary-bar');
+  if(payrollBar){
+    payrollBar.style.display = owner ? 'flex' : 'none';
+    if(owner) refreshPayrollSummary();
+  }
+
+  $('btn-toggle-add-cat').style.display = owner ? 'flex' : 'none';
+  $('btn-toggle-add-part').style.display = owner ? 'flex' : 'none';
+  const manageDetails = document.querySelector('.manage-details');
+  if(manageDetails) manageDetails.style.display = owner ? 'block' : 'none';
+
+  const brigadeBtn = document.querySelector('#report-mode .seg-btn[data-mode="brigade"]');
+  const workerBtn = document.querySelector('#report-mode .seg-btn[data-mode="worker"]');
+  if(brigadeBtn) brigadeBtn.style.display = owner ? 'block' : 'none';
+  if(workerBtn) workerBtn.style.display = owner ? 'block' : 'none';
+
+  const shiftTypesCard = $('shift-types-card');
+  const rotationCard = $('rotation-card');
+  if(shiftTypesCard) shiftTypesCard.style.display = owner ? 'block' : 'none';
+  if(rotationCard) rotationCard.style.display = owner ? 'block' : 'none';
+
+  if(!owner){
+    const dayBtn = document.querySelector('#report-mode .seg-btn[data-mode="day"]');
+    if(dayBtn) dayBtn.click();
+  }
+}
+
+// ---------- РЕГИСТРАЦИЯ ----------
+let regMode = 'create';
+document.querySelectorAll('#reg-mode .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    regMode = btn.getAttribute('data-mode');
+    document.querySelectorAll('#reg-mode .seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+    $('reg-create-fields').style.display = (regMode === 'create') ? 'block' : 'none';
+    $('reg-join-fields').style.display = (regMode === 'join') ? 'block' : 'none';
+  });
+});
+
+$('btn-register').addEventListener('click', async () => {
+  const fio = $('reg-fio').value.trim();
+  if(!fio){ showToast('Укажите ФИО'); return; }
+
+  const btn = $('btn-register');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Сохраняем...';
+
+  try{
+    if(regMode === 'create'){
+      const factory = $('reg-factory').value.trim();
+      if(!factory){ showToast('Укажите завод / цех'); btn.disabled=false; btn.textContent=originalText; return; }
+
+      const code = await generateUniqueCode();
+      PROFILE = { fio, factory, code, isOwner: true };
+      await fbSet(`brigades/${code}`, { factory, categories: [], catalog: [], workers: [fio], shiftTypes: DEFAULT_SHIFT_TYPES, schedule: {}, telegramIds: {} });
+      await saveLocalProfile(PROFILE);
+      await saveTelegramId(fio);
+
+      $('reg-fio').closest('.card').style.display = 'none';
+      $('code-reveal-card').style.display = 'block';
+      $('reveal-code-val').textContent = code;
+    }else{
+      const code = $('reg-code').value.trim().toUpperCase();
+      if(!code){ showToast('Введите код бригады'); btn.disabled=false; btn.textContent=originalText; return; }
+
+      const brigade = await fbGet(`brigades/${code}`);
+      if(!brigade){ showToast('Бригада с таким кодом не найдена'); btn.disabled=false; btn.textContent=originalText; return; }
+
+      PROFILE = { fio, factory: brigade.factory || '', code, isOwner: false };
+      await saveLocalProfile(PROFILE);
+      await ensureInRoster(fio);
+      await saveTelegramId(fio);
+      await init();
+    }
+  }catch(e){
+    showToast('Что-то пошло не так, попробуйте ещё раз');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+});
+
+$('btn-copy-reveal-code').addEventListener('click', () => {
+  const code = $('reveal-code-val').textContent;
+  copyToClipboard(code);
+});
+$('btn-continue-after-reveal').addEventListener('click', async () => {
+  $('code-reveal-card').style.display = 'none';
+  $('reg-fio').closest('.card').style.display = 'block';
+  await init();
+});
+
+$('btn-edit-profile').addEventListener('click', () => {
+  $('reg-fio').value = PROFILE.fio;
+  if(PROFILE.isOwner){
+    regMode = 'create';
+    $('reg-factory').value = PROFILE.factory;
+  }else{
+    regMode = 'join';
+    $('reg-code').value = PROFILE.code;
+  }
+  document.querySelectorAll('#reg-mode .seg-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode')===regMode));
+  $('reg-create-fields').style.display = (regMode === 'create') ? 'block' : 'none';
+  $('reg-join-fields').style.display = (regMode === 'join') ? 'block' : 'none';
+  $('code-reveal-card').style.display = 'none';
+  $('reg-fio').closest('.card').style.display = 'block';
+  showRoot('register');
+});
+
+function copyToClipboard(text){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(() => showToast('Код скопирован')).catch(() => fallbackCopy(text));
+  }else{
+    fallbackCopy(text);
+  }
+}
+function fallbackCopy(text){
+  const input = document.createElement('input');
+  input.value = text;
+  document.body.appendChild(input);
+  input.select();
+  try{ document.execCommand('copy'); showToast('Код скопирован'); }
+  catch(e){ showToast('Код: ' + text); }
+  document.body.removeChild(input);
+}
+$('btn-copy-code').addEventListener('click', () => copyToClipboard(PROFILE.code));
+$('btn-refresh').addEventListener('click', async () => {
+  await refreshBrigadeData();
+  refreshAllCategorySelects();
+  refreshAllPartSelects();
+  refreshWorkerSelect();
+  renderManageChips();
+  renderWorkerChips();
+  renderEntries();
+  renderUsersList();
+  renderMiniDashboard();
+  renderTeam();
+  refreshMyPayroll();
+  refreshForecast();
+  refreshRepeatButton();
+  if(isOwner()) refreshPayrollSummary();
+  showToast('Данные бригады обновлены');
+});
+
+// ---------- КАТЕГОРИИ И ДЕТАЛИ ----------
+function refreshAllCategorySelects(){
+  [$('in-cat-select'), $('team-cat-select'), $('edit-category'), $('search-category')].forEach(sel => {
+    if(!sel) return;
+    const prev = sel.value;
+    if(CATEGORIES.length === 0){
+      sel.innerHTML = `<option value="">Сначала добавьте категорию</option>`;
+    }else{
+      sel.innerHTML = CATEGORIES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      if(CATEGORIES.includes(prev)) sel.value = prev;
+    }
+  });
+}
+function refreshPartSelect(selectEl, category){
+  if(!selectEl) return;
+  const parts = CATALOG.filter(p => p.category === category);
+  if(!category || parts.length === 0){
+    selectEl.innerHTML = `<option value="">Нет деталей в категории</option>`;
+  }else{
+    selectEl.innerHTML = parts.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join('');
+  }
+}
+function refreshAllPartSelects(){
+  refreshPartSelect($('in-part-select'), $('in-cat-select').value);
+  refreshPartSelect($('team-part-select'), $('team-cat-select').value);
+  refreshPartSelect($('edit-part'), $('edit-category').value);
+}
+$('in-cat-select').addEventListener('change', () => refreshPartSelect($('in-part-select'), $('in-cat-select').value));
+$('team-cat-select').addEventListener('change', () => refreshPartSelect($('team-part-select'), $('team-cat-select').value));
+$('edit-category').addEventListener('change', () => refreshPartSelect($('edit-part'), $('edit-category').value));
+
+$('btn-toggle-add-cat').addEventListener('click', () => { $('add-cat-panel').classList.toggle('open'); $('in-new-cat').focus(); });
+$('btn-toggle-add-part').addEventListener('click', () => {
+  if(!$('in-cat-select').value){ showToast('Сначала выберите или добавьте категорию'); return; }
+  $('add-part-panel').classList.toggle('open'); $('in-new-part').focus();
+});
+
+$('btn-save-cat').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Категории может менять только мастер бригады'); return; }
+  const name = $('in-new-cat').value.trim();
+  if(!name){ showToast('Введите название категории'); return; }
+  if(CATEGORIES.includes(name)){ showToast('Такая категория уже есть'); return; }
+  CATEGORIES.push(name);
+  await fbSet(bp('categories'), CATEGORIES);
+  await logChange('add_category', null, name);
+  $('in-new-cat').value = '';
+  $('add-cat-panel').classList.remove('open');
+  refreshAllCategorySelects();
+  $('in-cat-select').value = name;
+  refreshAllPartSelects();
+  renderManageChips();
+  showToast('Категория добавлена');
+});
+
+$('btn-save-part').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Детали может менять только мастер бригады'); return; }
+  const category = $('in-cat-select').value;
+  const name = $('in-new-part').value.trim();
+  if(!category){ showToast('Сначала выберите категорию'); return; }
+  if(!name){ showToast('Введите наименование детали'); return; }
+  if(CATALOG.some(p => p.category === category && p.name === name)){ showToast('Такая деталь уже есть в этой категории'); return; }
+  CATALOG.push({ name, category });
+  await fbSet(bp('catalog'), CATALOG);
+  await logChange('add_part', null, `${category} · ${name}`);
+  $('in-new-part').value = '';
+  $('add-part-panel').classList.remove('open');
+  refreshPartSelect($('in-part-select'), category);
+  $('in-part-select').value = name;
+  renderManageChips();
+  showToast('Деталь добавлена');
+});
+
+function renderManageChips(){
+  const catWrap = $('cat-chip-list');
+  catWrap.innerHTML = CATEGORIES.length ? CATEGORIES.map(c => {
+    const excluded = EXCLUDED_CATEGORIES.includes(c);
+    return `
+    <span class="chip${excluded ? ' chip-excluded' : ''}">${escapeHtml(c)}${excluded ? ' <span style="font-size:10px;opacity:.8;">(вне отчёта)</span>' : ''}<button data-toggle-exclude="${escapeHtml(c)}" title="${excluded ? 'Учитывать в ежедневном отчёте бригады' : 'Не учитывать в ежедневном отчёте бригады'}">${excluded ? '👁' : '🚫'}</button><button data-cat="${escapeHtml(c)}" title="Удалить категорию">✕</button></span>`;
+  }).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет категорий</span>`;
+
+  catWrap.querySelectorAll('button[data-toggle-exclude]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!isOwner()){ showToast('Категории может менять только мастер бригады'); return; }
+      const cat = btn.getAttribute('data-toggle-exclude');
+      if(EXCLUDED_CATEGORIES.includes(cat)){
+        EXCLUDED_CATEGORIES = EXCLUDED_CATEGORIES.filter(c => c !== cat);
+      }else{
+        EXCLUDED_CATEGORIES.push(cat);
+      }
+      await fbSet(bp('excludedCategories'), EXCLUDED_CATEGORIES);
+      renderManageChips();
+      showToast(EXCLUDED_CATEGORIES.includes(cat) ? 'Категория исключена из ежедневного отчёта' : 'Категория возвращена в ежедневный отчёт');
+    });
+  });
+
+  catWrap.querySelectorAll('button[data-cat]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!isOwner()){ showToast('Категории может менять только мастер бригады'); return; }
+      const cat = btn.getAttribute('data-cat');
+      CATEGORIES = CATEGORIES.filter(c => c !== cat);
+      CATALOG = CATALOG.filter(p => p.category !== cat);
+      EXCLUDED_CATEGORIES = EXCLUDED_CATEGORIES.filter(c => c !== cat);
+      await fbSet(bp('categories'), CATEGORIES);
+      await fbSet(bp('catalog'), CATALOG);
+      await fbSet(bp('excludedCategories'), EXCLUDED_CATEGORIES);
+      refreshAllCategorySelects();
+      refreshAllPartSelects();
+      renderManageChips();
+      showToast('Категория удалена вместе с её деталями');
+    });
+  });
+
+  const partWrap = $('part-chip-list');
+  partWrap.innerHTML = CATALOG.length ? CATALOG.map(p => `
+    <span class="chip">${escapeHtml(p.category)} · ${escapeHtml(p.name)}<button data-name="${escapeHtml(p.name)}" data-cat="${escapeHtml(p.category)}" title="Удалить деталь">✕</button></span>
+  `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет деталей</span>`;
+  partWrap.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!isOwner()){ showToast('Детали может менять только мастер бригады'); return; }
+      const name = btn.getAttribute('data-name');
+      const cat = btn.getAttribute('data-cat');
+      CATALOG = CATALOG.filter(p => !(p.name === name && p.category === cat));
+      await fbSet(bp('catalog'), CATALOG);
+      refreshAllPartSelects();
+      renderManageChips();
+      showToast('Деталь удалена');
+    });
+  });
+}
+
+// ---------- ПРОГНОЗ ЗАРПЛАТЫ ----------
+// Логика: берём выработку за прошедшие дни текущего месяца, считаем среднюю выработку
+// за рабочий день (по дням, когда были записи) и умножаем на оставшиеся рабочие дни.
+// Учитываем график смен, если он заполнен для текущего работника.
+
+function refreshForecast(){
+  const card = $('forecast-card');
+  if(!card || !PROFILE) return;
+
+  const todayStr = toISODate(new Date());
+  const monthPrefix = todayStr.slice(0,7);
+  const [y, m] = monthPrefix.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const todayDay = parseInt(todayStr.split('-')[2], 10);
+
+  // Записи за текущий месяц
+  const own = ENTRIES.filter(e => e.worker === PROFILE.fio && (e.date || '').startsWith(monthPrefix));
+  const currentQty = own.reduce((s,e)=> s + e.qty, 0);
+
+  if(currentQty === 0){
+    card.style.display = 'none';
+    return;
+  }
+
+  // Уникальные дни с записями
+  const workedDates = new Set(own.map(e => e.date));
+  const workedDays = workedDates.size;
+
+  // Проверим, есть ли график для работника — тогда считаем по нему
+  let plannedWorkDays = 0;
+  let futureWorkDays = 0;
+  let hasSchedule = false;
+
+  for(let d = 1; d <= daysInMonth; d++){
+    const dateStr = `${monthPrefix}-${String(d).padStart(2,'0')}`;
+    const dayShifts = SCHEDULE[dateStr] || {};
+    const shiftId = dayShifts[PROFILE.fio];
+    const shift = shiftId ? shiftTypeById(shiftId) : null;
+    const isWorkShift = shift && shift.id !== 'off' && shift.id !== 'vacation' && shift.id !== 'sick';
+    if(isWorkShift){
+      hasSchedule = true;
+      plannedWorkDays++;
+      if(d > todayDay) futureWorkDays++;
+    }
+  }
+
+  // Прогноз выработки к концу месяца
+  let forecastQty;
+  let approach;
+
+  if(hasSchedule && plannedWorkDays > 0){
+    // Считаем среднюю выработку на отработанный день и умножаем на все запланированные рабочие дни
+    const avgPerDay = currentQty / Math.max(workedDays, 1);
+    forecastQty = Math.round(avgPerDay * plannedWorkDays);
+    approach = 'по графику смен';
+  }else{
+    // Без графика — пропорционально дням месяца
+    const avgPerDay = currentQty / Math.max(todayDay, 1);
+    forecastQty = Math.round(avgPerDay * daysInMonth);
+    approach = 'по календарным дням';
+  }
+
+  // Расчётная зарплата — используем тот же коэффициент, что и везде
+  const monthVal = monthPrefix;
+  const payData = PAYROLL[PROFILE.fio] || {};
+  const prevSalary = payData.prevSalary || 0;
+  const c = calcSalaryByAverage(PROFILE.fio, monthVal, prevSalary);
+
+  const currentSalary = c.salary;
+  const totalSalaryForecast = currentQty > 0
+    ? Math.round(currentSalary * (forecastQty / currentQty))
+    : currentSalary;
+
+  // Проценты
+  const progressPct = Math.min(100, Math.round((currentQty / forecastQty) * 100));
+
+  // Что показываем
+  card.style.display = 'block';
+
+  const badge = $('forecast-badge');
+  if(badge) badge.textContent = `день ${todayDay} из ${daysInMonth}`;
+
+  const valueEl = $('forecast-value');
+  if(valueEl){
+    if(prevSalary > 0){
+      valueEl.textContent = `${fmtMoney(totalSalaryForecast)} ₽`;
+    }else{
+      valueEl.textContent = `+${fmtMoney(forecastQty - currentQty)} шт`;
+    }
+  }
+
+  const subEl = $('forecast-sub');
+  if(subEl){
+    if(prevSalary > 0){
+      subEl.textContent = `Прогноз зарплаты (${approach})`;
+    }else{
+      subEl.textContent = `Прогноз выработки к концу месяца (${approach})`;
+    }
+  }
+
+  const currentQtyEl = $('forecast-current-qty');
+  if(currentQtyEl) currentQtyEl.textContent = `${fmtMoney(currentQty)} шт`;
+
+  const totalQtyEl = $('forecast-total-qty');
+  if(totalQtyEl) totalQtyEl.textContent = `${fmtMoney(forecastQty)} шт`;
+
+  const fill = $('forecast-progress-fill');
+  if(fill) fill.style.width = progressPct + '%';
+
+  const hintEl = $('forecast-hint');
+  if(hintEl){
+    if(prevSalary <= 0){
+      hintEl.textContent = 'Чтобы увидеть прогноз зарплаты, укажите свою зарплату за прошлый месяц во вкладке «Зарплата».';
+    }else if(hasSchedule){
+      hintEl.textContent = `Учтён график смен: ${plannedWorkDays} раб. дней в месяце, из них ${futureWorkDays} впереди.`;
+    }else{
+      hintEl.textContent = 'График смен не заполнен — прогноз считается пропорционально календарным дням.';
+    }
+  }
+}
+
+// ---------- ПОВТОР ПОСЛЕДНЕЙ ЗАПИСИ ----------
+function getLastEntry(){
+  if(!PROFILE) return null;
+  const own = ENTRIES.filter(e => e.worker === PROFILE.fio);
+  if(own.length === 0) return null;
+  return own.reduce((max, e) => (!max || e.ts > max.ts) ? e : max, null);
+}
+
+function refreshRepeatButton(){
+  const btn = $('btn-repeat-last');
+  const label = $('btn-repeat-label');
+  if(!btn || !label) return;
+
+  const last = getLastEntry();
+  if(!last){
+    btn.style.display = 'none';
+    return;
+  }
+  btn.style.display = 'flex';
+  const partShort = last.part.length > 20 ? last.part.slice(0, 20) + '…' : last.part;
+  label.textContent = `Повторить: ${partShort} (${last.qty} шт)`;
+  btn.setAttribute('data-entry-id', last.id);
+}
+
+$('btn-repeat-last').addEventListener('click', async () => {
+  const btn = $('btn-repeat-last');
+  const id = btn.getAttribute('data-entry-id');
+  const last = ENTRIES.find(e => e.id === id);
+  if(!last){ showToast('Не удалось найти последнюю запись'); return; }
+
+  // Убедимся, что выбранные категория и деталь всё ещё существуют
+  if(!CATEGORIES.includes(last.category)){
+    showToast('Категория этой записи больше не существует');
+    return;
+  }
+  const partExists = CATALOG.some(p => p.category === last.category && p.name === last.part);
+  if(!partExists){
+    showToast('Деталь этой записи больше не существует');
+    return;
+  }
+
+  // Подставим в форму
+  $('in-cat-select').value = last.category;
+  refreshPartSelect($('in-part-select'), last.category);
+  $('in-part-select').value = last.part;
+
+  // Подставим дату: сегодня (если открыта не сегодняшняя дата — переключим на сегодня)
+  const todayStr = toISODate(new Date());
+  if($('entry-date').value !== todayStr){
+    $('entry-date').value = todayStr;
+    renderEntries();
+  }
+
+  // Фокус на поле количества и лёгкая подсветка
+  $('in-qty').value = last.qty;
+  $('in-qty').focus();
+  $('in-qty').select();
+
+  showToast(`Подставлено: ${last.part} — ${last.qty} шт. Проверьте и нажмите «Добавить запись»`);
+});
+
+// ---------- ВВОД ----------
+function renderMiniDashboard(){
+  if(!PROFILE) return;
+  const todayStr = toISODate(new Date());
+  const monthPrefix = todayStr.slice(0,7);
+
+  const weekDates = new Set();
+  for(let i=0;i<7;i++){
+    weekDates.add(toISODate(new Date(Date.now() - i*86400000)));
+  }
+
+  const own = ENTRIES.filter(e => e.worker === PROFILE.fio);
+  const todaySum = own.filter(e => e.date === todayStr).reduce((s,e)=> s + e.qty, 0);
+  const weekSum = own.filter(e => weekDates.has(e.date)).reduce((s,e)=> s + e.qty, 0);
+  const monthSum = own.filter(e => e.date.startsWith(monthPrefix)).reduce((s,e)=> s + e.qty, 0);
+
+  $('dash-today').textContent = todaySum;
+  $('dash-week').textContent = weekSum;
+  $('dash-month').textContent = monthSum;
+}
+
+function renderUsersList(){
+  const wrap = $('users-list-view');
+  const countEl = $('users-count');
+  if(!wrap || !countEl) return;
+
+  countEl.textContent = WORKERS.length;
+
+  if(WORKERS.length === 0){
+    wrap.innerHTML = `<div class="hint" style="margin-top:8px;">В бригаде пока никто не зарегистрирован.</div>`;
+    return;
+  }
+
+  const monthPrefix = toISODate(new Date()).slice(0,7);
+  wrap.innerHTML = WORKERS.map(w => {
+    const own = ENTRIES.filter(e => e.worker === w);
+    const monthQty = own.filter(e => e.date.startsWith(monthPrefix)).reduce((s,e)=> s + e.qty, 0);
+    const last = own.reduce((max,e)=> (!max || e.ts > max.ts) ? e : max, null);
+    const initials = w.trim().split(/\s+/).map(p=>p[0]).slice(0,2).join('').toUpperCase();
+    const isMe = PROFILE && w === PROFILE.fio;
+
+    return `
+      <div class="user-row">
+        <div class="user-info">
+          <div class="user-avatar">${initials}</div>
+          <div class="user-name-wrap">
+            <div class="user-name">${escapeHtml(w)}${isMe ? '<span class="user-tag">Вы</span>' : ''}</div>
+            <div class="user-meta">${last ? 'Была запись: ' + formatDateRu(last.date) : 'Записей ещё не было'}</div>
+          </div>
+        </div>
+        <div class="user-stat">
+          <div class="val">${monthQty}</div>
+          <div class="lbl">шт / мес.</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderEntries(){
+  const dateStr = $('entry-date').value || toISODate(new Date());
+  const list = $('entries-list');
+  const dayEntries = ENTRIES.filter(e => e.worker === PROFILE.fio && e.date === dateStr).sort((a,b)=> b.ts - a.ts);
+  const total = dayEntries.reduce((s,e)=> s + e.qty, 0);
+  $('day-total').textContent = total;
+
+  if(dayEntries.length === 0){
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="emoji">🗂️</div>
+        <div class="msg">На эту дату записей нет.<br>Выберите категорию и деталь выше.</div>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = '';
+  dayEntries.forEach(e => {
+    const row = document.createElement('div');
+    row.className = 'entry-row';
+    row.innerHTML = `
+      <div class="entry-info">
+        <div class="entry-part">${escapeHtml(e.part)}</div>
+        <div class="entry-meta">${escapeHtml(e.category)} · ${e.time}</div>
+      </div>
+      <div class="entry-qty">${e.qty}</div>
+      <div class="entry-actions">
+        <button class="entry-edit" data-id="${e.id}" title="Редактировать">✏️</button>
+        <button class="entry-del" data-id="${e.id}" title="Удалить">🗑</button>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+
+  list.querySelectorAll('.entry-edit').forEach(btn => {
+    btn.addEventListener('click', () => openEditModal(btn.getAttribute('data-id')));
+  });
+
+  list.querySelectorAll('.entry-del').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      const target = ENTRIES.find(e => e.id === id);
+      if(target) await logChange('delete_entry', { worker: target.worker, category: target.category, part: target.part, qty: target.qty, date: target.date }, null);
+      await fbRemove(bp('entries/' + id));
+      ENTRIES = ENTRIES.filter(e => e.id !== id);
+      renderEntries();
+      renderUsersList();
+      renderMiniDashboard();
+      refreshMyPayroll();
+      refreshForecast();
+      refreshRepeatButton();
+      showToast('Запись удалена');
+    });
+  });
+}
+$('entry-date').addEventListener('change', renderEntries);
+
+$('btn-add').addEventListener('click', async () => {
+  const category = $('in-cat-select').value;
+  const part = $('in-part-select').value;
+  const qty = parseInt($('in-qty').value, 10);
+  if(!category){ showToast('Выберите категорию'); return; }
+  if(!part){ showToast('Выберите деталь'); return; }
+  if(!qty || qty <= 0){ showToast('Укажите количество'); return; }
+
+  const dateStr = $('entry-date').value || toISODate(new Date());
+  const now = new Date();
+  const entry = {
+    worker: PROFILE.fio, category, part, qty, date: dateStr,
+    time: now.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}),
+    ts: now.getTime()
+  };
+  const id = await fbPush(bp('entries'), entry);
+  if(id) ENTRIES.push({ id, ...entry });
+  await logChange('add_entry', null, { worker: PROFILE.fio, category, part, qty, date: dateStr });
+  $('in-qty').value = '';
+  renderEntries();
+  renderUsersList();
+  renderMiniDashboard();
+  refreshMyPayroll();
+  refreshForecast();
+  refreshRepeatButton();
+  showToast('Запись добавлена');
+});
+
+// ---------- РЕДАКТИРОВАНИЕ ----------
+let editingEntryId = null;
+
+function openEditModal(id){
+  const entry = ENTRIES.find(e => e.id === id);
+  if(!entry) return;
+  editingEntryId = id;
+
+  if(isOwner()){
+    $('edit-worker').innerHTML = WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+  }else{
+    $('edit-worker').innerHTML = `<option value="${escapeHtml(PROFILE.fio)}">${escapeHtml(PROFILE.fio)} (я)</option>`;
+  }
+  $('edit-worker').value = entry.worker;
+  $('edit-worker').disabled = !isOwner();
+
+  $('edit-category').innerHTML = CATEGORIES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  $('edit-category').value = entry.category;
+  refreshPartSelect($('edit-part'), entry.category);
+  $('edit-part').value = entry.part;
+  $('edit-qty').value = entry.qty;
+  $('edit-date').value = entry.date;
+
+  $('edit-modal').classList.add('open');
+}
+
+$('btn-edit-cancel').addEventListener('click', () => {
+  $('edit-modal').classList.remove('open');
+  editingEntryId = null;
+});
+
+$('btn-edit-save').addEventListener('click', async () => {
+  if(!editingEntryId) return;
+  const old = ENTRIES.find(e => e.id === editingEntryId);
+  if(!old) return;
+
+  const newWorker = $('edit-worker').value;
+  const newCategory = $('edit-category').value;
+  const newPart = $('edit-part').value;
+  const newQty = parseInt($('edit-qty').value, 10);
+  const newDate = $('edit-date').value;
+
+  if(!newQty || newQty <= 0){ showToast('Укажите количество'); return; }
+  if(!newDate){ showToast('Укажите дату'); return; }
+
+  if(!isOwner() && newWorker !== PROFILE.fio){
+    showToast('Можно редактировать только свои записи');
+    return;
+  }
+
+  const updated = {
+    worker: newWorker,
+    category: newCategory,
+    part: newPart,
+    qty: newQty,
+    date: newDate,
+    time: old.time,
+    ts: old.ts,
+  };
+
+  await fbUpdate(bp('entries/' + editingEntryId), updated);
+  await logChange('edit_entry',
+    { worker: old.worker, category: old.category, part: old.part, qty: old.qty, date: old.date },
+    { worker: newWorker, category: newCategory, part: newPart, qty: newQty, date: newDate }
+  );
+
+  const idx = ENTRIES.findIndex(e => e.id === editingEntryId);
+  if(idx !== -1) ENTRIES[idx] = { ...ENTRIES[idx], ...updated };
+
+  $('edit-modal').classList.remove('open');
+  editingEntryId = null;
+  renderEntries();
+  renderUsersList();
+  renderMiniDashboard();
+  refreshMyPayroll();
+  refreshForecast();
+  refreshRepeatButton();
+  renderTeam();
+  showToast('Запись изменена');
+});
+
+// ---------- БРИГАДА ----------
+function refreshWorkerSelect(){
+  const sel = $('in-worker-select');
+  const prev = sel.value;
+  if(WORKERS.length === 0){
+    sel.innerHTML = `<option value="">Сначала добавьте работника</option>`;
+  }else{
+    sel.innerHTML = WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+    if(WORKERS.includes(prev)) sel.value = prev;
+  }
+  refreshReportWorkerSelect();
+  refreshSearchWorkerSelect();
+}
+
+function renderWorkerChips(){
+  const wrap = $('worker-chip-list');
+  wrap.innerHTML = WORKERS.length ? WORKERS.map(w => `
+    <span class="chip">${escapeHtml(w)}<button data-worker="${escapeHtml(w)}" title="Удалить">✕</button></span>
+  `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет работников</span>`;
+  wrap.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!isOwner()){ showToast('Список работников может менять только мастер бригады'); return; }
+      const w = btn.getAttribute('data-worker');
+      WORKERS = WORKERS.filter(x => x !== w);
+      await fbSet(bp('workers'), WORKERS);
+      refreshWorkerSelect();
+      renderWorkerChips();
+      showToast('Работник удалён из списка');
+    });
+  });
+}
+
+$('btn-add-worker').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Список работников может менять только мастер бригады'); return; }
+  const name = $('in-new-worker').value.trim();
+  if(!name){ showToast('Введите ФИО работника'); return; }
+  if(WORKERS.includes(name)){ showToast('Такой работник уже есть'); return; }
+  WORKERS.push(name);
+  await fbSet(bp('workers'), WORKERS);
+  $('in-new-worker').value = '';
+  refreshWorkerSelect();
+  renderWorkerChips();
+  showToast('Работник добавлен');
+});
+
+function renderTeam(){
+  const dateStr = $('team-date').value || toISODate(new Date());
+  const list = $('team-list');
+  const dayEntries = ENTRIES.filter(e => e.date === dateStr).sort((a,b)=> a.ts - b.ts);
+
+  const total = dayEntries.reduce((s,e)=> s + e.qty, 0);
+  $('team-day-total').textContent = total;
+
+  if(dayEntries.length === 0){
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="emoji">👥</div>
+        <div class="msg">За эту смену записей нет.</div>
+      </div>`;
+    return;
+  }
+
+  const byWorker = {};
+  dayEntries.forEach(e => { (byWorker[e.worker] = byWorker[e.worker] || []).push(e); });
+
+  list.innerHTML = '';
+  Object.keys(byWorker).forEach(worker => {
+    const items = byWorker[worker];
+    const subtotal = items.reduce((s,e)=> s + e.qty, 0);
+    const initials = worker.trim().split(/\s+/).map(p=>p[0]).slice(0,2).join('').toUpperCase();
+    const block = document.createElement('div');
+    block.className = 'worker-block';
+    block.innerHTML = `
+      <div class="worker-header">
+        <div class="worker-name"><span class="avatar">${initials}</span>${escapeHtml(worker)}</div>
+        <div class="worker-subtotal">${subtotal} шт</div>
+      </div>
+    `;
+    items.forEach(e => {
+      const canDelete = isOwner() || e.worker === PROFILE.fio;
+      const row = document.createElement('div');
+      row.className = 'entry-row';
+      row.innerHTML = `
+        <div class="entry-info">
+          <div class="entry-part">${escapeHtml(e.part)}</div>
+          <div class="entry-meta">${escapeHtml(e.category)} · ${e.time}</div>
+        </div>
+        <div class="entry-qty">${e.qty}</div>
+        ${canDelete ? `<div class="entry-actions">
+          <button class="entry-edit" data-id="${e.id}" title="Редактировать">✏️</button>
+          <button class="entry-del" data-id="${e.id}" title="Удалить">🗑</button>
+        </div>` : ''}
+      `;
+      block.appendChild(row);
+    });
+    list.appendChild(block);
+  });
+
+  list.querySelectorAll('.entry-edit').forEach(btn => {
+    btn.addEventListener('click', () => openEditModal(btn.getAttribute('data-id')));
+  });
+
+  list.querySelectorAll('.entry-del').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      const target = ENTRIES.find(e => e.id === id);
+      if(target && !isOwner() && target.worker !== PROFILE.fio){
+        showToast('Можно удалять только свои записи');
+        return;
+      }
+      if(target) await logChange('delete_entry', { worker: target.worker, category: target.category, part: target.part, qty: target.qty, date: target.date }, null);
+      await fbRemove(bp('entries/' + id));
+      ENTRIES = ENTRIES.filter(e => e.id !== id);
+      renderTeam();
+      showToast('Запись удалена');
+    });
+  });
+}
+$('team-date').addEventListener('change', renderTeam);
+
+$('btn-team-add').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Записи за других работников может вносить только мастер бригады'); return; }
+  const worker = $('in-worker-select').value;
+  const category = $('team-cat-select').value;
+  const part = $('team-part-select').value;
+  const qty = parseInt($('in-team-qty').value, 10);
+  if(!worker){ showToast('Выберите работника'); return; }
+  if(!category){ showToast('Выберите категорию'); return; }
+  if(!part){ showToast('Выберите деталь'); return; }
+  if(!qty || qty <= 0){ showToast('Укажите количество'); return; }
+
+  const dateStr = $('team-date').value || toISODate(new Date());
+  const now = new Date();
+  const entry = {
+    worker, category, part, qty, date: dateStr,
+    time: now.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}),
+    ts: now.getTime()
+  };
+  const id = await fbPush(bp('entries'), entry);
+  if(id) ENTRIES.push({ id, ...entry });
+  await logChange('add_entry', null, { worker, category, part, qty, date: dateStr });
+  $('in-team-qty').value = '';
+  renderTeam();
+  showToast('Запись добавлена');
+});
+
+// ---------- ГРАФИК ----------
+const WEEKDAY_NAMES = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+function shiftTypeById(id){
+  return SHIFT_TYPES.find(t => t.id === id) || null;
+}
+
+async function ensureShiftTypesSeeded(){
+  if(!isOwner()) return;
+  let changed = false;
+
+  if(SHIFT_TYPES.length === 0){
+    SHIFT_TYPES = DEFAULT_SHIFT_TYPES.slice();
+    changed = true;
+  }else{
+    NEW_SHIFT_TYPE_IDS_TO_MERGE.forEach(id => {
+      if(!SHIFT_TYPES.some(t => t.id === id)){
+        const def = DEFAULT_SHIFT_TYPES.find(t => t.id === id);
+        if(def){ SHIFT_TYPES.push(def); changed = true; }
+      }
+    });
+  }
+
+  if(changed) await fbSet(bp('shiftTypes'), SHIFT_TYPES);
+}
+
+function renderShiftTypeChips(){
+  const wrap = $('shift-type-chip-list');
+  if(!wrap) return;
+  wrap.innerHTML = SHIFT_TYPES.length ? SHIFT_TYPES.map(t => `
+    <span class="chip"><span class="shift-dot" style="background:${t.color};display:inline-block;"></span>${escapeHtml(t.name)}<button data-id="${escapeHtml(t.id)}" title="Удалить">✕</button></span>
+  `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Нет типов смен</span>`;
+  wrap.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!isOwner()){ showToast('Типы смен может менять только мастер бригады'); return; }
+      const id = btn.getAttribute('data-id');
+      SHIFT_TYPES = SHIFT_TYPES.filter(t => t.id !== id);
+      await fbSet(bp('shiftTypes'), SHIFT_TYPES);
+      renderShiftTypeChips();
+      refreshRotShiftSelect();
+      renderCalendar();
+      showToast('Тип смены удалён');
+    });
+  });
+}
+
+$('btn-add-shift-type').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Типы смен может менять только мастер бригады'); return; }
+  const name = $('in-new-shift-name').value.trim();
+  const color = $('in-new-shift-color').value || '#3390EC';
+  if(!name){ showToast('Введите название типа смены'); return; }
+  const id = 'shift_' + Date.now().toString(36);
+  SHIFT_TYPES.push({ id, name, color });
+  await fbSet(bp('shiftTypes'), SHIFT_TYPES);
+  $('in-new-shift-name').value = '';
+  renderShiftTypeChips();
+  refreshRotShiftSelect();
+  showToast('Тип смены добавлен');
+});
+
+function refreshRotWorkerSelect(){
+  const sel = $('rot-worker-select');
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = WORKERS.length
+    ? WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('')
+    : `<option value="">Сначала добавьте работника</option>`;
+  if(WORKERS.includes(prev)) sel.value = prev;
+}
+
+function refreshRotShiftSelect(){
+  [$('rot-shift-select'), $('rot-day-shift-select'), $('rot-night-shift-select')].forEach(sel => {
+    if(!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = SHIFT_TYPES.length
+      ? SHIFT_TYPES.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join('')
+      : `<option value="">Сначала добавьте тип смены</option>`;
+    if(SHIFT_TYPES.some(t => t.id === prev)) sel.value = prev;
+  });
+  const dayType = shiftTypeById('day') || SHIFT_TYPES[0];
+  const nightType = shiftTypeById('night') || SHIFT_TYPES[1];
+  if(dayType && $('rot-day-shift-select') && !$('rot-day-shift-select').value) $('rot-day-shift-select').value = dayType.id;
+  if(nightType && $('rot-night-shift-select') && !$('rot-night-shift-select').value) $('rot-night-shift-select').value = nightType.id;
+}
+
+let rotPatternMode = 'simple';
+document.querySelectorAll('#rot-pattern-mode .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    rotPatternMode = btn.getAttribute('data-pattern');
+    document.querySelectorAll('#rot-pattern-mode .seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+    $('rot-simple-fields').style.display = (rotPatternMode === 'simple') ? 'block' : 'none';
+    $('rot-3block-fields').style.display = (rotPatternMode === 'dayoffnight') ? 'block' : 'none';
+  });
+});
+
+$('sched-month').addEventListener('change', renderCalendar);
+
+$('btn-apply-rotation').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('График может менять только мастер бригады'); return; }
+  const worker = $('rot-worker-select').value;
+  const startDateStr = $('rot-start-date').value;
+  const monthVal = $('sched-month').value || toISODate(new Date()).slice(0,7);
+  const [y, m] = monthVal.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+
+  if(!worker){ showToast('Выберите работника'); return; }
+  if(!startDateStr){ showToast('Укажите дату начала отсчёта'); return; }
+
+  const startDate = new Date(startDateStr + 'T00:00:00');
+  const offType = shiftTypeById('off');
+
+  function setDay(dateStr, shiftId){
+    SCHEDULE[dateStr] = SCHEDULE[dateStr] || {};
+    if(shiftId){ SCHEDULE[dateStr][worker] = shiftId; }
+    else{ delete SCHEDULE[dateStr][worker]; }
+    if(Object.keys(SCHEDULE[dateStr]).length === 0) delete SCHEDULE[dateStr];
+  }
+
+  if(rotPatternMode === 'simple'){
+    const shiftId = $('rot-shift-select').value;
+    const workDays = parseInt($('rot-work-days').value, 10) || 2;
+    const offDays = parseInt($('rot-off-days').value, 10) || 0;
+    if(!shiftId){ showToast('Выберите тип смены'); return; }
+
+    const cycleLen = workDays + offDays;
+    for(let d = 1; d <= daysInMonth; d++){
+      const dateObj = new Date(y, m-1, d);
+      const dateStr = toISODate(dateObj);
+      const diffDays = Math.round((dateObj - startDate) / 86400000);
+      if(diffDays < 0) continue;
+      const pos = ((diffDays % cycleLen) + cycleLen) % cycleLen;
+      setDay(dateStr, pos < workDays ? shiftId : (offType ? offType.id : null));
+    }
+  }else{
+    const dayShiftId = $('rot-day-shift-select').value;
+    const nightShiftId = $('rot-night-shift-select').value;
+    const blockDays = parseInt($('rot-block-days').value, 10) || 2;
+    if(!dayShiftId || !nightShiftId){ showToast('Выберите типы смен для дня и ночи'); return; }
+    if(!offType){ showToast('В списке типов смен нет «Выходной» — добавьте его сначала'); return; }
+
+    const cycleLen = blockDays * 4;
+    for(let d = 1; d <= daysInMonth; d++){
+      const dateObj = new Date(y, m-1, d);
+      const dateStr = toISODate(dateObj);
+      const diffDays = Math.round((dateObj - startDate) / 86400000);
+      if(diffDays < 0) continue;
+      const pos = ((diffDays % cycleLen) + cycleLen) % cycleLen;
+      let shiftId;
+      if(pos < blockDays) shiftId = dayShiftId;
+      else if(pos < blockDays*2) shiftId = offType.id;
+      else if(pos < blockDays*3) shiftId = nightShiftId;
+      else shiftId = offType.id;
+      setDay(dateStr, shiftId);
+    }
+  }
+
+  await fbSet(bp('schedule'), SCHEDULE);
+  renderCalendar();
+  refreshForecast();
+  showToast('Месяц заполнен по шаблону');
+});
+
+function refreshCalFilterSelect(){
+  const sel = $('cal-filter-select');
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = `<option value="">Вся бригада</option>` +
+    WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+  if(prev && (prev === '' || WORKERS.includes(prev))) sel.value = prev;
+}
+$('cal-filter-select').addEventListener('change', renderCalendar);
+
+function renderCalendar(){
+  ensureShiftTypesSeeded().then(() => { renderShiftTypeChips(); refreshRotShiftSelect(); });
+  refreshCalFilterSelect();
+
+  const weekdaysEl = $('cal-weekdays');
+  if(weekdaysEl && weekdaysEl.children.length === 0){
+    weekdaysEl.innerHTML = WEEKDAY_NAMES.map(w => `<div class="cal-weekday">${w}</div>`).join('');
+  }
+
+  const monthVal = $('sched-month').value || toISODate(new Date()).slice(0,7);
+  const [y, m] = monthVal.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const firstDay = new Date(y, m-1, 1);
+  const leadOffset = (firstDay.getDay() + 6) % 7;
+  const todayStr = toISODate(new Date());
+  const filterWorker = $('cal-filter-select').value;
+
+  const grid = $('cal-grid');
+  let html = '';
+  for(let i=0; i<leadOffset; i++){ html += `<div class="cal-day empty"></div>`; }
+
+  for(let d=1; d<=daysInMonth; d++){
+    const dateObj = new Date(y, m-1, d);
+    const dateStr = toISODate(dateObj);
+    const dayShifts = SCHEDULE[dateStr] || {};
+
+    let workerIds = Object.keys(dayShifts);
+    if(filterWorker) workerIds = workerIds.filter(w => w === filterWorker);
+
+    const colors = workerIds.slice(0, 4).map(worker => {
+      const t = shiftTypeById(dayShifts[worker]);
+      return t ? t.color : '#C7C7CC';
+    });
+
+    const fillHtml = colors.length
+      ? `<div class="cal-day-fill">${colors.map(c => `<div style="background:${c};"></div>`).join('')}</div>`
+      : '';
+
+    html += `
+      <div class="cal-day${dateStr===todayStr ? ' today' : ''}" data-date="${dateStr}">
+        ${fillHtml}
+        <div class="cal-day-num">${d}</div>
+      </div>`;
+  }
+  grid.innerHTML = html;
+
+  grid.querySelectorAll('.cal-day:not(.empty)').forEach(cell => {
+    cell.addEventListener('click', () => openDayEditor(cell.getAttribute('data-date')));
+  });
+}
+
+function openDayEditor(dateStr){
+  selectedCalDate = dateStr;
+  document.querySelectorAll('.cal-day').forEach(c => c.classList.toggle('selected', c.getAttribute('data-date')===dateStr));
+
+  const card = $('day-editor-card');
+  card.style.display = 'block';
+  $('day-editor-title').textContent = formatDateRu(dateStr);
+
+  const dayShifts = SCHEDULE[dateStr] || {};
+  const owner = isOwner();
+  const rows = WORKERS.length ? WORKERS : (PROFILE ? [PROFILE.fio] : []);
+
+  $('day-editor-rows').innerHTML = rows.map(worker => {
+    const current = dayShifts[worker] || '';
+    const options = `<option value="">—</option>` + SHIFT_TYPES.map(t =>
+      `<option value="${escapeHtml(t.id)}" ${t.id===current ? 'selected' : ''}>${escapeHtml(t.name)}</option>`
+    ).join('');
+    return `
+      <div class="day-editor-row">
+        <div class="day-editor-worker">${escapeHtml(worker)}</div>
+        <select data-worker="${escapeHtml(worker)}" ${owner ? '' : 'disabled'}>${options}</select>
+      </div>`;
+  }).join('') || `<div class="hint">В бригаде пока нет работников</div>`;
+
+  $('btn-save-day-schedule').style.display = owner ? 'flex' : 'none';
+}
+
+$('btn-save-day-schedule').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('График может менять только мастер бригады'); return; }
+  if(!selectedCalDate) return;
+
+  const dayData = {};
+  document.querySelectorAll('#day-editor-rows select').forEach(sel => {
+    const worker = sel.getAttribute('data-worker');
+    if(sel.value) dayData[worker] = sel.value;
+  });
+
+  if(Object.keys(dayData).length > 0){
+    SCHEDULE[selectedCalDate] = dayData;
+  }else{
+    delete SCHEDULE[selectedCalDate];
+  }
+  await fbSet(bp('schedule'), SCHEDULE);
+  renderCalendar();
+  refreshForecast();
+  showToast('График сохранён');
+});
+
+// ---------- ЗАРПЛАТА ----------
+function shiftMonth(monthKey, delta){
+  const base = (monthKey || toISODate(new Date()).slice(0,7)).split('-').map(Number);
+  const d = new Date(base[0], base[1] - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+function monthTitleRu(monthKey){
+  const p = monthKey.split('-').map(Number);
+  return new Date(p[0], p[1] - 1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
+}
+function qtyForMonth(worker, monthKey){
+  return ENTRIES
+    .filter(e => e.worker === worker && (e.date || '').startsWith(monthKey))
+    .reduce((s, e) => s + (Number(e.qty) || 0), 0);
+}
+function calcSalaryByAverage(worker, monthKey, prevSalary){
+  const prevKey = shiftMonth(monthKey, -1);
+  const prevQty = qtyForMonth(worker, prevKey);
+  const curQty = qtyForMonth(worker, monthKey);
+  const avgCost = prevQty > 0 ? (Number(prevSalary) || 0) / prevQty : 0;
+  const salary = Math.round(avgCost * curQty);
+  return { prevKey, prevQty, curQty, avgCost, salary };
+}
+function fmtMoney(n){ return (Number(n) || 0).toLocaleString('ru-RU'); }
+function fmtMoney2(n){
+  return (Number(n) || 0).toLocaleString('ru-RU', { minimumFractionDigits:2, maximumFractionDigits:2 });
+}
+function calcStatsHtml(c, curLabel){
+  return `
+    <div class="calc-stat"><span>Выработка за прошлый месяц</span><b>${fmtMoney(c.prevQty)} шт</b></div>
+    <div class="calc-stat"><span>Средняя стоимость изделия</span><b>${fmtMoney2(c.avgCost)} ₽/шт</b></div>
+    <div class="calc-stat"><span>${curLabel || 'Выработка за выбранный месяц'}</span><b>${fmtMoney(c.curQty)} шт</b></div>`;
+}
+function updatePayrollRowTotal(safeId){
+  const a = $('pr-adv-' + safeId);
+  const f = $('pr-fin-' + safeId);
+  const t = $('pr-total-' + safeId);
+  if(!t) return;
+  const adv = a ? (parseFloat(a.value) || 0) : 0;
+  const fin = f ? (parseFloat(f.value) || 0) : 0;
+  t.textContent = fmtMoney(adv + fin) + ' ₽';
+}
+function isAutoFillCalc(){
+  try{
+    const v = localStorage.getItem('payroll_autofill');
+    return v === null ? true : v === '1';
+  }catch(e){ return true; }
+}
+
+$('payroll-month').addEventListener('change', renderPayroll);
+
+const payrollAutofillEl = $('payroll-autofill');
+if(payrollAutofillEl){
+  payrollAutofillEl.addEventListener('change', () => {
+    try{ localStorage.setItem('payroll_autofill', payrollAutofillEl.checked ? '1' : '0'); }catch(e){}
+    renderPayroll();
+  });
+}
+
+async function renderPayroll(){
+  const monthVal = $('payroll-month').value || toISODate(new Date()).slice(0,7);
+  PAYROLL = (await fbGet(bp('payroll/' + monthVal))) || {};
+
+  const prevMonthVal = shiftMonth(monthVal, -1);
+  const autofill = isAutoFillCalc();
+  const autofillEl = $('payroll-autofill');
+  if(autofillEl) autofillEl.checked = autofill;
+
+  const wrap = $('payroll-list');
+  if(WORKERS.length === 0){
+    wrap.innerHTML = `<div class="empty-state"><div class="emoji">👥</div><div class="msg">В бригаде пока нет работников</div></div>`;
+    return;
+  }
+
+  wrap.innerHTML = WORKERS.map(worker => {
+    const rec = PAYROLL[worker] || {};
+    const advance = rec.advance || 0;
+    const final = rec.final || 0;
+    const total = advance + final;
+    const prevSalary = rec.prevSalary || 0;
+    const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
+    const c = calcSalaryByAverage(worker, monthVal, prevSalary);
+
+    return `
+      <div class="payroll-row">
+        <div class="payroll-worker">${escapeHtml(worker)}</div>
+
+        <details class="payroll-calc" open>
+          <summary>Расчёт по средней стоимости изделия</summary>
+          <div class="field" style="margin:10px 0 0;">
+            <label>Зарплата за прошлый месяц (${escapeHtml(monthTitleRu(prevMonthVal))}), ₽</label>
+            <input type="number" class="payroll-prev-salary" data-worker="${escapeHtml(worker)}" id="pr-prev-${safeId}" value="${prevSalary || ''}" placeholder="0" min="0" inputmode="decimal">
+          </div>
+          <div class="calc-stats" id="pr-stats-${safeId}">${calcStatsHtml(c)}</div>
+          <div class="calc-salary">
+            <span class="lbl">Расчётная зарплата за ${escapeHtml(monthTitleRu(monthVal))}</span>
+            <span class="val" id="pr-calc-${safeId}">${fmtMoney(c.salary)} ₽</span>
+          </div>
+          <button type="button" class="btn btn-secondary btn-apply-calc" data-worker="${escapeHtml(worker)}" id="pr-apply-${safeId}" style="margin-top:10px;">Подставить в «Расчёт»</button>
+        </details>
+
+        <div class="field-row" style="margin-top:12px;">
+          <div class="field">
+            <label>Аванс, ₽</label>
+            <input type="number" class="payroll-advance" data-worker="${escapeHtml(worker)}" id="pr-adv-${safeId}" value="${advance || ''}" placeholder="0" min="0" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label>Расчёт, ₽</label>
+            <input type="number" class="payroll-final" data-worker="${escapeHtml(worker)}" id="pr-fin-${safeId}" value="${final || ''}" placeholder="0" min="0" inputmode="decimal">
+          </div>
+        </div>
+        <div class="payroll-total">
+          <span>Итого за месяц</span>
+          <span class="val" id="pr-total-${safeId}">${fmtMoney(total)} ₽</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  wrap.querySelectorAll('.payroll-advance, .payroll-final').forEach(input => {
+    input.addEventListener('input', () => {
+      const safeId = input.getAttribute('data-worker').replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
+      updatePayrollRowTotal(safeId);
+    });
+  });
+
+  wrap.querySelectorAll('.payroll-prev-salary').forEach(input => {
+    input.addEventListener('input', () => {
+      const worker = input.getAttribute('data-worker');
+      const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
+      const c = calcSalaryByAverage(worker, monthVal, parseFloat(input.value) || 0);
+      const statsEl = $('pr-stats-' + safeId);
+      if(statsEl) statsEl.innerHTML = calcStatsHtml(c);
+      const calcEl = $('pr-calc-' + safeId);
+      if(calcEl) calcEl.textContent = fmtMoney(c.salary) + ' ₽';
+      if(isAutoFillCalc()){
+        const finInput = $('pr-fin-' + safeId);
+        if(finInput){ finInput.value = c.salary ? c.salary : ''; updatePayrollRowTotal(safeId); }
+      }
+    });
+  });
+
+  wrap.querySelectorAll('.btn-apply-calc').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const worker = btn.getAttribute('data-worker');
+      const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
+      const prevInput = $('pr-prev-' + safeId);
+      const c = calcSalaryByAverage(worker, monthVal, prevInput ? (parseFloat(prevInput.value) || 0) : 0);
+      const finInput = $('pr-fin-' + safeId);
+      if(finInput){ finInput.value = c.salary ? c.salary : ''; updatePayrollRowTotal(safeId); }
+      showToast('Расчётная зарплата подставлена');
+    });
+  });
+
+  if(autofill){
+    wrap.querySelectorAll('.payroll-prev-salary').forEach(input => {
+      const worker = input.getAttribute('data-worker');
+      const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
+      const prevSalary = parseFloat(input.value) || 0;
+      if(prevSalary > 0){
+        const c = calcSalaryByAverage(worker, monthVal, prevSalary);
+        const finInput = $('pr-fin-' + safeId);
+        if(finInput && !finInput.value){ finInput.value = c.salary ? c.salary : ''; updatePayrollRowTotal(safeId); }
+      }
+    });
+  }
+}
+
+$('btn-save-payroll').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Зарплату может вносить только мастер бригады'); return; }
+  const monthVal = $('payroll-month').value || toISODate(new Date()).slice(0,7);
+
+  const updated = {};
+  WORKERS.forEach(worker => {
+    const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
+    const prevInput = $('pr-prev-' + safeId);
+    const advInput = $('pr-adv-' + safeId);
+    const finInput = $('pr-fin-' + safeId);
+    const prevSalary = prevInput ? (parseFloat(prevInput.value) || 0) : 0;
+    const advance = advInput ? (parseFloat(advInput.value) || 0) : 0;
+    const final = finInput ? (parseFloat(finInput.value) || 0) : 0;
+    if(advance || final || prevSalary){
+      updated[worker] = {
+        advance, final, prevSalary,
+        calc: calcSalaryByAverage(worker, monthVal, prevSalary).salary
+      };
+    }
+  });
+
+  PAYROLL = updated;
+  await fbSet(bp('payroll/' + monthVal), PAYROLL);
+  await refreshPayrollSummary();
+  await refreshMyPayroll();
+  await refreshMyCalc();
+  refreshForecast();
+  showToast('Зарплата сохранена');
+});
+
+function payrollRecordTotal(rec){
+  if(!rec) return 0;
+  const manual = (rec.advance || 0) + (rec.final || 0);
+  return manual || (rec.calc || 0);
+}
+
+async function refreshPayrollSummary(){
+  const bar = $('payroll-summary-bar');
+  const valEl = $('payroll-summary-val');
+  if(!bar || !valEl || !isOwner()) return;
+
+  const monthVal = toISODate(new Date()).slice(0,7);
+  const data = (await fbGet(bp('payroll/' + monthVal))) || {};
+  const total = Object.values(data).reduce((s, r) => s + payrollRecordTotal(r), 0);
+  valEl.textContent = fmtMoney(total) + ' ₽';
+}
+
+let lastMyPayrollRec = {};
+
+function renderMyPayrollBar(rec, prevSalaryOverride){
+  const valEl = $('my-payroll-val');
+  if(!valEl || !PROFILE) return;
+
+  const monthVal = toISODate(new Date()).slice(0,7);
+  const r = rec || {};
+  const manual = (r.advance || 0) + (r.final || 0);
+  const prevSalary = (prevSalaryOverride === undefined || prevSalaryOverride === null)
+    ? (r.prevSalary || 0) : (Number(prevSalaryOverride) || 0);
+
+  const c = calcSalaryByAverage(PROFILE.fio, monthVal, prevSalary);
+  const hasCalc = prevSalary > 0;
+
+  valEl.textContent = fmtMoney(hasCalc ? c.salary : manual) + ' ₽';
+
+  const hintEl = $('my-payroll-hint');
+  if(!hintEl) return;
+  if(hasCalc && manual > 0 && manual !== c.salary){
+    hintEl.textContent = 'По нарядам: ' + fmtMoney(manual) + ' ₽';
+    hintEl.style.display = '';
+  } else if(!hasCalc && manual <= 0){
+    hintEl.textContent = 'Введите зарплату за прошлый месяц ниже';
+    hintEl.style.display = '';
+  } else {
+    hintEl.textContent = '';
+    hintEl.style.display = 'none';
+  }
+}
+
+async function refreshMyPayroll(){
+  const valEl = $('my-payroll-val');
+  if(!valEl || !PROFILE) return;
+
+  const monthVal = toISODate(new Date()).slice(0,7);
+  const data = (await fbGet(bp('payroll/' + monthVal))) || {};
+  lastMyPayrollRec = data[PROFILE.fio] || {};
+  renderMyPayrollBar(lastMyPayrollRec);
+}
+
+async function refreshMyCalc(){
+  const input = $('my-calc-prev-salary');
+  const statsEl = $('my-calc-stats');
+  const salaryEl = $('my-calc-salary');
+  const monthLbl = $('my-calc-prev-month');
+  if(!input || !statsEl || !salaryEl || !PROFILE) return;
+
+  const monthVal = toISODate(new Date()).slice(0,7);
+  const prevKey = shiftMonth(monthVal, -1);
+  if(monthLbl) monthLbl.textContent = monthTitleRu(prevKey);
+
+  const data = (await fbGet(bp('payroll/' + monthVal))) || {};
+  const rec = data[PROFILE.fio] || {};
+  const saved = rec.prevSalary || 0;
+  if(document.activeElement !== input) input.value = saved ? saved : '';
+
+  const c = calcSalaryByAverage(PROFILE.fio, monthVal, parseFloat(input.value) || 0);
+  statsEl.innerHTML = calcStatsHtml(c, 'Выработка за текущий месяц');
+  salaryEl.textContent = fmtMoney(c.salary) + ' ₽';
+}
+
+const myCalcPrevInput = $('my-calc-prev-salary');
+if(myCalcPrevInput){
+  myCalcPrevInput.addEventListener('input', () => {
+    if(!PROFILE) return;
+    const monthVal = toISODate(new Date()).slice(0,7);
+    const c = calcSalaryByAverage(PROFILE.fio, monthVal, parseFloat(myCalcPrevInput.value) || 0);
+    const statsEl = $('my-calc-stats');
+    const salaryEl = $('my-calc-salary');
+    if(statsEl) statsEl.innerHTML = calcStatsHtml(c, 'Выработка за текущий месяц');
+    if(salaryEl) salaryEl.textContent = fmtMoney(c.salary) + ' ₽';
+    renderMyPayrollBar(lastMyPayrollRec, parseFloat(myCalcPrevInput.value) || 0);
+  });
+}
+const btnSaveMyCalc = $('btn-save-my-calc');
+if(btnSaveMyCalc){
+  btnSaveMyCalc.addEventListener('click', async () => {
+    if(!PROFILE) return;
+    const monthVal = toISODate(new Date()).slice(0,7);
+    const prevSalary = parseFloat(myCalcPrevInput.value) || 0;
+    const c = calcSalaryByAverage(PROFILE.fio, monthVal, prevSalary);
+    const ok = await fbUpdate(bp('payroll/' + monthVal + '/' + PROFILE.fio), { prevSalary, calc: c.salary });
+    showToast(ok ? 'Зарплата за прошлый месяц сохранена' : 'Не удалось сохранить расчёт');
+    await refreshMyPayroll();
+    await refreshMyCalc();
+    refreshForecast();
+  });
+}
+
+// ---------- ОТЧЁТ ----------
+let REPORT_MODE = 'brigade';
+const REPORT_BTN_LABELS = {
+  brigade: 'Сформировать выписку для мастера',
+  day: 'Сформировать мою выписку за день',
+  month: 'Сформировать мою выписку за месяц',
+  worker: 'Сформировать выписку по работнику',
+  naryad: 'Сформировать бланк для печати'
+};
+
+function refreshReportWorkerSelect(){
+  const sel = $('rep-worker-select');
+  if(!sel) return;
+  const prev = sel.value;
+  if(WORKERS.length === 0){
+    sel.innerHTML = `<option value="">Сначала добавьте работника во вкладке «Бригада»</option>`;
+  }else{
+    sel.innerHTML = WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+    if(WORKERS.includes(prev)) sel.value = prev;
+  }
+}
+
+function refreshNaryadWorkerSelect(){
+  const sel = $('rep-worker-select');
+  if(!sel) return;
+  if(isOwner()){
+    refreshReportWorkerSelect();
+  }else{
+    sel.innerHTML = `<option value="${escapeHtml(PROFILE.fio)}">${escapeHtml(PROFILE.fio)} (я)</option>`;
+  }
+}
+
+document.querySelectorAll('#report-mode .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    REPORT_MODE = btn.getAttribute('data-mode');
+    document.querySelectorAll('#report-mode .seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+    $('rep-date-field').style.display = (REPORT_MODE === 'brigade' || REPORT_MODE === 'day') ? 'block' : 'none';
+    $('rep-month-field').style.display = (REPORT_MODE === 'month' || REPORT_MODE === 'worker' || REPORT_MODE === 'naryad') ? 'block' : 'none';
+    $('rep-worker-field').style.display = (REPORT_MODE === 'worker' || REPORT_MODE === 'naryad') ? 'block' : 'none';
+    if(REPORT_MODE === 'worker') refreshReportWorkerSelect();
+    if(REPORT_MODE === 'naryad') refreshNaryadWorkerSelect();
+    $('btn-build-report').textContent = REPORT_BTN_LABELS[REPORT_MODE];
+    $('report-output').innerHTML = '';
+  });
+});
+
+$('btn-build-report').addEventListener('click', async () => {
+  if(!isOwner() && (REPORT_MODE === 'brigade' || REPORT_MODE === 'worker')){
+    showToast('Этот отчёт доступен только мастеру бригады');
+    return;
+  }
+  await refreshBrigadeData();
+  if(REPORT_MODE === 'brigade'){
+    buildBrigadeReport($('rep-date').value || toISODate(new Date()));
+  }else if(REPORT_MODE === 'day'){
+    const d = $('rep-date').value || toISODate(new Date());
+    buildPersonalReport(d, d, formatDateRu(d), false);
+  }else if(REPORT_MODE === 'month'){
+    const monthVal = $('rep-month').value || toISODate(new Date()).slice(0,7);
+    const [y,m] = monthVal.split('-').map(Number);
+    const from = `${monthVal}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${monthVal}-${String(lastDay).padStart(2,'0')}`;
+    const monthLabel = new Date(y, m-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
+    buildPersonalReport(from, to, monthLabel, true);
+  }else if(REPORT_MODE === 'worker'){
+    const worker = $('rep-worker-select').value;
+    if(!worker){ showToast('Выберите работника'); return; }
+    const monthVal = $('rep-month').value || toISODate(new Date()).slice(0,7);
+    const [y,m] = monthVal.split('-').map(Number);
+    const from = `${monthVal}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${monthVal}-${String(lastDay).padStart(2,'0')}`;
+    const monthLabel = new Date(y, m-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
+    buildWorkerReport(worker, from, to, monthLabel);
+  }else{
+    const worker = isOwner() ? $('rep-worker-select').value : PROFILE.fio;
+    if(!worker){ showToast('Выберите работника'); return; }
+    const monthVal = $('rep-month').value || toISODate(new Date()).slice(0,7);
+    buildNaryadBlank(worker, monthVal);
+  }
+});
+
+function buildBrigadeReport(dateStr){
+  const combined = ENTRIES.filter(e => e.date === dateStr && !EXCLUDED_CATEGORIES.includes(e.category));
+
+  const byKey = {};
+  combined.forEach(e => {
+    const key = e.category + '||' + e.part;
+    if(!byKey[key]) byKey[key] = { category: e.category, part: e.part, qty: 0 };
+    byKey[key].qty += e.qty;
+  });
+
+  const byCategory = {};
+  Object.values(byKey).forEach(row => {
+    (byCategory[row.category] = byCategory[row.category] || []).push(row);
+  });
+  const categories = Object.keys(byCategory).sort((a,b)=> a.localeCompare(b,'ru'));
+  const total = Object.values(byKey).reduce((s,r)=> s + r.qty, 0);
+
+  let rowsHtml = '';
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    rowsHtml += `<tr class="cat-row"><td>${escapeHtml(cat)}</td><td style="text-align:right;">${catTotal} шт</td></tr>`;
+    byCategory[cat].sort((a,b)=> b.qty - a.qty).forEach(r => {
+      rowsHtml += `<tr><td>${escapeHtml(r.part)}</td><td class="qty">${r.qty}</td></tr>`;
+    });
+  });
+  if(categories.length === 0){
+    rowsHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за эту дату</td></tr>`;
+  }
+
+  $('report-output').innerHTML = `
+    <div class="report-doc" id="report-doc">
+      <h2>Выписка по цеху</h2>
+      <div class="report-meta">Сформировано: ${new Date().toLocaleDateString('ru-RU')}</div>
+      <div class="report-field"><span>Завод / цех</span><span>${escapeHtml(PROFILE.factory)}</span></div>
+      <div class="report-field"><span>Дата</span><span>${formatDateRu(dateStr)}</span></div>
+      <table class="report-table">
+        <thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="report-total"><span>Итого по бригаде, шт</span><span class="val">${total}</span></div>
+    </div>
+  `;
+
+  if(categories.length > 0){
+    const actions = document.createElement('div');
+    actions.className = 'report-actions';
+    actions.innerHTML = `
+      <button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button>
+      <button class="btn btn-primary" id="btn-print">🖨 Печать / PDF</button>
+      <button class="btn btn-whatsapp" id="btn-report-whatsapp">📤 WhatsApp</button>
+      <button class="btn btn-telegram" id="btn-report-telegram">✈️ Telegram</button>
+      <button class="btn btn-vk" id="btn-report-vk">VK</button>
+    `;
+    $('report-output').appendChild(actions);
+
+    const buildShareText = () => {
+      let text = `📋 Выписка по цеху\n`;
+      text += `Завод/цех: ${PROFILE.factory}\n`;
+      text += `Дата: ${formatDateRu(dateStr)}\n\n`;
+      categories.forEach(cat => {
+        const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+        text += `🔧 ${cat} — ${catTotal} шт\n`;
+        byCategory[cat].forEach(r => { text += `   • ${r.part}: ${r.qty} шт\n`; });
+        text += `\n`;
+      });
+      text += `———————————————\n`;
+      text += `Итого по бригаде: ${total} шт`;
+      return text;
+    };
+
+    $('btn-print').addEventListener('click', () => { setPrintOrientation(false); window.print(); });
+    $('btn-download-file').addEventListener('click', () => downloadBrigadeReport(byCategory, categories, total, dateStr));
+    $('btn-report-whatsapp').addEventListener('click', () => shareToWhatsApp(buildShareText()));
+    $('btn-report-telegram').addEventListener('click', () => shareToTelegram(buildShareText()));
+    $('btn-report-vk').addEventListener('click', () => shareToVK(buildShareText()));
+  }
+}
+
+function downloadBrigadeReport(byCategory, categories, total, dateStr){
+  let text = 'ВЫПИСКА ПО ЦЕХУ\r\n';
+  text += `Сформировано: ${new Date().toLocaleDateString('ru-RU')}\r\n`;
+  text += `Завод/цех: ${PROFILE.factory}\r\n`;
+  text += `Дата: ${formatDateRu(dateStr)}\r\n`;
+  text += '----------------------------------------\r\n';
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    text += `\r\n${cat.toUpperCase()} — Итого: ${catTotal} шт\r\n`;
+    byCategory[cat].forEach(r => { text += `  ${r.part}\t${r.qty}\r\n`; });
+  });
+  text += '\r\n----------------------------------------\r\n';
+  text += `ИТОГО ПО БРИГАДЕ: ${total} шт.\r\n`;
+
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Выписка_${PROFILE.factory.replace(/[\s«»]+/g,'_')}_${dateStr}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Файл скачан');
+}
+
+function buildPersonalReport(fromDate, toDate, periodLabel, showDailyBreakdown){
+  const own = ENTRIES.filter(e => e.worker === PROFILE.fio && e.date >= fromDate && e.date <= toDate);
+
+  const byKey = {};
+  own.forEach(e => {
+    const key = e.category + '||' + e.part;
+    if(!byKey[key]) byKey[key] = { category: e.category, part: e.part, qty: 0 };
+    byKey[key].qty += e.qty;
+  });
+
+  const byCategory = {};
+  Object.values(byKey).forEach(row => {
+    (byCategory[row.category] = byCategory[row.category] || []).push(row);
+  });
+  const categories = Object.keys(byCategory).sort((a,b)=> a.localeCompare(b,'ru'));
+  const total = Object.values(byKey).reduce((s,r)=> s + r.qty, 0);
+
+  const byDate = {};
+  own.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
+  const workDates = Object.keys(byDate).sort();
+
+  let dailyHtml = '';
+  if(showDailyBreakdown){
+    workDates.forEach(date => {
+      const items = byDate[date].sort((a,b)=> a.ts - b.ts);
+      const dayTotal = items.reduce((s,e)=> s + e.qty, 0);
+      dailyHtml += `<tr class="cat-row"><td>${formatDateRu(date)}</td><td style="text-align:right;">${dayTotal} шт</td></tr>`;
+      items.forEach(e => {
+        dailyHtml += `<tr><td>${escapeHtml(e.category)} — ${escapeHtml(e.part)}</td><td class="qty">${e.qty}</td></tr>`;
+      });
+    });
+    if(workDates.length === 0){
+      dailyHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
+    }
+  }
+
+  let rowsHtml = '';
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    rowsHtml += `<tr class="cat-row"><td>${escapeHtml(cat)}</td><td style="text-align:right;">${catTotal} шт</td></tr>`;
+    byCategory[cat].sort((a,b)=> b.qty - a.qty).forEach(r => {
+      rowsHtml += `<tr><td>${escapeHtml(r.part)}</td><td class="qty">${r.qty}</td></tr>`;
+    });
+  });
+  if(categories.length === 0){
+    rowsHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
+  }
+
+  const dailySectionHtml = showDailyBreakdown ? `
+      <div class="report-section-title">Разбивка по сменам</div>
+      <table class="report-table">
+        <thead><tr><th>Дата / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
+        <tbody>${dailyHtml}</tbody>
+      </table>
+      <div class="report-section-title" style="margin-top:18px;">Итого по категориям за период</div>
+  ` : '';
+
+  $('report-output').innerHTML = `
+    <div class="report-doc" id="report-doc">
+      <h2>Моя выписка о выполненных работах</h2>
+      <div class="report-meta">Сформировано: ${new Date().toLocaleDateString('ru-RU')}</div>
+      <div class="report-field"><span>Ф.И.О.</span><span>${escapeHtml(PROFILE.fio)}</span></div>
+      <div class="report-field"><span>Завод / цех</span><span>${escapeHtml(PROFILE.factory)}</span></div>
+      <div class="report-field"><span>Период</span><span>${periodLabel}</span></div>
+      ${dailySectionHtml}
+      <table class="report-table">
+        <thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="report-total"><span>Итого изготовлено, шт</span><span class="val">${total}</span></div>
+    </div>
+  `;
+
+  if(categories.length > 0){
+    const actions = document.createElement('div');
+    actions.className = 'report-actions';
+    actions.innerHTML = `
+      <button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button>
+      <button class="btn btn-primary" id="btn-print">🖨 Печать / PDF</button>
+      <button class="btn btn-whatsapp" id="btn-report-whatsapp">📤 WhatsApp</button>
+      <button class="btn btn-telegram" id="btn-report-telegram">✈️ Telegram</button>
+      <button class="btn btn-vk" id="btn-report-vk">VK</button>
+    `;
+    $('report-output').appendChild(actions);
+
+    const buildShareText = () => {
+      let text = `📄 Моя выписка о выполненных работах\n`;
+      text += `Ф.И.О.: ${PROFILE.fio}\n`;
+      text += `Завод/цех: ${PROFILE.factory}\n`;
+      text += `Период: ${periodLabel}\n\n`;
+      if(showDailyBreakdown){
+        text += `— Разбивка по сменам —\n\n`;
+        workDates.forEach(date => {
+          const items = byDate[date].sort((a,b)=> a.ts - b.ts);
+          const dayTotal = items.reduce((s,e)=> s + e.qty, 0);
+          text += `📅 ${formatDateRu(date)} — ${dayTotal} шт\n`;
+          items.forEach(e => { text += `   • ${e.category} — ${e.part}: ${e.qty} шт\n`; });
+          text += `\n`;
+        });
+        text += `— Итого по категориям —\n\n`;
+      }
+      categories.forEach(cat => {
+        const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+        text += `🔧 ${cat} — ${catTotal} шт\n`;
+        byCategory[cat].forEach(r => { text += `   • ${r.part}: ${r.qty} шт\n`; });
+        text += `\n`;
+      });
+      text += `———————————————\n`;
+      text += `Итого: ${total} шт`;
+      return text;
+    };
+
+    $('btn-print').addEventListener('click', () => { setPrintOrientation(false); window.print(); });
+    $('btn-download-file').addEventListener('click', () => downloadPersonalReport(byCategory, categories, total, periodLabel, byDate, workDates, showDailyBreakdown));
+    $('btn-report-whatsapp').addEventListener('click', () => shareToWhatsApp(buildShareText()));
+    $('btn-report-telegram').addEventListener('click', () => shareToTelegram(buildShareText()));
+    $('btn-report-vk').addEventListener('click', () => shareToVK(buildShareText()));
+  }
+}
+
+function downloadPersonalReport(byCategory, categories, total, periodLabel, byDate, workDates, showDailyBreakdown){
+  let text = 'МОЯ ВЫПИСКА О ВЫПОЛНЕННЫХ РАБОТАХ\r\n';
+  text += `Сформировано: ${new Date().toLocaleDateString('ru-RU')}\r\n`;
+  text += `Ф.И.О.: ${PROFILE.fio}\r\n`;
+  text += `Завод/цех: ${PROFILE.factory}\r\n`;
+  text += `Период: ${periodLabel}\r\n`;
+  text += '----------------------------------------\r\n';
+
+  if(showDailyBreakdown){
+    text += '\r\nРАЗБИВКА ПО СМЕНАМ\r\n';
+    workDates.forEach(date => {
+      const items = byDate[date].sort((a,b)=> a.ts - b.ts);
+      const dayTotal = items.reduce((s,e)=> s + e.qty, 0);
+      text += `\r\n${formatDateRu(date)} — Итого: ${dayTotal} шт\r\n`;
+      items.forEach(e => { text += `  ${e.category} — ${e.part}\t${e.qty}\r\n`; });
+    });
+    text += '\r\n----------------------------------------\r\n';
+    text += 'ИТОГО ПО КАТЕГОРИЯМ ЗА ПЕРИОД\r\n';
+  }
+
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    text += `\r\n${cat.toUpperCase()} — Итого: ${catTotal} шт\r\n`;
+    byCategory[cat].forEach(r => { text += `  ${r.part}\t${r.qty}\r\n`; });
+  });
+  text += '\r\n----------------------------------------\r\n';
+  text += `ИТОГО: ${total} шт.\r\n`;
+
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Моя_выписка_${PROFILE.fio.replace(/\s+/g,'_')}_${periodLabel.replace(/\s+/g,'_')}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Файл скачан');
+}
+
+function buildWorkerReport(worker, fromDate, toDate, periodLabel){
+  const items = ENTRIES.filter(e => e.worker === worker && e.date >= fromDate && e.date <= toDate);
+
+  const byKey = {};
+  items.forEach(e => {
+    const key = e.category + '||' + e.part;
+    if(!byKey[key]) byKey[key] = { category: e.category, part: e.part, qty: 0 };
+    byKey[key].qty += e.qty;
+  });
+
+  const byCategory = {};
+  Object.values(byKey).forEach(row => {
+    (byCategory[row.category] = byCategory[row.category] || []).push(row);
+  });
+  const categories = Object.keys(byCategory).sort((a,b)=> a.localeCompare(b,'ru'));
+  const total = Object.values(byKey).reduce((s,r)=> s + r.qty, 0);
+
+  const byDate = {};
+  items.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
+  const workDates = Object.keys(byDate).sort();
+
+  let dailyHtml = '';
+  workDates.forEach(date => {
+    const dayItems = byDate[date].sort((a,b)=> a.ts - b.ts);
+    const dayTotal = dayItems.reduce((s,e)=> s + e.qty, 0);
+    dailyHtml += `<tr class="cat-row"><td>${formatDateRu(date)}</td><td style="text-align:right;">${dayTotal} шт</td></tr>`;
+    dayItems.forEach(e => {
+      dailyHtml += `<tr><td>${escapeHtml(e.category)} — ${escapeHtml(e.part)}</td><td class="qty">${e.qty}</td></tr>`;
+    });
+  });
+  if(workDates.length === 0){
+    dailyHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
+  }
+
+  let rowsHtml = '';
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    rowsHtml += `<tr class="cat-row"><td>${escapeHtml(cat)}</td><td style="text-align:right;">${catTotal} шт</td></tr>`;
+    byCategory[cat].sort((a,b)=> b.qty - a.qty).forEach(r => {
+      rowsHtml += `<tr><td>${escapeHtml(r.part)}</td><td class="qty">${r.qty}</td></tr>`;
+    });
+  });
+  if(categories.length === 0){
+    rowsHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
+  }
+
+  $('report-output').innerHTML = `
+    <div class="report-doc" id="report-doc">
+      <h2>Выписка по работнику</h2>
+      <div class="report-meta">Сформировано: ${new Date().toLocaleDateString('ru-RU')}</div>
+      <div class="report-field"><span>Работник</span><span>${escapeHtml(worker)}</span></div>
+      <div class="report-field"><span>Завод / цех</span><span>${escapeHtml(PROFILE.factory)}</span></div>
+      <div class="report-field"><span>Период</span><span>${periodLabel}</span></div>
+      <div class="report-section-title">Разбивка по сменам</div>
+      <table class="report-table">
+        <thead><tr><th>Дата / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
+        <tbody>${dailyHtml}</tbody>
+      </table>
+      <div class="report-section-title" style="margin-top:18px;">Итого по категориям за период</div>
+      <table class="report-table">
+        <thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="report-total"><span>Итого изготовлено, шт</span><span class="val">${total}</span></div>
+    </div>
+  `;
+
+  if(categories.length > 0){
+    const actions = document.createElement('div');
+    actions.className = 'report-actions';
+    actions.innerHTML = `
+      <button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button>
+      <button class="btn btn-primary" id="btn-print">🖨 Печать / PDF</button>
+      <button class="btn btn-whatsapp" id="btn-report-whatsapp">📤 WhatsApp</button>
+      <button class="btn btn-telegram" id="btn-report-telegram">✈️ Telegram</button>
+      <button class="btn btn-vk" id="btn-report-vk">VK</button>
+    `;
+    $('report-output').appendChild(actions);
+
+    const buildShareText = () => {
+      let text = `📄 Выписка по работнику\n`;
+      text += `Работник: ${worker}\n`;
+      text += `Завод/цех: ${PROFILE.factory}\n`;
+      text += `Период: ${periodLabel}\n\n`;
+      text += `— Разбивка по сменам —\n\n`;
+      workDates.forEach(date => {
+        const dayItems = byDate[date].sort((a,b)=> a.ts - b.ts);
+        const dayTotal = dayItems.reduce((s,e)=> s + e.qty, 0);
+        text += `📅 ${formatDateRu(date)} — ${dayTotal} шт\n`;
+        dayItems.forEach(e => { text += `   • ${e.category} — ${e.part}: ${e.qty} шт\n`; });
+        text += `\n`;
+      });
+      text += `— Итого по категориям —\n\n`;
+      categories.forEach(cat => {
+        const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+        text += `🔧 ${cat} — ${catTotal} шт\n`;
+        byCategory[cat].forEach(r => { text += `   • ${r.part}: ${r.qty} шт\n`; });
+        text += `\n`;
+      });
+      text += `———————————————\n`;
+      text += `Итого: ${total} шт`;
+      return text;
+    };
+
+    $('btn-print').addEventListener('click', () => { setPrintOrientation(false); window.print(); });
+    $('btn-download-file').addEventListener('click', () => downloadWorkerReport(worker, byCategory, categories, total, periodLabel, byDate, workDates));
+    $('btn-report-whatsapp').addEventListener('click', () => shareToWhatsApp(buildShareText()));
+    $('btn-report-telegram').addEventListener('click', () => shareToTelegram(buildShareText()));
+    $('btn-report-vk').addEventListener('click', () => shareToVK(buildShareText()));
+  }
+}
+
+function downloadWorkerReport(worker, byCategory, categories, total, periodLabel, byDate, workDates){
+  let text = 'ВЫПИСКА ПО РАБОТНИКУ\r\n';
+  text += `Сформировано: ${new Date().toLocaleDateString('ru-RU')}\r\n`;
+  text += `Работник: ${worker}\r\n`;
+  text += `Завод/цех: ${PROFILE.factory}\r\n`;
+  text += `Период: ${periodLabel}\r\n`;
+  text += '----------------------------------------\r\n';
+
+  text += '\r\nРАЗБИВКА ПО СМЕНАМ\r\n';
+  workDates.forEach(date => {
+    const dayItems = byDate[date].sort((a,b)=> a.ts - b.ts);
+    const dayTotal = dayItems.reduce((s,e)=> s + e.qty, 0);
+    text += `\r\n${formatDateRu(date)} — Итого: ${dayTotal} шт\r\n`;
+    dayItems.forEach(e => { text += `  ${e.category} — ${e.part}\t${e.qty}\r\n`; });
+  });
+
+  text += '\r\n----------------------------------------\r\n';
+  text += 'ИТОГО ПО КАТЕГОРИЯМ ЗА ПЕРИОД\r\n';
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    text += `\r\n${cat.toUpperCase()} — Итого: ${catTotal} шт\r\n`;
+    byCategory[cat].forEach(r => { text += `  ${r.part}\t${r.qty}\r\n`; });
+  });
+  text += '\r\n----------------------------------------\r\n';
+  text += `ИТОГО: ${total} шт.\r\n`;
+
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Выписка_${worker.replace(/\s+/g,'_')}_${periodLabel.replace(/\s+/g,'_')}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Файл скачан');
+}
+
+async function tryTelegramNativeDownload(blob, fileName){
+  const wa = window.Telegram && window.Telegram.WebApp;
+  if(!wa || typeof wa.downloadFile !== 'function') return false;
+  if(wa.isVersionAtLeast && !wa.isVersionAtLeast('8.0')) return false;
+  if(!firebaseReady || typeof firebase.storage !== 'function') return false;
+
+  try{
+    const storage = firebase.storage();
+    const path = `naryad_pdfs/${PROFILE.code}/${Date.now()}_${fileName}`;
+    const ref = storage.ref(path);
+    await ref.put(blob, { contentType: 'application/pdf' });
+    const url = await ref.getDownloadURL();
+
+    const accepted = await withTimeout(new Promise((resolve) => {
+      try{
+        wa.downloadFile({ url, file_name: fileName }, (result) => resolve(!!result));
+      }catch(e){ resolve(false); }
+    }), 8000, false);
+
+    if(accepted) showToast('Загрузка началась — файл появится в папке загрузок');
+    return accepted;
+  }catch(e){
+    console.error('Telegram downloadFile не сработал:', e);
+    return false;
+  }
+}
+
+function setPrintOrientation(landscape){
+  let style = document.getElementById('dynamic-page-style');
+  if(!style){
+    style = document.createElement('style');
+    style.id = 'dynamic-page-style';
+    document.head.appendChild(style);
+  }
+  style.textContent = landscape ? '@page{ size: landscape; margin: 10mm; }' : '';
+}
+
+function buildNaryadBlank(worker, monthVal){
+  const [y, m] = monthVal.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const monthLabel = new Date(y, m-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
+
+  const todayStr = toISODate(new Date());
+  const currentMonthStr = todayStr.slice(0,7);
+  let cutoffDay;
+  if(monthVal === currentMonthStr) cutoffDay = parseInt(todayStr.split('-')[2], 10);
+  else if(monthVal < currentMonthStr) cutoffDay = daysInMonth;
+  else cutoffDay = 0;
+
+  const items = ENTRIES.filter(e => e.worker === worker && e.date.startsWith(monthVal));
+
+  const byPart = {};
+  items.forEach(e => {
+    const label = `${e.category} ${e.part}`.trim();
+    if(!byPart[label]) byPart[label] = {};
+    const day = parseInt(e.date.split('-')[2], 10);
+    byPart[label][day] = (byPart[label][day] || 0) + e.qty;
+  });
+  const usedParts = Object.keys(byPart).sort((a,b)=> a.localeCompare(b,'ru'));
+
+  const totalRows = Math.max(usedParts.length + 8, 16);
+  const blankRowsCount = totalRows - usedParts.length;
+
+  let headRow = '<tr><th style="min-width:150px;">Наименование детали</th>';
+  for(let d=1; d<=daysInMonth; d++){ headRow += `<th class="${d>cutoffDay ? 'naryad-future' : ''}">${d}</th>`; }
+  headRow += '<th>Итого</th></tr>';
+
+  let bodyRows = '';
+  const dayTotals = Array(daysInMonth+1).fill(0);
+  usedParts.forEach(part => {
+    let rowTotal = 0;
+    let cells = '';
+    for(let d=1; d<=daysInMonth; d++){
+      const qty = (byPart[part][d]) || 0;
+      if(qty){ dayTotals[d] += qty; rowTotal += qty; }
+      cells += `<td class="${d>cutoffDay ? 'naryad-future' : ''}">${qty || ''}</td>`;
+    }
+    bodyRows += `<tr><td class="naryad-name">${escapeHtml(part)}</td>${cells}<td class="naryad-total">${rowTotal}</td></tr>`;
+  });
+
+  for(let i=0; i<blankRowsCount; i++){
+    let cells = '';
+    for(let d=1; d<=daysInMonth; d++){ cells += `<td class="${d>cutoffDay ? 'naryad-future' : ''}"></td>`; }
+    bodyRows += `<tr><td class="naryad-name">&nbsp;</td>${cells}<td></td></tr>`;
+  }
+
+  let sumCells = '<td>Итого за день</td>';
+  let grandTotal = 0;
+  for(let d=1; d<=daysInMonth; d++){
+    grandTotal += dayTotals[d];
+    sumCells += `<td class="${d>cutoffDay ? 'naryad-future' : ''}">${dayTotals[d] || ''}</td>`;
+  }
+  sumCells += `<td class="naryad-total">${grandTotal}</td>`;
+
+  $('report-output').innerHTML = `
+    <div class="naryad-doc" id="naryad-doc">
+      <div class="naryad-head">
+        <h2>Наряд на сдельную работу</h2>
+        <div class="row"><span>Ф.И.О.</span><span>${escapeHtml(worker)}</span></div>
+        <div class="row"><span>Завод / цех</span><span>${escapeHtml(PROFILE.factory)}</span></div>
+        <div class="row"><span>Месяц</span><span>${monthLabel}</span></div>
+        <div class="row"><span>Сформировано</span><span>${new Date().toLocaleDateString('ru-RU')}${cutoffDay < daysInMonth ? ` — данные по ${cutoffDay || '0'}-е число, дальше пустые клетки под оставшиеся смены` : ''}</span></div>
+      </div>
+      <div class="naryad-scroll">
+        <table class="naryad-table">
+          <thead>${headRow}</thead>
+          <tbody>
+            ${bodyRows}
+            <tr class="naryad-sum-row">${sumCells}</tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="naryad-sign">
+        <div>Подпись работника</div>
+        <div>Подпись мастера</div>
+      </div>
+    </div>
+  `;
+
+  const actions = document.createElement('div');
+  actions.className = 'report-actions';
+  actions.innerHTML = `<button class="btn btn-primary" id="btn-print-naryad">📄 Скачать PDF</button>`;
+  $('report-output').appendChild(actions);
+  $('btn-print-naryad').addEventListener('click', async () => {
+    try{
+      await downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount });
+    }catch(e){
+      console.error('Ошибка формирования PDF:', e);
+      showToast('Ошибка: ' + (e && e.message ? e.message : 'не удалось сформировать PDF'));
+    }
+  });
+}
+
+async function sendPdfViaBot(blob, fileName){
+  if(!PROFILE) return { ok: false, reason: 'Профиль не загружен' };
+  if(!CLOUDFLARE_WORKER_URL || CLOUDFLARE_WORKER_URL.includes('YOUR-WORKER-NAME')){
+    return { ok: false, reason: 'Адрес Cloudflare Worker не настроен в коде' };
+  }
+
+  const key = PROFILE.fio.replace(/[.#$\[\]]/g, '_');
+  const chatId = await fbGet(bp('telegramIds/' + key));
+  if(!chatId){
+    return { ok: false, reason: 'Нет сохранённого Telegram ID — откройте приложение через настоящий Telegram и повторите' };
+  }
+
+  const form = new FormData();
+  form.append('chat_id', chatId);
+  form.append('file_name', fileName);
+  form.append('file', blob, fileName);
+
+  let res;
+  try{
+    res = await withPlainTimeout(
+      fetch(CLOUDFLARE_WORKER_URL, {
+        method: 'POST',
+        headers: { 'X-App-Secret': APP_SHARED_SECRET },
+        body: form,
+      }),
+      15000,
+      null
+    );
+  }catch(e){
+    return { ok: false, reason: 'Сетевая ошибка при обращении к Worker: ' + e.message };
+  }
+
+  if(!res){
+    return { ok: false, reason: 'Worker не ответил за 15 секунд (таймаут)' };
+  }
+
+  const data = await res.json().catch(() => null);
+
+  if(!res.ok){
+    const errText = (data && (data.error || (data.description))) || `HTTP ${res.status}`;
+    return { ok: false, reason: 'Worker вернул ошибку: ' + errText };
+  }
+
+  if(!data || !data.ok){
+    const errText = (data && data.description) || 'неизвестная ошибка Telegram API';
+    return { ok: false, reason: 'Telegram отклонил отправку: ' + errText };
+  }
+
+  return { ok: true };
+}
+
+let cyrillicFontBase64Cache = null;
+
+function arrayBufferToBase64(buffer){
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for(let i = 0; i < bytes.length; i += chunkSize){
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function registerCyrillicFont(doc){
+  const candidateUrls = [
+    'https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans.ttf',
+    'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.ttf',
+    'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/static/Roboto-Regular.ttf',
+    'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/Roboto-Regular.ttf',
+  ];
+
+  try{
+    if(!cyrillicFontBase64Cache){
+      let lastError = null;
+      for(const fontUrl of candidateUrls){
+        try{
+          const res = await fetch(fontUrl);
+          if(!res.ok) throw new Error('HTTP ' + res.status);
+          const buf = await res.arrayBuffer();
+          if(buf.byteLength < 10000) throw new Error('Файл слишком маленький, похоже не тот формат');
+          cyrillicFontBase64Cache = arrayBufferToBase64(buf);
+          break;
+        }catch(e){
+          lastError = e;
+          console.error('Не удалось загрузить шрифт с ' + fontUrl + ':', e);
+        }
+      }
+      if(!cyrillicFontBase64Cache) throw lastError || new Error('Ни один источник шрифта не сработал');
+    }
+    doc.addFileToVFS('Roboto-Regular.ttf', cyrillicFontBase64Cache);
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'bold');
+    return true;
+  }catch(e){
+    console.error('Не удалось подключить кириллический шрифт:', e);
+    return false;
+  }
+}
+
+async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount }){
+  if(!window.jspdf){ showToast('Не удалось загрузить модуль PDF, попробуйте ещё раз'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  showToast('Готовим PDF...');
+  const cyrillicFontOk = await registerCyrillicFont(doc);
+  const fontName = cyrillicFontOk ? 'Roboto' : undefined;
+  if(fontName) doc.setFont(fontName);
+  if(!cyrillicFontOk){
+    showToast('⚠️ Не удалось загрузить кириллический шрифт — текст в PDF может отображаться некорректно');
+  }
+
+  doc.setFontSize(13);
+  doc.text('Наряд на сдельную работу', 148.5, 10, { align: 'center' });
+  doc.setFontSize(9);
+  const infoLine = `Ф.И.О.: ${worker}      Завод/цех: ${PROFILE.factory}      Месяц: ${monthLabel}      Сформировано: ${new Date().toLocaleDateString('ru-RU')}`;
+  doc.text(infoLine, 148.5, 16, { align: 'center' });
+
+  const head = [['Наименование детали', ...Array.from({length: daysInMonth}, (_,i)=> String(i+1)), 'Итого']];
+  const body = [];
+
+  usedParts.forEach(part => {
+    let rowTotal = 0;
+    const row = [part];
+    for(let d=1; d<=daysInMonth; d++){
+      const qty = byPart[part][d] || 0;
+      if(qty) rowTotal += qty;
+      row.push(qty || '');
+    }
+    row.push(rowTotal);
+    body.push(row);
+  });
+
+  for(let i=0; i<blankRowsCount; i++){
+    body.push(['', ...Array(daysInMonth).fill(''), '']);
+  }
+
+  const grandTotal = dayTotals.reduce((s,v)=> s + (v||0), 0);
+  const sumRow = ['Итого за день', ...Array.from({length: daysInMonth}, (_,i)=> dayTotals[i+1] || ''), grandTotal];
+  body.push(sumRow);
+  const sumRowIndex = body.length - 1;
+
+  const pageMargin = 6;
+  const nameColWidth = 34;
+  const totalColWidth = 13;
+  const pageWidthMM = doc.internal.pageSize.getWidth();
+  const pageHeightMM = doc.internal.pageSize.getHeight();
+  const usableWidth = pageWidthMM - pageMargin * 2;
+  const dayColWidth = (usableWidth - nameColWidth - totalColWidth) / daysInMonth;
+
+  const dayColStyles = {};
+  for(let d=1; d<=daysInMonth; d++){
+    dayColStyles[d] = { cellWidth: dayColWidth, fillColor: d > cutoffDay ? [250,250,250] : undefined };
+  }
+
+  const startY = 20;
+  const bottomReserve = 20;
+  const availableHeight = pageHeightMM - startY - bottomReserve;
+  const totalRows = body.length + 1;
+  const rowHeight = Math.max(4, availableHeight / totalRows);
+
+  doc.autoTable({
+    head,
+    body,
+    startY,
+    theme: 'grid',
+    margin: { left: pageMargin, right: pageMargin },
+    tableWidth: usableWidth,
+    styles: { font: fontName, fontSize: 6, cellPadding: 1, halign: 'center', valign: 'middle', minCellHeight: rowHeight },
+    headStyles: { font: fontName, fillColor: [244,244,245], textColor: [30,30,30], fontStyle: 'bold', minCellHeight: rowHeight },
+    columnStyles: { 0: { cellWidth: nameColWidth, halign: 'left', fontStyle: 'bold' }, ...dayColStyles, [daysInMonth+1]: { cellWidth: totalColWidth, fontStyle: 'bold' } },
+    didParseCell: (data) => {
+      if(data.row.index === sumRowIndex){
+        data.cell.styles.fillColor = [234,243,254];
+        data.cell.styles.fontStyle = 'bold';
+      }
+    },
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 8;
+  doc.setFontSize(9);
+  if(fontName) doc.setFont(fontName);
+  doc.text('_____________________________', 30, finalY);
+  doc.text('Подпись работника', 30, finalY + 5);
+  doc.text('_____________________________', 180, finalY);
+  doc.text('Подпись мастера', 180, finalY + 5);
+
+  const fileName = `Наряд_${worker.replace(/\s+/g,'_')}_${monthVal}.pdf`;
+  const blob = doc.output('blob');
+
+  showToast('Отправляем PDF в Telegram...');
+  const botResult = await sendPdfViaBot(blob, fileName).catch((e) => ({ ok: false, reason: 'Неожиданная ошибка: ' + e.message }));
+  if(botResult.ok){
+    showToast('Готово — файл придёт сообщением в этот чат');
+    return;
+  }
+  console.error('sendPdfViaBot не сработал:', botResult.reason);
+  showToast('⚠️ ' + botResult.reason + ' — пробуем запасной способ...');
+  await new Promise(r => setTimeout(r, 2500));
+
+  let handled = false;
+  if(navigator.share && navigator.canShare){
+    try{
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      if(navigator.canShare({ files: [file] })){
+        await navigator.share({ files: [file], title: fileName });
+        handled = true;
+        showToast('Готово — выберите, куда сохранить PDF');
+      }
+    }catch(e){
+      handled = true;
+    }
+  }
+
+  if(!handled){
+    try{
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      showToast('PDF сохранён. Если файла нигде не видно — попробуйте открыть приложение в обычном браузере телефона');
+    }catch(e){
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      showToast('PDF открыт в новой вкладке — сохраните вручную через меню браузера');
+    }
+  }
+}
+
+function showNaryadLink(url, fileName){
+  const wrap = document.createElement('div');
+  wrap.className = 'card';
+  wrap.style.marginTop = '10px';
+  wrap.innerHTML = `
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px;">🔗 Ссылка на PDF готова</div>
+    <div class="hint" style="margin-top:0;margin-bottom:10px;">
+      Скопируй ссылку и открой её в обычном браузере телефона (Chrome, Yandex и т.п.),
+      не внутри Telegram — скачивание начнётся сразу.
+    </div>
+    <div class="field">
+      <input type="text" id="naryad-link-input" value="${url}" readonly style="font-size:11px;">
+    </div>
+    <div class="report-actions" style="margin-top:0;">
+      <button class="btn btn-primary" id="btn-copy-naryad-link">📋 Скопировать ссылку</button>
+      <button class="btn btn-secondary" id="btn-open-naryad-link">↗ Открыть в браузере</button>
+    </div>
+  `;
+  $('report-output').appendChild(wrap);
+
+  $('btn-copy-naryad-link').addEventListener('click', () => copyToClipboard(url));
+  $('btn-open-naryad-link').addEventListener('click', () => {
+    if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink){
+      window.Telegram.WebApp.openLink(url);
+    }else{
+      window.open(url, '_blank');
+    }
+  });
+  showToast('Ссылка готова');
+}
+
+function shareToWhatsApp(text){
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+}
+function shareToTelegram(text){
+  const url = `https://t.me/share/url?url=&text=${encodeURIComponent(text)}`;
+  if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink){
+    window.Telegram.WebApp.openTelegramLink(url);
+  }else{
+    window.open(url, '_blank');
+  }
+}
+function shareToVK(text){
+  const url = `https://vk.com/share.php?title=${encodeURIComponent(text)}`;
+  window.open(url, '_blank');
+}
+
+function toISODate(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+function formatDateRu(isoDate){ const [y,m,d] = isoDate.split('-'); return `${d}.${m}.${y}`; }
+function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+
+function refreshSearchWorkerSelect(){
+  const sel = $('search-worker');
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = `<option value="">Все работники</option>` +
+    WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+  if(WORKERS.includes(prev)) sel.value = prev;
+}
+
+function renderSearchFilters(){
+  const catSel = $('search-category');
+  if(catSel){
+    const prev = catSel.value;
+    catSel.innerHTML = `<option value="">Все категории</option>` +
+      CATEGORIES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    if(CATEGORIES.includes(prev)) catSel.value = prev;
+  }
+  refreshSearchWorkerSelect();
+}
+
+$('btn-search').addEventListener('click', () => {
+  const worker = $('search-worker').value;
+  const category = $('search-category').value;
+  const partText = $('search-part').value.trim().toLowerCase();
+  const dateFrom = $('search-date-from').value;
+  const dateTo = $('search-date-to').value;
+
+  let results = ENTRIES.slice();
+  if(worker) results = results.filter(e => e.worker === worker);
+  if(category) results = results.filter(e => e.category === category);
+  if(partText) results = results.filter(e => e.part.toLowerCase().includes(partText));
+  if(dateFrom) results = results.filter(e => e.date >= dateFrom);
+  if(dateTo) results = results.filter(e => e.date <= dateTo);
+
+  results.sort((a,b) => b.date.localeCompare(a.date) || b.ts - a.ts);
+
+  const totalQty = results.reduce((s,e) => s + e.qty, 0);
+  const wrap = $('search-results');
+
+  if(results.length === 0){
+    wrap.innerHTML = `<div class="empty-state"><div class="emoji">🔍</div><div class="msg">Ничего не найдено</div></div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <div class="day-total-bar" style="margin:0 0 12px;">
+      <span class="label">Найдено записей: ${results.length}</span>
+      <span class="val">${totalQty} шт</span>
+    </div>
+    ${results.map(e => `
+      <div class="entry-row">
+        <div class="entry-info">
+          <div class="entry-part">${escapeHtml(e.part)}</div>
+          <div class="entry-meta">${escapeHtml(e.category)} · ${escapeHtml(e.worker)} · ${formatDateRu(e.date)} · ${e.time}</div>
+        </div>
+        <div class="entry-qty">${e.qty}</div>
+        <div class="entry-actions">
+          <button class="entry-edit" data-id="${e.id}" title="Редактировать">✏️</button>
+        </div>
+      </div>
+    `).join('')}
+  `;
+
+  wrap.querySelectorAll('.entry-edit').forEach(btn => {
+    btn.addEventListener('click', () => openEditModal(btn.getAttribute('data-id')));
+  });
+});
+
+$('btn-search-reset').addEventListener('click', () => {
+  $('search-worker').value = '';
+  $('search-category').value = '';
+  $('search-part').value = '';
+  $('search-date-from').value = '';
+  $('search-date-to').value = '';
+  $('search-results').innerHTML = '';
+});
+
+function renderArchiveMonths(){
+  const wrap = $('archive-months-list');
+  if(!wrap) return;
+
+  const months = new Set();
+  ENTRIES.forEach(e => { if(e.date) months.add(e.date.slice(0,7)); });
+  const sorted = [...months].sort().reverse();
+
+  if(sorted.length === 0){
+    wrap.innerHTML = `<div class="hint">Пока нет записей</div>`;
+    return;
+  }
+
+  wrap.innerHTML = sorted.map(m => {
+    const [y, mo] = m.split('-').map(Number);
+    const label = new Date(y, mo-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
+    const count = ENTRIES.filter(e => e.date.startsWith(m)).length;
+    return `<button class="archive-month-btn" data-month="${m}">📅 ${label} (${count})</button>`;
+  }).join('');
+
+  wrap.querySelectorAll('.archive-month-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const month = btn.getAttribute('data-month');
+      const from = `${month}-01`;
+      const [y, mo] = month.split('-').map(Number);
+      const lastDay = new Date(y, mo, 0).getDate();
+      const to = `${month}-${String(lastDay).padStart(2,'0')}`;
+      $('search-date-from').value = from;
+      $('search-date-to').value = to;
+      $('btn-search').click();
+      showToast('Архив за ' + btn.textContent.trim());
+    });
+  });
+}
+
+function renderChangeLog(){
+  const wrap = $('change-log-list');
+  if(!wrap) return;
+
+  if(CHANGE_LOG.length === 0){
+    wrap.innerHTML = `<div class="hint">Пока нет изменений</div>`;
+    return;
+  }
+
+  const actionLabels = {
+    add_entry: '➕ Добавлена запись',
+    edit_entry: '✏️ Изменена запись',
+    delete_entry: '🗑 Удалена запись',
+    add_category: '➕ Добавлена категория',
+    add_part: '➕ Добавлена деталь',
+  };
+
+  wrap.innerHTML = CHANGE_LOG.slice(0, 100).map(item => {
+    const time = new Date(item.timestamp).toLocaleString('ru-RU');
+    let changeHtml = '';
+    if(item.oldValue && item.newValue){
+      changeHtml = `
+        <div class="log-change">Было: ${escapeHtml(JSON.stringify(item.oldValue))}</div>
+        <div class="log-change">Стало: ${escapeHtml(JSON.stringify(item.newValue))}</div>
+      `;
+    } else if(item.newValue){
+      changeHtml = `<div class="log-change">Добавлено: ${escapeHtml(JSON.stringify(item.newValue))}</div>`;
+    } else if(item.oldValue){
+      changeHtml = `<div class="log-change">Удалено: ${escapeHtml(JSON.stringify(item.oldValue))}</div>`;
+    }
+    return `
+      <div class="log-item">
+        <div class="log-head">${actionLabels[item.action] || item.action} — ${escapeHtml(item.by)}</div>
+        <div class="log-change">${time}</div>
+        ${changeHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+const ADMIN_SECRET = "1234";
+
+let adminTapCount = 0;
+let adminTapTimer = null;
+$('home-fio').addEventListener('click', () => {
+  adminTapCount++;
+  clearTimeout(adminTapTimer);
+  adminTapTimer = setTimeout(() => { adminTapCount = 0; }, 1800);
+  if(adminTapCount >= 5){
+    adminTapCount = 0;
+    $('admin-pin-input').value = '';
+    $('admin-pin-card').style.display = 'flex';
+    $('admin-pin-input').focus();
+  }
+});
+
+$('btn-admin-pin-cancel').addEventListener('click', () => {
+  $('admin-pin-card').style.display = 'none';
+});
+
+$('btn-admin-pin-confirm').addEventListener('click', async () => {
+  if($('admin-pin-input').value !== ADMIN_SECRET){ showToast('Неверный код'); return; }
+  $('admin-pin-card').style.display = 'none';
+  await openAdminOverlay();
+});
+
+$('btn-close-admin').addEventListener('click', () => {
+  $('admin-overlay').style.display = 'none';
+});
+
+async function openAdminOverlay(){
+  $('admin-overlay').style.display = 'block';
+  $('admin-content').innerHTML = `<div class="empty-state"><div class="msg">Загрузка...</div></div>`;
+
+  const allBrigades = await fbGet('brigades');
+  if(!allBrigades){
+    $('admin-content').innerHTML = `<div class="empty-state"><div class="emoji">🗂️</div><div class="msg">Пока нет ни одной бригады</div></div>`;
+    return;
+  }
+
+  const codes = Object.keys(allBrigades);
+  const uniqueUsers = new Set();
+  let cardsHtml = '';
+
+  codes.forEach(code => {
+    const b = allBrigades[code] || {};
+    const workers = b.workers || [];
+    workers.forEach(w => uniqueUsers.add(w));
+    const entryCount = b.entries ? Object.keys(b.entries).length : 0;
+
+    cardsHtml += `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">
+          <div style="font-weight:700;font-size:14.5px;">${escapeHtml(b.factory || '(без названия)')}</div>
+        </div>
+        <div class="hint" style="margin-top:0;margin-bottom:10px;">Код: <span style="font-family:var(--mono);">${escapeHtml(code)}</span> · записей: ${entryCount}</div>
+        <div class="chip-list" style="margin-bottom:0;">
+          ${workers.length ? workers.map(w=>`<span class="chip">${escapeHtml(w)}</span>`).join('') : '<span style="font-size:12.5px;color:var(--text-secondary);">Нет участников</span>'}
+        </div>
+      </div>`;
+  });
+
+  $('admin-content').innerHTML = `
+    <div class="day-total-bar" style="margin-bottom:16px;">
+      <span class="label">Бригад / пользователей всего</span>
+      <span class="val">${codes.length} / ${uniqueUsers.size}</span>
+    </div>
+    ${cardsHtml}
+  `;
+}
+
+function initTelegramEnv(){
+  if(hasTelegramCloud()){
+    const wa = window.Telegram.WebApp;
+    try{ wa.ready(); wa.expand(); }catch(e){}
+    try{ wa.setHeaderColor('#3390EC'); }catch(e){}
+    try{ wa.setBackgroundColor('#F0F1F3'); }catch(e){}
+  }
+}
+initTelegramEnv();
+init();
+</script>
+
+</body>
+</html>
