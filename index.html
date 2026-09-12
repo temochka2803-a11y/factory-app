@@ -218,7 +218,10 @@
   .entry-part{ font-size:15px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .entry-meta{ font-size:12px; color:var(--text-secondary); margin-top:2px; }
   .entry-qty{ font-family:var(--mono); font-size:17px; font-weight:700; color:var(--accent); margin-left:10px; white-space:nowrap; }
-  .entry-del{ background:none; border:none; color:var(--text-secondary); font-size:18px; padding:4px 8px; margin-left:6px; cursor:pointer; }
+  .entry-actions{ display:flex; gap:2px; margin-left:6px; flex-shrink:0; }
+  .entry-del, .entry-edit{ background:none; border:none; color:var(--text-secondary); font-size:18px; padding:4px 8px; cursor:pointer; }
+  .entry-edit{ color: var(--accent); font-size:16px; }
+  .entry-log{ font-size:11px; color:var(--text-secondary); margin-top:4px; font-style:italic; }
 
   .empty-state{ text-align:center; padding:32px 20px; color:var(--text-secondary); }
   .empty-state .emoji{ font-size:32px; margin-bottom:8px; }
@@ -400,6 +403,50 @@
     pointer-events:none; white-space:nowrap;
   }
   .toast.show{ opacity:1; bottom:88px; }
+
+  /* Modal for editing */
+  .modal-overlay{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.45);
+    z-index:250; align-items:center; justify-content:center; padding:16px;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal-card{
+    background:#fff; border-radius:16px; padding:20px; width:100%; max-width:400px;
+    max-height:90vh; overflow-y:auto;
+  }
+  .modal-title{ font-size:17px; font-weight:700; margin-bottom:14px; }
+  .modal-actions{ display:flex; gap:10px; margin-top:16px; }
+  .modal-actions .btn{ flex:1; }
+
+  /* History / log */
+  .log-item{
+    background:#FAFAFA; border:1px solid var(--border); border-radius:10px;
+    padding:10px 12px; margin-bottom:8px; font-size:12.5px;
+  }
+  .log-item .log-head{ font-weight:600; color:var(--text); margin-bottom:4px; }
+  .log-item .log-change{ color:var(--text-secondary); }
+  .log-item .log-change b{ color:var(--accent-dark); }
+
+  /* Search & filters */
+  .filters-card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:14px;
+  }
+  .filter-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+  .filter-row:last-child{ margin-bottom:0; }
+  .filter-row .field{ flex:1; min-width:120px; margin-bottom:0; }
+  .filter-results{ margin-top:10px; }
+  .filter-result-item{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;
+  }
+  .filter-result-item:last-child{ border-bottom:none; }
+  .archive-month-btn{
+    display:inline-flex; align-items:center; gap:4px;
+    background:#F4F4F5; border:1px solid var(--border); border-radius:8px;
+    padding:6px 12px; font-size:12.5px; cursor:pointer; margin:0 6px 6px 0;
+  }
+  .archive-month-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
 </style>
 </head>
 <body>
@@ -517,25 +564,6 @@
       <div class="day-total-bar" id="payroll-summary-bar" style="display:none;">
         <span class="label">Зарплата бригады за месяц</span>
         <span class="val" id="payroll-summary-val">0 ₽</span>
-      </div>
-
-      <div class="card" id="my-calc-card" style="margin-bottom:16px;">
-        <div class="manage-block-title">📊 Моя зарплата по средней стоимости изделия</div>
-        <div class="hint" style="margin:6px 0 12px;">
-          Введите свою зарплату за прошлый месяц. Приложение посчитает среднюю стоимость
-          изделия (зарплата ÷ выработка прошлого месяца) и умножит её на вашу выработку
-          за текущий месяц.
-        </div>
-        <div class="field" style="margin-bottom:10px;">
-          <label>Моя зарплата за прошлый месяц (<span id="my-calc-prev-month">—</span>), ₽</label>
-          <input type="number" id="my-calc-prev-salary" placeholder="0" min="0" inputmode="decimal">
-        </div>
-        <div class="calc-stats" id="my-calc-stats"></div>
-        <div class="calc-salary">
-          <span class="lbl">Расчётная зарплата за текущий месяц</span>
-          <span class="val" id="my-calc-salary">0 ₽</span>
-        </div>
-        <button class="btn btn-primary" id="btn-save-my-calc" style="margin-top:10px;">Сохранить</button>
       </div>
 
       <details class="manage-details" id="users-panel" style="margin-bottom:16px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px;">
@@ -749,6 +777,25 @@
         <input type="month" id="payroll-month">
       </div>
 
+      <details class="payroll-calc" id="my-payroll-calc-details" open>
+        <summary>📊 Моя зарплата по средней стоимости изделия</summary>
+        <div class="hint" style="margin:8px 0 12px;">
+          Введите свою зарплату за прошлый месяц. Приложение посчитает среднюю стоимость
+          изделия (зарплата ÷ выработка прошлого месяца) и умножит её на вашу выработку
+          за текущий месяц.
+        </div>
+        <div class="field" style="margin-bottom:10px;">
+          <label>Моя зарплата за прошлый месяц (<span id="my-calc-prev-month">—</span>), ₽</label>
+          <input type="number" id="my-calc-prev-salary" placeholder="0" min="0" inputmode="decimal">
+        </div>
+        <div class="calc-stats" id="my-calc-stats"></div>
+        <div class="calc-salary">
+          <span class="lbl">Расчётная зарплата за текущий месяц</span>
+          <span class="val" id="my-calc-salary">0 ₽</span>
+        </div>
+        <button class="btn btn-primary" id="btn-save-my-calc" style="margin-top:10px;">Сохранить</button>
+      </details>
+
       <div class="card" style="margin-bottom:6px;">
         <div class="manage-block-title">📊 Расчёт по средней стоимости изделия</div>
         <div class="hint" style="margin:6px 0 0;">
@@ -797,6 +844,54 @@
       <div id="report-output"></div>
     </div>
 
+    <!-- ---- ПОИСК И ФИЛЬТРЫ ---- -->
+    <div id="tab-search" class="content" style="display:none;">
+      <div class="filters-card">
+        <div class="manage-block-title" style="margin-bottom:10px;">🔍 Поиск и фильтры</div>
+        <div class="filter-row">
+          <div class="field">
+            <label>Работник</label>
+            <select id="search-worker"><option value="">Все</option></select>
+          </div>
+          <div class="field">
+            <label>Категория</label>
+            <select id="search-category"><option value="">Все</option></select>
+          </div>
+        </div>
+        <div class="filter-row">
+          <div class="field">
+            <label>Деталь (поиск по названию)</label>
+            <input type="text" id="search-part" placeholder="Введите часть названия...">
+          </div>
+        </div>
+        <div class="filter-row">
+          <div class="field">
+            <label>С</label>
+            <input type="date" id="search-date-from">
+          </div>
+          <div class="field">
+            <label>По</label>
+            <input type="date" id="search-date-to">
+          </div>
+        </div>
+        <div class="filter-row" style="margin-top:6px;">
+          <button class="btn btn-primary" id="btn-search" style="flex:1;">Найти</button>
+          <button class="btn btn-secondary" id="btn-search-reset" style="flex:1;">Сбросить</button>
+        </div>
+      </div>
+
+      <div class="section-title">Архивы месяцев</div>
+      <div id="archive-months-list" style="margin-bottom:16px;"></div>
+
+      <div class="section-title">Результаты</div>
+      <div id="search-results"></div>
+
+      <details class="manage-details" style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-top:16px;">
+        <summary>📜 Лог изменений (последние 100)</summary>
+        <div class="manage-block" id="change-log-list" style="max-height:400px; overflow-y:auto;"></div>
+      </details>
+    </div>
+
     <div class="tabbar">
       <button class="tab-btn active" data-tab="entry">
         <span class="tab-icon">📝</span><span class="tab-label">Ввод</span>
@@ -813,12 +908,46 @@
       <button class="tab-btn" data-tab="report">
         <span class="tab-icon">📄</span><span class="tab-label">Отчёт</span>
       </button>
+      <button class="tab-btn" data-tab="search">
+        <span class="tab-icon">🔍</span><span class="tab-label">Поиск</span>
+      </button>
     </div>
   </div>
 
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- ========== МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ ЗАПИСИ ========== -->
+<div id="edit-modal" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-title">✏️ Редактировать запись</div>
+    <div class="field">
+      <label>Работник</label>
+      <select id="edit-worker"></select>
+    </div>
+    <div class="field">
+      <label>Категория</label>
+      <select id="edit-category"></select>
+    </div>
+    <div class="field">
+      <label>Деталь</label>
+      <select id="edit-part"></select>
+    </div>
+    <div class="field">
+      <label>Количество, шт</label>
+      <input type="number" id="edit-qty" min="1" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label>Дата</label>
+      <input type="date" id="edit-date">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-edit-cancel">Отмена</button>
+      <button class="btn btn-primary" id="btn-edit-save">Сохранить</button>
+    </div>
+  </div>
+</div>
 
 <!-- Скрытый вход в админ-режим: 5 тапов по имени в шапке -->
 <div id="admin-pin-card" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:250; align-items:center; justify-content:center;">
@@ -887,6 +1016,7 @@ let SHIFT_TYPES = [];  // [{ id, name, color }]
 let SCHEDULE = {};     // { [date]: { [worker]: shiftTypeId } }
 let PAYROLL = {};      // { [worker]: { advance, final } } — только за выбранный месяц
 let EXCLUDED_CATEGORIES = []; // категории, которые не учитываются в ежедневном отчёте бригады
+let CHANGE_LOG = [];   // [{ id, action, by, timestamp, oldValue, newValue }]
 let selectedCalDate = null;
 
 const DEFAULT_SHIFT_TYPES = [
@@ -896,8 +1026,6 @@ const DEFAULT_SHIFT_TYPES = [
   { id: 'vacation', name: 'Отпуск',      color: '#34A853' },
   { id: 'sick',     name: 'Больничный',  color: '#E5A93B' },
 ];
-// Эти типы будут автоматически добавлены и в уже существующие бригады,
-// у которых типы смен уже были настроены раньше (см. ensureShiftTypesSeeded).
 const NEW_SHIFT_TYPE_IDS_TO_MERGE = ['vacation', 'sick'];
 
 function showToast(msg){
@@ -915,7 +1043,7 @@ function showRoot(name){
 
 async function switchTab(name){
   await refreshBrigadeData();
-  ['entry','team','schedule','payroll','report'].forEach(t=>{
+  ['entry','team','schedule','payroll','report','search'].forEach(t=>{
     $('tab-'+t).style.display = (t===name) ? 'block' : 'none';
   });
   document.querySelectorAll('.tab-btn').forEach(b=>{
@@ -926,7 +1054,7 @@ async function switchTab(name){
   refreshWorkerSelect();
   renderManageChips();
   renderWorkerChips();
-  if(name === 'entry'){ renderEntries(); renderUsersList(); renderMiniDashboard(); refreshMyPayroll(); refreshMyCalc(); if(isOwner()) refreshPayrollSummary(); }
+  if(name === 'entry'){ renderEntries(); renderUsersList(); renderMiniDashboard(); refreshMyPayroll(); if(isOwner()) refreshPayrollSummary(); }
   if(name === 'team') renderTeam();
   if(name === 'schedule'){
     refreshRotWorkerSelect();
@@ -934,7 +1062,8 @@ async function switchTab(name){
     renderShiftTypeChips();
     renderCalendar();
   }
-  if(name === 'payroll') renderPayroll();
+  if(name === 'payroll'){ renderPayroll(); refreshMyCalc(); }
+  if(name === 'search'){ renderSearchFilters(); renderArchiveMonths(); renderChangeLog(); }
 }
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=> switchTab(btn.getAttribute('data-tab')));
@@ -960,8 +1089,6 @@ function withTimeout(promise, ms, timeoutValue){
   });
 }
 
-// Как withTimeout, но без побочных эффектов на Telegram CloudStorage —
-// для операций, не связанных с локальным облаком (например, загрузка в Firebase Storage).
 function withPlainTimeout(promise, ms, timeoutValue){
   return new Promise((resolve) => {
     let settled = false;
@@ -1030,7 +1157,6 @@ async function fbPush(path, value){
   if(!firebaseReady) return null;
   try{ const ref = db.ref(path).push(); await ref.set(value); return ref.key; }catch(e){ return null; }
 }
-// Частичное обновление ветки, не затирая соседние поля (например, аванс/расчёт мастера)
 async function fbUpdate(path, value){
   if(!firebaseReady) return false;
   try{ await db.ref(path).update(value); return true; }catch(e){ return false; }
@@ -1057,7 +1183,7 @@ async function generateUniqueCode(){
 
 async function refreshBrigadeData(){
   if(!PROFILE || !firebaseReady) return;
-  const [cats, cat, workers, entriesObj, shiftTypes, schedule, excludedCats] = await Promise.all([
+  const [cats, cat, workers, entriesObj, shiftTypes, schedule, excludedCats, logObj] = await Promise.all([
     fbGet(bp('categories')),
     fbGet(bp('catalog')),
     fbGet(bp('workers')),
@@ -1065,6 +1191,7 @@ async function refreshBrigadeData(){
     fbGet(bp('shiftTypes')),
     fbGet(bp('schedule')),
     fbGet(bp('excludedCategories')),
+    fbGet(bp('changeLog')),
   ]);
   CATEGORIES = cats || [];
   CATALOG = cat || [];
@@ -1073,6 +1200,7 @@ async function refreshBrigadeData(){
   SHIFT_TYPES = shiftTypes || [];
   SCHEDULE = schedule || {};
   EXCLUDED_CATEGORIES = excludedCats || [];
+  CHANGE_LOG = logObj ? Object.keys(logObj).map(id => ({ id, ...logObj[id] })).sort((a,b)=> b.timestamp - a.timestamp) : [];
 }
 
 async function ensureInRoster(name){
@@ -1083,15 +1211,27 @@ async function ensureInRoster(name){
   }
 }
 
-// Сохраняет настоящий Telegram ID пользователя (доступен только внутри Telegram),
-// привязанный к его ФИО — нужен внешнему скрипту, чтобы писать человеку напрямую.
 async function saveTelegramId(fio){
   try{
     const wa = window.Telegram && window.Telegram.WebApp;
     const tgUser = wa && wa.initDataUnsafe && wa.initDataUnsafe.user;
-    if(!tgUser || !tgUser.id) return; // открыто не в Telegram — пропускаем, не мешаем работе
+    if(!tgUser || !tgUser.id) return;
     await fbSet(bp('telegramIds/' + fio.replace(/[.#$\[\]]/g, '_')), tgUser.id);
-  }catch(e){ /* не критично для работы приложения */ }
+  }catch(e){}
+}
+
+// ---------- Логирование изменений ----------
+async function logChange(action, oldValue, newValue){
+  if(!PROFILE) return;
+  const entry = {
+    action,
+    by: PROFILE.fio,
+    timestamp: Date.now(),
+    oldValue: oldValue || null,
+    newValue: newValue || null,
+  };
+  const id = await fbPush(bp('changeLog'), entry);
+  if(id) CHANGE_LOG.unshift({ id, ...entry });
 }
 
 // ---------- Init ----------
@@ -1133,13 +1273,12 @@ async function init(){
 
   applyRolePermissions();
   refreshMyPayroll();
-  refreshMyCalc();
 
   showRoot('main');
   switchTab('entry');
 }
 
-// ---------- Права доступа: мастер (создал бригаду) vs присоединившийся работник ----------
+// ---------- Права доступа ----------
 function isOwner(){
   return !!(PROFILE && PROFILE.isOwner);
 }
@@ -1147,7 +1286,6 @@ function isOwner(){
 function applyRolePermissions(){
   const owner = isOwner();
 
-  // Вкладка «Бригада» (роль-менеджмент, записи за других) — только у мастера
   const teamTabBtn = document.querySelector('.tab-btn[data-tab="team"]');
   if(teamTabBtn) teamTabBtn.style.display = owner ? 'flex' : 'none';
 
@@ -1160,21 +1298,16 @@ function applyRolePermissions(){
     if(owner) refreshPayrollSummary();
   }
 
-  // Добавление/удаление категорий и деталей — только у мастера.
-  // Сами селекты остаются доступны всем, чтобы можно было выбрать деталь для своей записи.
   $('btn-toggle-add-cat').style.display = owner ? 'flex' : 'none';
   $('btn-toggle-add-part').style.display = owner ? 'flex' : 'none';
   const manageDetails = document.querySelector('.manage-details');
   if(manageDetails) manageDetails.style.display = owner ? 'block' : 'none';
 
-  // В отчёте у присоединившегося работника остаются только «свои» режимы
   const brigadeBtn = document.querySelector('#report-mode .seg-btn[data-mode="brigade"]');
   const workerBtn = document.querySelector('#report-mode .seg-btn[data-mode="worker"]');
   if(brigadeBtn) brigadeBtn.style.display = owner ? 'block' : 'none';
   if(workerBtn) workerBtn.style.display = owner ? 'block' : 'none';
 
-  // Управление типами смен и шаблоном ротации — только у мастера.
-  // Календарь при этом виден всем, чтобы работник мог посмотреть свой график.
   const shiftTypesCard = $('shift-types-card');
   const rotationCard = $('rotation-card');
   if(shiftTypesCard) shiftTypesCard.style.display = owner ? 'block' : 'none';
@@ -1186,7 +1319,7 @@ function applyRolePermissions(){
   }
 }
 
-// ---------- Регистрация: создать бригаду / присоединиться по коду ----------
+// ---------- Регистрация ----------
 let regMode = 'create';
 document.querySelectorAll('#reg-mode .seg-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1297,14 +1430,14 @@ $('btn-refresh').addEventListener('click', async () => {
   renderMiniDashboard();
   renderTeam();
   refreshMyPayroll();
-  refreshMyCalc();
   if(isOwner()) refreshPayrollSummary();
   showToast('Данные бригады обновлены');
 });
 
-// ---------- Категории и детали (общий каталог бригады) ----------
+// ---------- Категории и детали ----------
 function refreshAllCategorySelects(){
-  [$('in-cat-select'), $('team-cat-select')].forEach(sel => {
+  [$('in-cat-select'), $('team-cat-select'), $('edit-category'), $('search-category')].forEach(sel => {
+    if(!sel) return;
     const prev = sel.value;
     if(CATEGORIES.length === 0){
       sel.innerHTML = `<option value="">Сначала добавьте категорию</option>`;
@@ -1315,6 +1448,7 @@ function refreshAllCategorySelects(){
   });
 }
 function refreshPartSelect(selectEl, category){
+  if(!selectEl) return;
   const parts = CATALOG.filter(p => p.category === category);
   if(!category || parts.length === 0){
     selectEl.innerHTML = `<option value="">Нет деталей в категории</option>`;
@@ -1325,9 +1459,11 @@ function refreshPartSelect(selectEl, category){
 function refreshAllPartSelects(){
   refreshPartSelect($('in-part-select'), $('in-cat-select').value);
   refreshPartSelect($('team-part-select'), $('team-cat-select').value);
+  refreshPartSelect($('edit-part'), $('edit-category').value);
 }
 $('in-cat-select').addEventListener('change', () => refreshPartSelect($('in-part-select'), $('in-cat-select').value));
 $('team-cat-select').addEventListener('change', () => refreshPartSelect($('team-part-select'), $('team-cat-select').value));
+$('edit-category').addEventListener('change', () => refreshPartSelect($('edit-part'), $('edit-category').value));
 
 $('btn-toggle-add-cat').addEventListener('click', () => { $('add-cat-panel').classList.toggle('open'); $('in-new-cat').focus(); });
 $('btn-toggle-add-part').addEventListener('click', () => {
@@ -1342,6 +1478,7 @@ $('btn-save-cat').addEventListener('click', async () => {
   if(CATEGORIES.includes(name)){ showToast('Такая категория уже есть'); return; }
   CATEGORIES.push(name);
   await fbSet(bp('categories'), CATEGORIES);
+  await logChange('add_category', null, name);
   $('in-new-cat').value = '';
   $('add-cat-panel').classList.remove('open');
   refreshAllCategorySelects();
@@ -1360,6 +1497,7 @@ $('btn-save-part').addEventListener('click', async () => {
   if(CATALOG.some(p => p.category === category && p.name === name)){ showToast('Такая деталь уже есть в этой категории'); return; }
   CATALOG.push({ name, category });
   await fbSet(bp('catalog'), CATALOG);
+  await logChange('add_part', null, `${category} · ${name}`);
   $('in-new-part').value = '';
   $('add-part-panel').classList.remove('open');
   refreshPartSelect($('in-part-select'), category);
@@ -1426,7 +1564,7 @@ function renderManageChips(){
   });
 }
 
-// ---------- ВВОД: собственные записи (worker = я) ----------
+// ---------- ВВОД ----------
 function renderMiniDashboard(){
   if(!PROFILE) return;
   const todayStr = toISODate(new Date());
@@ -1510,19 +1648,28 @@ function renderEntries(){
         <div class="entry-meta">${escapeHtml(e.category)} · ${e.time}</div>
       </div>
       <div class="entry-qty">${e.qty}</div>
-      <button class="entry-del" data-id="${e.id}" title="Удалить">🗑</button>
+      <div class="entry-actions">
+        <button class="entry-edit" data-id="${e.id}" title="Редактировать">✏️</button>
+        <button class="entry-del" data-id="${e.id}" title="Удалить">🗑</button>
+      </div>
     `;
     list.appendChild(row);
+  });
+
+  list.querySelectorAll('.entry-edit').forEach(btn => {
+    btn.addEventListener('click', () => openEditModal(btn.getAttribute('data-id')));
   });
 
   list.querySelectorAll('.entry-del').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-id');
+      const target = ENTRIES.find(e => e.id === id);
+      if(target) await logChange('delete_entry', { worker: target.worker, category: target.category, part: target.part, qty: target.qty, date: target.date }, null);
       await fbRemove(bp('entries/' + id));
       ENTRIES = ENTRIES.filter(e => e.id !== id);
       renderEntries();
-  renderUsersList();
-  renderMiniDashboard();
+      renderUsersList();
+      renderMiniDashboard();
       refreshMyPayroll();
       showToast('Запись удалена');
     });
@@ -1546,13 +1693,93 @@ $('btn-add').addEventListener('click', async () => {
     ts: now.getTime()
   };
   const id = await fbPush(bp('entries'), entry);
-  if(id){ ENTRIES.push({ id, ...entry }); }
+  if(id) ENTRIES.push({ id, ...entry });
+  await logChange('add_entry', null, { worker: PROFILE.fio, category, part, qty, date: dateStr });
   $('in-qty').value = '';
   renderEntries();
   renderUsersList();
   renderMiniDashboard();
   refreshMyPayroll();
   showToast('Запись добавлена');
+});
+
+// ---------- РЕДАКТИРОВАНИЕ ЗАПИСИ ----------
+let editingEntryId = null;
+
+function openEditModal(id){
+  const entry = ENTRIES.find(e => e.id === id);
+  if(!entry) return;
+  editingEntryId = id;
+
+  if(isOwner()){
+    $('edit-worker').innerHTML = WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+  }else{
+    $('edit-worker').innerHTML = `<option value="${escapeHtml(PROFILE.fio)}">${escapeHtml(PROFILE.fio)} (я)</option>`;
+  }
+  $('edit-worker').value = entry.worker;
+  $('edit-worker').disabled = !isOwner();
+
+  $('edit-category').innerHTML = CATEGORIES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  $('edit-category').value = entry.category;
+  refreshPartSelect($('edit-part'), entry.category);
+  $('edit-part').value = entry.part;
+  $('edit-qty').value = entry.qty;
+  $('edit-date').value = entry.date;
+
+  $('edit-modal').classList.add('open');
+}
+
+$('btn-edit-cancel').addEventListener('click', () => {
+  $('edit-modal').classList.remove('open');
+  editingEntryId = null;
+});
+
+$('btn-edit-save').addEventListener('click', async () => {
+  if(!editingEntryId) return;
+  const old = ENTRIES.find(e => e.id === editingEntryId);
+  if(!old) return;
+
+  const newWorker = $('edit-worker').value;
+  const newCategory = $('edit-category').value;
+  const newPart = $('edit-part').value;
+  const newQty = parseInt($('edit-qty').value, 10);
+  const newDate = $('edit-date').value;
+
+  if(!newQty || newQty <= 0){ showToast('Укажите количество'); return; }
+  if(!newDate){ showToast('Укажите дату'); return; }
+
+  if(!isOwner() && newWorker !== PROFILE.fio){
+    showToast('Можно редактировать только свои записи');
+    return;
+  }
+
+  const updated = {
+    worker: newWorker,
+    category: newCategory,
+    part: newPart,
+    qty: newQty,
+    date: newDate,
+    time: old.time,
+    ts: old.ts,
+  };
+
+  await fbUpdate(bp('entries/' + editingEntryId), updated);
+  await logChange('edit_entry',
+    { worker: old.worker, category: old.category, part: old.part, qty: old.qty, date: old.date },
+    { worker: newWorker, category: newCategory, part: newPart, qty: newQty, date: newDate }
+  );
+
+  const idx = ENTRIES.findIndex(e => e.id === editingEntryId);
+  if(idx !== -1) ENTRIES[idx] = { ...ENTRIES[idx], ...updated };
+
+  $('edit-modal').classList.remove('open');
+  editingEntryId = null;
+  renderEntries();
+  renderUsersList();
+  renderMiniDashboard();
+  refreshMyPayroll();
+  renderTeam();
+  showToast('Запись изменена');
 });
 
 // ---------- БРИГАДА ----------
@@ -1566,6 +1793,7 @@ function refreshWorkerSelect(){
     if(WORKERS.includes(prev)) sel.value = prev;
   }
   refreshReportWorkerSelect();
+  refreshSearchWorkerSelect();
 }
 
 function renderWorkerChips(){
@@ -1642,11 +1870,18 @@ function renderTeam(){
           <div class="entry-meta">${escapeHtml(e.category)} · ${e.time}</div>
         </div>
         <div class="entry-qty">${e.qty}</div>
-        ${canDelete ? `<button class="entry-del" data-id="${e.id}" title="Удалить">🗑</button>` : ''}
+        ${canDelete ? `<div class="entry-actions">
+          <button class="entry-edit" data-id="${e.id}" title="Редактировать">✏️</button>
+          <button class="entry-del" data-id="${e.id}" title="Удалить">🗑</button>
+        </div>` : ''}
       `;
       block.appendChild(row);
     });
     list.appendChild(block);
+  });
+
+  list.querySelectorAll('.entry-edit').forEach(btn => {
+    btn.addEventListener('click', () => openEditModal(btn.getAttribute('data-id')));
   });
 
   list.querySelectorAll('.entry-del').forEach(btn => {
@@ -1657,6 +1892,7 @@ function renderTeam(){
         showToast('Можно удалять только свои записи');
         return;
       }
+      if(target) await logChange('delete_entry', { worker: target.worker, category: target.category, part: target.part, qty: target.qty, date: target.date }, null);
       await fbRemove(bp('entries/' + id));
       ENTRIES = ENTRIES.filter(e => e.id !== id);
       renderTeam();
@@ -1685,13 +1921,14 @@ $('btn-team-add').addEventListener('click', async () => {
     ts: now.getTime()
   };
   const id = await fbPush(bp('entries'), entry);
-  if(id){ ENTRIES.push({ id, ...entry }); }
+  if(id) ENTRIES.push({ id, ...entry });
+  await logChange('add_entry', null, { worker, category, part, qty, date: dateStr });
   $('in-team-qty').value = '';
   renderTeam();
   showToast('Запись добавлена');
 });
 
-// ---------- ГРАФИК СМЕН ----------
+// ---------- ГРАФИК ----------
 const WEEKDAY_NAMES = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 
 function shiftTypeById(id){
@@ -1706,8 +1943,6 @@ async function ensureShiftTypesSeeded(){
     SHIFT_TYPES = DEFAULT_SHIFT_TYPES.slice();
     changed = true;
   }else{
-    // бригада уже существовала раньше — донесём только новые типы (отпуск/больничный),
-    // не трогая то, что мастер мог сам поменять или удалить
     NEW_SHIFT_TYPE_IDS_TO_MERGE.forEach(id => {
       if(!SHIFT_TYPES.some(t => t.id === id)){
         const def = DEFAULT_SHIFT_TYPES.find(t => t.id === id);
@@ -1772,7 +2007,6 @@ function refreshRotShiftSelect(){
       : `<option value="">Сначала добавьте тип смены</option>`;
     if(SHIFT_TYPES.some(t => t.id === prev)) sel.value = prev;
   });
-  // удобные значения по умолчанию для шаблона день/ночь
   const dayType = shiftTypeById('day') || SHIFT_TYPES[0];
   const nightType = shiftTypeById('night') || SHIFT_TYPES[1];
   if(dayType && $('rot-day-shift-select') && !$('rot-day-shift-select').value) $('rot-day-shift-select').value = dayType.id;
@@ -1828,7 +2062,6 @@ $('btn-apply-rotation').addEventListener('click', async () => {
       setDay(dateStr, pos < workDays ? shiftId : (offType ? offType.id : null));
     }
   }else{
-    // День / выходной / ночь / выходной — по N дней в каждом блоке, по кругу
     const dayShiftId = $('rot-day-shift-select').value;
     const nightShiftId = $('rot-night-shift-select').value;
     const blockDays = parseInt($('rot-block-days').value, 10) || 2;
@@ -1843,10 +2076,10 @@ $('btn-apply-rotation').addEventListener('click', async () => {
       if(diffDays < 0) continue;
       const pos = ((diffDays % cycleLen) + cycleLen) % cycleLen;
       let shiftId;
-      if(pos < blockDays) shiftId = dayShiftId;               // 1) N дней в день
-      else if(pos < blockDays*2) shiftId = offType.id;         // 2) N дней выходных
-      else if(pos < blockDays*3) shiftId = nightShiftId;       // 3) N дней в ночь
-      else shiftId = offType.id;                                // 4) N дней выходных
+      if(pos < blockDays) shiftId = dayShiftId;
+      else if(pos < blockDays*2) shiftId = offType.id;
+      else if(pos < blockDays*3) shiftId = nightShiftId;
+      else shiftId = offType.id;
       setDay(dateStr, shiftId);
     }
   }
@@ -1879,7 +2112,7 @@ function renderCalendar(){
   const [y, m] = monthVal.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
   const firstDay = new Date(y, m-1, 1);
-  const leadOffset = (firstDay.getDay() + 6) % 7; // Пн = 0
+  const leadOffset = (firstDay.getDay() + 6) % 7;
   const todayStr = toISODate(new Date());
   const filterWorker = $('cal-filter-select').value;
 
@@ -1964,13 +2197,7 @@ $('btn-save-day-schedule').addEventListener('click', async () => {
   showToast('График сохранён');
 });
 
-
-// ---------- ЗАРПЛАТА (только мастер) ----------
-// Расчёт по средней стоимости изделия:
-//   средняя стоимость изделия = зарплата за прошлый месяц ÷ выработка за прошлый месяц
-//   расчётная зарплата        = средняя стоимость изделия × выработка за выбранный месяц
-
-// Сдвиг месяца формата "ГГГГ-ММ" на delta месяцев (например, -1 — прошлый месяц)
+// ---------- ЗАРПЛАТА ----------
 function shiftMonth(monthKey, delta){
   const base = (monthKey || toISODate(new Date()).slice(0,7)).split('-').map(Number);
   const d = new Date(base[0], base[1] - 1 + delta, 1);
@@ -1980,13 +2207,11 @@ function monthTitleRu(monthKey){
   const p = monthKey.split('-').map(Number);
   return new Date(p[0], p[1] - 1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
 }
-// Выработка работника (сумма шт) за месяц "ГГГГ-ММ"
 function qtyForMonth(worker, monthKey){
   return ENTRIES
     .filter(e => e.worker === worker && (e.date || '').startsWith(monthKey))
     .reduce((s, e) => s + (Number(e.qty) || 0), 0);
 }
-// Основной расчёт: на входе ЗП за прошлый месяц, на выходе выработка, средняя стоимость и ЗП текущего месяца
 function calcSalaryByAverage(worker, monthKey, prevSalary){
   const prevKey = shiftMonth(monthKey, -1);
   const prevQty = qtyForMonth(worker, prevKey);
@@ -2014,7 +2239,6 @@ function updatePayrollRowTotal(safeId){
   const fin = f ? (parseFloat(f.value) || 0) : 0;
   t.textContent = fmtMoney(adv + fin) + ' ₽';
 }
-// Настройка: подставлять расчётную зарплату в поле «Расчёт» автоматически
 function isAutoFillCalc(){
   try{
     const v = localStorage.getItem('payroll_autofill');
@@ -2091,7 +2315,6 @@ async function renderPayroll(){
       </div>`;
   }).join('');
 
-  // Ручной ввод аванса/расчёта — пересчитываем «Итого»
   wrap.querySelectorAll('.payroll-advance, .payroll-final').forEach(input => {
     input.addEventListener('input', () => {
       const safeId = input.getAttribute('data-worker').replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
@@ -2099,7 +2322,6 @@ async function renderPayroll(){
     });
   });
 
-  // Ввод зарплаты за прошлый месяц — пересчитываем среднюю стоимость и расчётную зарплату
   wrap.querySelectorAll('.payroll-prev-salary').forEach(input => {
     input.addEventListener('input', () => {
       const worker = input.getAttribute('data-worker');
@@ -2116,7 +2338,6 @@ async function renderPayroll(){
     });
   });
 
-  // Кнопка «Подставить в Расчёт»
   wrap.querySelectorAll('.btn-apply-calc').forEach(btn => {
     btn.addEventListener('click', () => {
       const worker = btn.getAttribute('data-worker');
@@ -2129,7 +2350,6 @@ async function renderPayroll(){
     });
   });
 
-  // Автоподстановка при загрузке списка
   if(autofill){
     wrap.querySelectorAll('.payroll-prev-salary').forEach(input => {
       const worker = input.getAttribute('data-worker');
@@ -2138,7 +2358,6 @@ async function renderPayroll(){
       if(prevSalary > 0){
         const c = calcSalaryByAverage(worker, monthVal, prevSalary);
         const finInput = $('pr-fin-' + safeId);
-        // Не затираем «Расчёт», если мастер уже вписал его вручную
         if(finInput && !finInput.value){ finInput.value = c.salary ? c.salary : ''; updatePayrollRowTotal(safeId); }
       }
     });
@@ -2174,14 +2393,12 @@ $('btn-save-payroll').addEventListener('click', async () => {
   showToast('Зарплата сохранена');
 });
 
-// Итог по работнику: ручные аванс+расчёт, а если их нет — расчёт по средней стоимости
 function payrollRecordTotal(rec){
   if(!rec) return 0;
   const manual = (rec.advance || 0) + (rec.final || 0);
   return manual || (rec.calc || 0);
 }
 
-// Общая сумма зарплаты бригады за текущий месяц — показывается мастеру на вкладке «Ввод»
 async function refreshPayrollSummary(){
   const bar = $('payroll-summary-bar');
   const valEl = $('payroll-summary-val');
@@ -2193,12 +2410,8 @@ async function refreshPayrollSummary(){
   valEl.textContent = fmtMoney(total) + ' ₽';
 }
 
-// Последняя загруженная запись «Моей зарплаты» (чтобы живой пересчёт не терял ручную сумму)
 let lastMyPayrollRec = {};
 
-// Личная зарплата за месяц — показывается каждому на его вкладке «Ввод», и мастеру тоже.
-// В значении выводится РАСЧЁТНАЯ зарплата за текущий месяц (по средней стоимости изделия),
-// а ручная сумма по нарядам показывается подсказкой, если она отличается.
 function renderMyPayrollBar(rec, prevSalaryOverride){
   const valEl = $('my-payroll-val');
   if(!valEl || !PROFILE) return;
@@ -2238,7 +2451,6 @@ async function refreshMyPayroll(){
   renderMyPayrollBar(lastMyPayrollRec);
 }
 
-// ---------- «Моя зарплата» на вкладке «Ввод»: пользователь сам вносит ЗП за прошлый месяц ----------
 async function refreshMyCalc(){
   const input = $('my-calc-prev-salary');
   const statsEl = $('my-calc-stats');
@@ -2287,8 +2499,7 @@ if(btnSaveMyCalc){
   });
 }
 
-
-// ---------- ОТЧЁТ: переключение режима ----------
+// ---------- ОТЧЁТ ----------
 let REPORT_MODE = 'brigade';
 const REPORT_BTN_LABELS = {
   brigade: 'Сформировать выписку для мастера',
@@ -2310,7 +2521,6 @@ function refreshReportWorkerSelect(){
   }
 }
 
-// Для бланка наряда: у мастера — выбор любого работника, у остальных — только сам(а) собой
 function refreshNaryadWorkerSelect(){
   const sel = $('rep-worker-select');
   if(!sel) return;
@@ -2372,7 +2582,7 @@ $('btn-build-report').addEventListener('click', async () => {
   }
 });
 
-// ---------- ОТЧЁТ ДЛЯ МАСТЕРА (вся бригада за смену, без ФИО) ----------
+// ---------- ОТЧЁТ ДЛЯ МАСТЕРА ----------
 function buildBrigadeReport(dateStr){
   const combined = ENTRIES.filter(e => e.date === dateStr && !EXCLUDED_CATEGORIES.includes(e.category));
 
@@ -2477,7 +2687,7 @@ function downloadBrigadeReport(byCategory, categories, total, dateStr){
   showToast('Файл скачан');
 }
 
-// ---------- МОЯ ВЫПИСКА (день / месяц, только мои записи, с ФИО) ----------
+// ---------- ЛИЧНАЯ ВЫПИСКА ----------
 function buildPersonalReport(fromDate, toDate, periodLabel, showDailyBreakdown){
   const own = ENTRIES.filter(e => e.worker === PROFILE.fio && e.date >= fromDate && e.date <= toDate);
 
@@ -2638,7 +2848,7 @@ function downloadPersonalReport(byCategory, categories, total, periodLabel, byDa
   showToast('Файл скачан');
 }
 
-// ---------- ВЫПИСКА ПО РАБОТНИКУ (месяц, из общих записей бригады) ----------
+// ---------- ВЫПИСКА ПО РАБОТНИКУ ----------
 function buildWorkerReport(worker, fromDate, toDate, periodLabel){
   const items = ENTRIES.filter(e => e.worker === worker && e.date >= fromDate && e.date <= toDate);
 
@@ -2789,9 +2999,7 @@ function downloadWorkerReport(worker, byCategory, categories, total, periodLabel
   showToast('Файл скачан');
 }
 
-// ---------- Официальное скачивание файла через Telegram.WebApp.downloadFile ----------
-// Требует Bot API 8.0+ и настоящей https-ссылки на файл, поэтому сначала загружаем
-// PDF во временное хранилище Firebase Storage, получаем ссылку — и уже её передаём Telegram.
+// ---------- ПЕЧАТЬ PDF НАРЯДА ----------
 async function tryTelegramNativeDownload(blob, fileName){
   const wa = window.Telegram && window.Telegram.WebApp;
   if(!wa || typeof wa.downloadFile !== 'function') return false;
@@ -2819,7 +3027,6 @@ async function tryTelegramNativeDownload(blob, fileName){
   }
 }
 
-// ---------- Ориентация печати (для альбомного бланка наряда) ----------
 function setPrintOrientation(landscape){
   let style = document.getElementById('dynamic-page-style');
   if(!style){
@@ -2830,13 +3037,12 @@ function setPrintOrientation(landscape){
   style.textContent = landscape ? '@page{ size: landscape; margin: 10mm; }' : '';
 }
 
-// ---------- БЛАНК НАРЯДА ДЛЯ ПЕЧАТИ (без категорий, с запасом на оставшиеся смены) ----------
+// ---------- БЛАНК НАРЯДА ----------
 function buildNaryadBlank(worker, monthVal){
   const [y, m] = monthVal.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
   const monthLabel = new Date(y, m-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
 
-  // до какого числа месяц уже "прожит" — дальше оставляем пустые клетки под будущие смены
   const todayStr = toISODate(new Date());
   const currentMonthStr = todayStr.slice(0,7);
   let cutoffDay;
@@ -2846,7 +3052,6 @@ function buildNaryadBlank(worker, monthVal){
 
   const items = ENTRIES.filter(e => e.worker === worker && e.date.startsWith(monthVal));
 
-  // группируем по связке "категория + деталь" — категория идёт префиксом перед названием
   const byPart = {};
   items.forEach(e => {
     const label = `${e.category} ${e.part}`.trim();
@@ -2856,16 +3061,13 @@ function buildNaryadBlank(worker, monthVal){
   });
   const usedParts = Object.keys(byPart).sort((a,b)=> a.localeCompare(b,'ru'));
 
-  // запас пустых строк под оставшиеся смены (как в бумажном бланке)
   const totalRows = Math.max(usedParts.length + 8, 16);
   const blankRowsCount = totalRows - usedParts.length;
 
-  // шапка с числами месяца
   let headRow = '<tr><th style="min-width:150px;">Наименование детали</th>';
   for(let d=1; d<=daysInMonth; d++){ headRow += `<th class="${d>cutoffDay ? 'naryad-future' : ''}">${d}</th>`; }
   headRow += '<th>Итого</th></tr>';
 
-  // строки с уже известными данными
   let bodyRows = '';
   const dayTotals = Array(daysInMonth+1).fill(0);
   usedParts.forEach(part => {
@@ -2879,14 +3081,12 @@ function buildNaryadBlank(worker, monthVal){
     bodyRows += `<tr><td class="naryad-name">${escapeHtml(part)}</td>${cells}<td class="naryad-total">${rowTotal}</td></tr>`;
   });
 
-  // пустые строки — под оставшиеся смены, дозаполняются от руки
   for(let i=0; i<blankRowsCount; i++){
     let cells = '';
     for(let d=1; d<=daysInMonth; d++){ cells += `<td class="${d>cutoffDay ? 'naryad-future' : ''}"></td>`; }
     bodyRows += `<tr><td class="naryad-name">&nbsp;</td>${cells}<td></td></tr>`;
   }
 
-  // итоговая строка по дням
   let sumCells = '<td>Итого за день</td>';
   let grandTotal = 0;
   for(let d=1; d<=daysInMonth; d++){
@@ -2934,11 +3134,6 @@ function buildNaryadBlank(worker, monthVal){
   });
 }
 
-// Строит настоящий PDF-файл (не диалог печати браузера) и сразу скачивает его на устройство —
-// внутри Telegram-вебвью системная печать работает нестабильно, а прямое скачивание — надёжно.
-// Отправляет PDF в Telegram-чат текущего пользователя через свой Cloudflare Worker —
-// воркер пересылает файл в Telegram как обычное вложение (sendDocument), используя
-// секретный токен бота, который никогда не попадает в код мини-приложения.
 async function sendPdfViaBot(blob, fileName){
   if(!PROFILE) return { ok: false, reason: 'Профиль не загружен' };
   if(!CLOUDFLARE_WORKER_URL || CLOUDFLARE_WORKER_URL.includes('YOUR-WORKER-NAME')){
@@ -2990,9 +3185,6 @@ async function sendPdfViaBot(blob, fileName){
   return { ok: true };
 }
 
-// Стандартные шрифты jsPDF (Helvetica и т.п.) не содержат кириллицу — без этого
-// русский текст в PDF превращается в набор случайных латинских символов.
-// Подключаем шрифт с кириллицей (Roboto) прямо из CDN в момент создания файла.
 let cyrillicFontBase64Cache = null;
 
 function arrayBufferToBase64(buffer){
@@ -3033,7 +3225,7 @@ async function registerCyrillicFont(doc){
     }
     doc.addFileToVFS('Roboto-Regular.ttf', cyrillicFontBase64Cache);
     doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'bold'); // тот же файл — без него жирный текст снова слетит на стандартный шрифт
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'bold');
     return true;
   }catch(e){
     console.error('Не удалось подключить кириллический шрифт:', e);
@@ -3048,7 +3240,7 @@ async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cu
 
   showToast('Готовим PDF...');
   const cyrillicFontOk = await registerCyrillicFont(doc);
-  const fontName = cyrillicFontOk ? 'Roboto' : undefined; // undefined = стандартный шрифт jsPDF (без кириллицы)
+  const fontName = cyrillicFontOk ? 'Roboto' : undefined;
   if(fontName) doc.setFont(fontName);
   if(!cyrillicFontOk){
     showToast('⚠️ Не удалось загрузить кириллический шрифт — текст в PDF может отображаться некорректно');
@@ -3084,8 +3276,6 @@ async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cu
   body.push(sumRow);
   const sumRowIndex = body.length - 1;
 
-  // Считаем ширину колонок так, чтобы таблица занимала всю страницу целиком,
-  // независимо от того, 28, 30 или 31 день в месяце.
   const pageMargin = 6;
   const nameColWidth = 34;
   const totalColWidth = 13;
@@ -3099,12 +3289,10 @@ async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cu
     dayColStyles[d] = { cellWidth: dayColWidth, fillColor: d > cutoffDay ? [250,250,250] : undefined };
   }
 
-  // Считаем высоту одной строки так, чтобы вся таблица (шапка+строки+итог) заполнила
-  // страницу и по высоте тоже, а не только по ширине.
   const startY = 20;
-  const bottomReserve = 20; // место под подписи внизу
+  const bottomReserve = 20;
   const availableHeight = pageHeightMM - startY - bottomReserve;
-  const totalRows = body.length + 1; // +1 за строку заголовка
+  const totalRows = body.length + 1;
   const rowHeight = Math.max(4, availableHeight / totalRows);
 
   doc.autoTable({
@@ -3136,9 +3324,6 @@ async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cu
   const fileName = `Наряд_${worker.replace(/\s+/g,'_')}_${monthVal}.pdf`;
   const blob = doc.output('blob');
 
-  // Способ 1 (самый надёжный): отправляем PDF через свой Cloudflare Worker,
-  // а он пересылает его в Telegram как обычное вложение в чат с ботом —
-  // это не зависит от скачивания через веб-страницу и работает всегда.
   showToast('Отправляем PDF в Telegram...');
   const botResult = await sendPdfViaBot(blob, fileName).catch((e) => ({ ok: false, reason: 'Неожиданная ошибка: ' + e.message }));
   if(botResult.ok){
@@ -3147,9 +3332,8 @@ async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cu
   }
   console.error('sendPdfViaBot не сработал:', botResult.reason);
   showToast('⚠️ ' + botResult.reason + ' — пробуем запасной способ...');
-  await new Promise(r => setTimeout(r, 2500)); // даём время прочитать причину, прежде чем показать следующий тост
+  await new Promise(r => setTimeout(r, 2500));
 
-  // Способ 2 (запасной, если воркер ещё не настроен): нативное меню «Поделиться»
   let handled = false;
   if(navigator.share && navigator.canShare){
     try{
@@ -3160,7 +3344,6 @@ async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cu
         showToast('Готово — выберите, куда сохранить PDF');
       }
     }catch(e){
-      // Пользователь мог просто закрыть окно «Поделиться» — это не ошибка, второй раз не пробуем
       handled = true;
     }
   }
@@ -3184,40 +3367,6 @@ async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cu
   }
 }
 
-// Показывает готовую прямую ссылку на PDF с кнопкой копирования — самый надёжный
-// способ скачать файл именно внутри Telegram-вебвью: копируешь ссылку и открываешь
-// её в обычном браузере телефона, где скачивание работает штатно.
-function showNaryadLink(url, fileName){
-  const wrap = document.createElement('div');
-  wrap.className = 'card';
-  wrap.style.marginTop = '10px';
-  wrap.innerHTML = `
-    <div style="font-size:13px;font-weight:600;margin-bottom:8px;">🔗 Ссылка на PDF готова</div>
-    <div class="hint" style="margin-top:0;margin-bottom:10px;">
-      Скопируй ссылку и открой её в обычном браузере телефона (Chrome, Yandex и т.п.),
-      не внутри Telegram — скачивание начнётся сразу.
-    </div>
-    <div class="field">
-      <input type="text" id="naryad-link-input" value="${url}" readonly style="font-size:11px;">
-    </div>
-    <div class="report-actions" style="margin-top:0;">
-      <button class="btn btn-primary" id="btn-copy-naryad-link">📋 Скопировать ссылку</button>
-      <button class="btn btn-secondary" id="btn-open-naryad-link">↗ Открыть в браузере</button>
-    </div>
-  `;
-  $('report-output').appendChild(wrap);
-
-  $('btn-copy-naryad-link').addEventListener('click', () => copyToClipboard(url));
-  $('btn-open-naryad-link').addEventListener('click', () => {
-    if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink){
-      window.Telegram.WebApp.openLink(url);
-    }else{
-      window.open(url, '_blank');
-    }
-  });
-  showToast('Ссылка готова');
-}
-
 // ---------- Шеринг ----------
 function shareToWhatsApp(text){
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
@@ -3237,8 +3386,6 @@ function shareToVK(text){
 
 // ---------- Utils ----------
 function toISODate(d){
-  // Берём локальную дату устройства, а не UTC — иначе toISOString() может
-  // сдвинуть число на день в зависимости от часового пояса и времени суток.
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -3247,8 +3394,160 @@ function toISODate(d){
 function formatDateRu(isoDate){ const [y,m,d] = isoDate.split('-'); return `${d}.${m}.${y}`; }
 function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
 
-// ---------- Админ-режим: список всех бригад и пользователей бота ----------
-// ВАЖНО: смените этот код на свой собственный секрет перед публикацией.
+// ---------- ПОИСК И ФИЛЬТРЫ ----------
+function refreshSearchWorkerSelect(){
+  const sel = $('search-worker');
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = `<option value="">Все работники</option>` +
+    WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+  if(WORKERS.includes(prev)) sel.value = prev;
+}
+
+function renderSearchFilters(){
+  const catSel = $('search-category');
+  if(catSel){
+    const prev = catSel.value;
+    catSel.innerHTML = `<option value="">Все категории</option>` +
+      CATEGORIES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    if(CATEGORIES.includes(prev)) catSel.value = prev;
+  }
+  refreshSearchWorkerSelect();
+}
+
+$('btn-search').addEventListener('click', () => {
+  const worker = $('search-worker').value;
+  const category = $('search-category').value;
+  const partText = $('search-part').value.trim().toLowerCase();
+  const dateFrom = $('search-date-from').value;
+  const dateTo = $('search-date-to').value;
+
+  let results = ENTRIES.slice();
+  if(worker) results = results.filter(e => e.worker === worker);
+  if(category) results = results.filter(e => e.category === category);
+  if(partText) results = results.filter(e => e.part.toLowerCase().includes(partText));
+  if(dateFrom) results = results.filter(e => e.date >= dateFrom);
+  if(dateTo) results = results.filter(e => e.date <= dateTo);
+
+  results.sort((a,b) => b.date.localeCompare(a.date) || b.ts - a.ts);
+
+  const totalQty = results.reduce((s,e) => s + e.qty, 0);
+  const wrap = $('search-results');
+
+  if(results.length === 0){
+    wrap.innerHTML = `<div class="empty-state"><div class="emoji">🔍</div><div class="msg">Ничего не найдено</div></div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <div class="day-total-bar" style="margin:0 0 12px;">
+      <span class="label">Найдено записей: ${results.length}</span>
+      <span class="val">${totalQty} шт</span>
+    </div>
+    ${results.map(e => `
+      <div class="entry-row">
+        <div class="entry-info">
+          <div class="entry-part">${escapeHtml(e.part)}</div>
+          <div class="entry-meta">${escapeHtml(e.category)} · ${escapeHtml(e.worker)} · ${formatDateRu(e.date)} · ${e.time}</div>
+        </div>
+        <div class="entry-qty">${e.qty}</div>
+        <div class="entry-actions">
+          <button class="entry-edit" data-id="${e.id}" title="Редактировать">✏️</button>
+        </div>
+      </div>
+    `).join('')}
+  `;
+
+  wrap.querySelectorAll('.entry-edit').forEach(btn => {
+    btn.addEventListener('click', () => openEditModal(btn.getAttribute('data-id')));
+  });
+});
+
+$('btn-search-reset').addEventListener('click', () => {
+  $('search-worker').value = '';
+  $('search-category').value = '';
+  $('search-part').value = '';
+  $('search-date-from').value = '';
+  $('search-date-to').value = '';
+  $('search-results').innerHTML = '';
+});
+
+function renderArchiveMonths(){
+  const wrap = $('archive-months-list');
+  if(!wrap) return;
+
+  const months = new Set();
+  ENTRIES.forEach(e => { if(e.date) months.add(e.date.slice(0,7)); });
+  const sorted = [...months].sort().reverse();
+
+  if(sorted.length === 0){
+    wrap.innerHTML = `<div class="hint">Пока нет записей</div>`;
+    return;
+  }
+
+  wrap.innerHTML = sorted.map(m => {
+    const [y, mo] = m.split('-').map(Number);
+    const label = new Date(y, mo-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
+    const count = ENTRIES.filter(e => e.date.startsWith(m)).length;
+    return `<button class="archive-month-btn" data-month="${m}">📅 ${label} (${count})</button>`;
+  }).join('');
+
+  wrap.querySelectorAll('.archive-month-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const month = btn.getAttribute('data-month');
+      const from = `${month}-01`;
+      const [y, mo] = month.split('-').map(Number);
+      const lastDay = new Date(y, mo, 0).getDate();
+      const to = `${month}-${String(lastDay).padStart(2,'0')}`;
+      $('search-date-from').value = from;
+      $('search-date-to').value = to;
+      $('btn-search').click();
+      showToast('Архив за ' + btn.textContent.trim());
+    });
+  });
+}
+
+function renderChangeLog(){
+  const wrap = $('change-log-list');
+  if(!wrap) return;
+
+  if(CHANGE_LOG.length === 0){
+    wrap.innerHTML = `<div class="hint">Пока нет изменений</div>`;
+    return;
+  }
+
+  const actionLabels = {
+    add_entry: '➕ Добавлена запись',
+    edit_entry: '✏️ Изменена запись',
+    delete_entry: '🗑 Удалена запись',
+    add_category: '➕ Добавлена категория',
+    add_part: '➕ Добавлена деталь',
+  };
+
+  wrap.innerHTML = CHANGE_LOG.slice(0, 100).map(item => {
+    const time = new Date(item.timestamp).toLocaleString('ru-RU');
+    let changeHtml = '';
+    if(item.oldValue && item.newValue){
+      changeHtml = `
+        <div class="log-change">Было: ${escapeHtml(JSON.stringify(item.oldValue))}</div>
+        <div class="log-change">Стало: ${escapeHtml(JSON.stringify(item.newValue))}</div>
+      `;
+    } else if(item.newValue){
+      changeHtml = `<div class="log-change">Добавлено: ${escapeHtml(JSON.stringify(item.newValue))}</div>`;
+    } else if(item.oldValue){
+      changeHtml = `<div class="log-change">Удалено: ${escapeHtml(JSON.stringify(item.oldValue))}</div>`;
+    }
+    return `
+      <div class="log-item">
+        <div class="log-head">${actionLabels[item.action] || item.action} — ${escapeHtml(item.by)}</div>
+        <div class="log-change">${time}</div>
+        ${changeHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+// ---------- Админ-режим ----------
 const ADMIN_SECRET = "1234";
 
 let adminTapCount = 0;
