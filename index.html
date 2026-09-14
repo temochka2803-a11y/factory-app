@@ -441,7 +441,6 @@
   }
   .archive-month-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
 
-  /* Analytics */
   .chart-wrap{
     position:relative; width:100%; height:220px; margin-bottom:6px;
   }
@@ -478,15 +477,6 @@
   .top3-name{ font-size:13.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .top3-meta{ font-size:11.5px; color:var(--text-secondary); margin-top:2px; }
   .top3-qty{ font-family:var(--mono); font-size:16px; font-weight:800; color:var(--accent); white-space:nowrap; }
-
-  .plan-row{ margin-bottom:12px; }
-  .plan-head{ display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px; }
-  .plan-head .name{ font-weight:600; }
-  .plan-head .nums{ color:var(--text-secondary); font-family:var(--mono); }
-  .plan-bar{ height:8px; background:#EEF1F5; border-radius:4px; overflow:hidden; }
-  .plan-bar-fill{ height:100%; background:var(--accent); border-radius:4px; transition:width .3s; }
-  .plan-bar-fill.over{ background:var(--success); }
-  .plan-bar-fill.low{ background:#E5A93B; }
 </style>
 </head>
 <body>
@@ -1096,11 +1086,10 @@ const firebaseConfig = {
 const CLOUDFLARE_WORKER_URL = "https://naryad-bot-relay.tema-tatarinov2013.workers.dev";
 const APP_SHARED_SECRET = "naryad2026xyz";
 
-// ХЕШ админ-кода. SHA-256 от "1234" (смените на свой — см. комментарий ниже).
-// Как сменить: откройте консоль браузера и выполните:
-//   crypto.subtle.digest('SHA-256', new TextEncoder().encode('ваш_новый_код')).then(h=>console.log([...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join('')))
-// Полученную строку вставьте вместо значения ниже.
-const ADMIN_SECRET_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
+// ХЕШ админ-кода (SHA-256). Как сменить — см. комментарий ниже.
+//   crypto.subtle.digest('SHA-256', new TextEncoder().encode('ваш_новый_код'))
+//     .then(h=>console.log([...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join('')))
+const ADMIN_SECRET_HASH = "9eadf697db31eb58eae0b4a3481879563846da3512d9f164c3851f14a88b97e0";
 
 let db = null;
 let firebaseReady = false;
@@ -1125,7 +1114,7 @@ let SCHEDULE = {};
 let PAYROLL = {};
 let EXCLUDED_CATEGORIES = [];
 let CHANGE_LOG = [];
-let SCHEDULE_TEMPLATES = {}; // { [id]: { name, days: {dayNum: {worker: shiftId}} } }
+let SCHEDULE_TEMPLATES = {};
 let selectedCalDate = null;
 let ANALYTICS_PERIOD = '30';
 let chartDaily = null;
@@ -1148,7 +1137,6 @@ function showToast(msg){
   setTimeout(()=>t.classList.remove('show'), 2000);
 }
 
-// SHA-256 (Web Crypto)
 async function sha256(text){
   const buf = new TextEncoder().encode(text);
   const hash = await crypto.subtle.digest('SHA-256', buf);
@@ -1342,7 +1330,6 @@ async function saveTelegramId(fio){
   }catch(e){}
 }
 
-// Лог изменений с поддержкой entityId (для отката)
 async function logChange(action, oldValue, newValue, entityId){
   if(!PROFILE) return;
   const entry = {
@@ -1353,7 +1340,6 @@ async function logChange(action, oldValue, newValue, entityId){
   const id = await fbPush(bp('changeLog'), entry);
   if(id){
     CHANGE_LOG.unshift({ id, ...entry });
-    // Ограничиваем размер лога на клиенте
     if(CHANGE_LOG.length > 500) CHANGE_LOG = CHANGE_LOG.slice(0, 500);
   }
   updateUndoButton();
@@ -1443,7 +1429,6 @@ function applyRolePermissions(){
   if(rotationCard) rotationCard.style.display = owner ? 'block' : 'none';
   if(actionsCard) actionsCard.style.display = owner ? 'block' : 'none';
 
-  // Топ-3 работника — только для мастера (не хочется конфликтов внутри бригады)
   const top3Section = document.querySelector('#top3-list');
   if(top3Section){
     top3Section.previousElementSibling.style.display = owner ? 'block' : 'none';
@@ -1456,12 +1441,11 @@ function applyRolePermissions(){
   }
 }
 
-// ---------- ОТМЕНА ПОСЛЕДНЕГО ДЕЙСТВИЯ ----------
+// ---------- ОТМЕНА ----------
 function updateUndoButton(){
   const btn = $('btn-undo');
   if(!btn) return;
   if(!isOwner()){ btn.style.display = 'none'; return; }
-  // Найти последнее отменяемое действие мастера (или любое, если мастер — владелец)
   const last = CHANGE_LOG.find(c => ['add_entry','edit_entry','delete_entry','set_actual_salary'].includes(c.action));
   btn.disabled = !last;
   btn.title = last ? `Отменить: ${labelForAction(last.action)}` : 'Нет действий для отмены';
@@ -1484,17 +1468,15 @@ $('btn-undo').addEventListener('click', async () => {
 
   try{
     if(action === 'add_entry'){
-      // Откат добавления = удаление записи по entityId
-      if(!last.entityId){ showToast('Не удалось определить запись для отмены'); return; }
+      if(!last.entityId){ showToast('Не удалось определить запись'); return; }
       const target = ENTRIES.find(e => e.id === last.entityId);
       if(!target){ showToast('Запись уже удалена'); return; }
       await fbRemove(bp('entries/' + last.entityId));
       ENTRIES = ENTRIES.filter(e => e.id !== last.entityId);
-      showToast('Отменено добавление записи');
+      showToast('Отменено добавление');
     }
     else if(action === 'delete_entry'){
-      // Откат удаления = восстановление записи
-      if(!last.oldValue){ showToast('Не удалось восстановить запись'); return; }
+      if(!last.oldValue){ showToast('Не удалось восстановить'); return; }
       const v = last.oldValue;
       const now = new Date();
       const entry = {
@@ -1507,7 +1489,6 @@ $('btn-undo').addEventListener('click', async () => {
       showToast('Запись восстановлена');
     }
     else if(action === 'edit_entry'){
-      // Откат изменения = применить oldValue
       if(!last.oldValue || !last.entityId){ showToast('Не удалось отменить'); return; }
       const v = last.oldValue;
       const target = ENTRIES.find(e => e.id === last.entityId);
@@ -1522,7 +1503,6 @@ $('btn-undo').addEventListener('click', async () => {
       showToast('Изменение отменено');
     }
     else if(action === 'set_actual_salary'){
-      // Откат зарплаты = вернуть предыдущее значение
       if(!last.newValue){ showToast('Не удалось отменить'); return; }
       const { month, worker } = last.newValue;
       const prev = (last.oldValue && last.oldValue.actual) || 0;
@@ -1530,19 +1510,13 @@ $('btn-undo').addEventListener('click', async () => {
       showToast('Зарплата за ' + monthTitleRu(month) + ' отменена');
     }
 
-    // Помечаем действие как отменённое (добавляем запись в лог)
     await fbPush(bp('changeLog'), {
-      action: 'undo',
-      by: PROFILE.fio,
-      timestamp: Date.now(),
-      oldValue: { undone_action: action, undone_log_id: last.id },
-      newValue: null,
+      action: 'undo', by: PROFILE.fio, timestamp: Date.now(),
+      oldValue: { undone_action: action, undone_log_id: last.id }, newValue: null,
     });
 
-    // Удаляем запись из лога локально
     CHANGE_LOG = CHANGE_LOG.filter(c => c.id !== last.id);
 
-    // Обновляем UI
     renderEntries(); renderUsersList(); renderMiniDashboard();
     await refreshMyPayroll(); await refreshForecast(); refreshRepeatButton();
     await refreshBrigadeData();
@@ -1605,7 +1579,7 @@ $('btn-register').addEventListener('click', async () => {
       await init();
     }
   }catch(e){
-    showToast('Что-то пошло не так, попробуйте ещё раз');
+    showToast('Что-то пошло не так');
   }finally{
     btn.disabled = false;
     btn.textContent = originalText;
@@ -1670,7 +1644,7 @@ $('btn-refresh').addEventListener('click', async () => {
   showToast('Данные обновлены');
 });
 
-// ---------- КАТЕГОРИИ И ДЕТАЛИ ----------
+// ---------- КАТЕГОРИИ ----------
 function refreshAllCategorySelects(){
   [$('in-cat-select'), $('team-cat-select'), $('edit-category'), $('search-category')].forEach(sel => {
     if(!sel) return;
@@ -1703,12 +1677,12 @@ $('edit-category').addEventListener('change', () => refreshPartSelect($('edit-pa
 
 $('btn-toggle-add-cat').addEventListener('click', () => { $('add-cat-panel').classList.toggle('open'); $('in-new-cat').focus(); });
 $('btn-toggle-add-part').addEventListener('click', () => {
-  if(!$('in-cat-select').value){ showToast('Сначала выберите или добавьте категорию'); return; }
+  if(!$('in-cat-select').value){ showToast('Сначала выберите категорию'); return; }
   $('add-part-panel').classList.toggle('open'); $('in-new-part').focus();
 });
 
 $('btn-save-cat').addEventListener('click', async () => {
-  if(!isOwner()){ showToast('Только мастер может менять категории'); return; }
+  if(!isOwner()){ showToast('Только мастер'); return; }
   const name = $('in-new-cat').value.trim();
   if(!name){ showToast('Введите название'); return; }
   if(CATEGORIES.includes(name)){ showToast('Такая категория уже есть'); return; }
@@ -1725,7 +1699,7 @@ $('btn-save-cat').addEventListener('click', async () => {
 });
 
 $('btn-save-part').addEventListener('click', async () => {
-  if(!isOwner()){ showToast('Только мастер может менять детали'); return; }
+  if(!isOwner()){ showToast('Только мастер'); return; }
   const category = $('in-cat-select').value;
   const name = $('in-new-part').value.trim();
   if(!category){ showToast('Сначала выберите категорию'); return; }
@@ -1747,7 +1721,7 @@ function renderManageChips(){
   catWrap.innerHTML = CATEGORIES.length ? CATEGORIES.map(c => {
     const excluded = EXCLUDED_CATEGORIES.includes(c);
     return `
-    <span class="chip${excluded ? ' chip-excluded' : ''}">${escapeHtml(c)}${excluded ? ' <span style="font-size:10px;opacity:.8;">(вне отчёта)</span>' : ''}<button data-toggle-exclude="${escapeHtml(c)}" title="${excluded ? 'Учитывать в отчёте' : 'Не учитывать в отчёте'}">${excluded ? '👁' : '🚫'}</button><button data-cat="${escapeHtml(c)}" title="Удалить">✕</button></span>`;
+    <span class="chip${excluded ? ' chip-excluded' : ''}">${escapeHtml(c)}${excluded ? ' <span style="font-size:10px;opacity:.8;">(вне отчёта)</span>' : ''}<button data-toggle-exclude="${escapeHtml(c)}" title="${excluded ? 'Учитывать в отчёте' : 'Не учитывать'}">${excluded ? '👁' : '🚫'}</button><button data-cat="${escapeHtml(c)}" title="Удалить">✕</button></span>`;
   }).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет категорий</span>`;
 
   catWrap.querySelectorAll('button[data-toggle-exclude]').forEach(btn => {
@@ -1806,7 +1780,6 @@ function getMyClosedMonthsStats(payrollAll){
     const rec = (payrollAll[m] || {})[PROFILE.fio];
     if(rec) months.add(m);
   });
-
   let sumActual = 0, sumQty = 0, count = 0;
   months.forEach(m => {
     if(m >= currentMonth) return;
@@ -1815,7 +1788,6 @@ function getMyClosedMonthsStats(payrollAll){
     const actual = Number(rec.actual) || 0;
     if(actual > 0 && qty > 0){ sumActual += actual; sumQty += qty; count++; }
   });
-
   return { avgCost: sumQty > 0 ? sumActual / sumQty : 0, monthsCount: count, sumActual, sumQty };
 }
 
@@ -1878,11 +1850,9 @@ async function refreshForecast(){
   if(!card || !PROFILE) return;
   const f = await computeForecast();
   if(!f){ card.style.display = 'none'; return; }
-
   card.style.display = 'block';
   const badge = $('forecast-badge');
   if(badge) badge.textContent = `день ${f.todayDay} из ${f.daysInMonth}`;
-
   const valueEl = $('forecast-value');
   if(valueEl){
     if(f.avgCost > 0) valueEl.textContent = `${fmtMoney(f.forecastSalary)} ₽`;
@@ -1904,7 +1874,7 @@ async function refreshForecast(){
   }
 }
 
-// ---------- ПОВТОР ЗАПИСИ ----------
+// ---------- ПОВТОР ----------
 function getLastEntry(){
   if(!PROFILE) return null;
   const own = ENTRIES.filter(e => e.worker === PROFILE.fio);
@@ -1930,7 +1900,6 @@ $('btn-repeat-last').addEventListener('click', async () => {
   if(!CATEGORIES.includes(last.category)){ showToast('Категория больше не существует'); return; }
   const partExists = CATALOG.some(p => p.category === last.category && p.name === last.part);
   if(!partExists){ showToast('Деталь больше не существует'); return; }
-
   $('in-cat-select').value = last.category;
   refreshPartSelect($('in-part-select'), last.category);
   $('in-part-select').value = last.part;
@@ -2179,7 +2148,6 @@ function renderTeam(){
     list.innerHTML = `<div class="empty-state"><div class="emoji">👥</div><div class="msg">За эту смену записей нет.</div></div>`;
     return;
   }
-
   const byWorker = {};
   dayEntries.forEach(e => { (byWorker[e.worker] = byWorker[e.worker] || []).push(e); });
   list.innerHTML = '';
@@ -2310,7 +2278,6 @@ $('btn-add-shift-type').addEventListener('click', async () => {
   showToast('Тип смены добавлен');
 });
 
-// --- Шаблоны смен ---
 function renderScheduleTemplates(){
   const sel = $('sched-template-select');
   if(!sel) return;
@@ -2326,8 +2293,6 @@ $('btn-save-template').addEventListener('click', async () => {
   const monthVal = $('sched-month').value || toISODate(new Date()).slice(0,7);
   const name = prompt('Название шаблона:', 'Смена ' + monthTitleRu(monthVal));
   if(!name) return;
-
-  // Снимок: массив дней месяца с назначениями смен
   const [y, m] = monthVal.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
   const days = {};
@@ -2340,8 +2305,7 @@ $('btn-save-template').addEventListener('click', async () => {
       count++;
     }
   }
-  if(count === 0){ showToast('В этом месяце график пуст — нечего сохранять'); return; }
-
+  if(count === 0){ showToast('В этом месяце график пуст'); return; }
   const tplId = 'tpl_' + Date.now().toString(36);
   SCHEDULE_TEMPLATES[tplId] = { name, days, monthRef: monthVal, createdAt: Date.now() };
   await fbSet(bp('scheduleTemplates'), SCHEDULE_TEMPLATES);
@@ -2357,16 +2321,11 @@ $('btn-apply-template').addEventListener('click', async () => {
   const monthVal = $('sched-month').value || toISODate(new Date()).slice(0,7);
   const [y, m] = monthVal.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
-
-  if(!confirm(`Применить шаблон «${tpl.name}» к месяцу ${monthTitleRu(monthVal)}? Текущий график месяца будет перезаписан.`)) return;
-
-  // Очищаем все дни этого месяца в SCHEDULE
+  if(!confirm(`Применить шаблон «${tpl.name}» к месяцу ${monthTitleRu(monthVal)}?`)) return;
   for(let d = 1; d <= daysInMonth; d++){
     const dateStr = `${monthVal}-${String(d).padStart(2,'0')}`;
     delete SCHEDULE[dateStr];
   }
-
-  // Применяем шаблон (по номерам дней)
   Object.keys(tpl.days).forEach(dStr => {
     const d = parseInt(dStr, 10);
     if(d >= 1 && d <= daysInMonth){
@@ -2374,14 +2333,11 @@ $('btn-apply-template').addEventListener('click', async () => {
       const srcDay = tpl.days[dStr];
       const validShifts = {};
       Object.keys(srcDay).forEach(w => {
-        if(WORKERS.includes(w) && SHIFT_TYPES.some(t => t.id === srcDay[w])){
-          validShifts[w] = srcDay[w];
-        }
+        if(WORKERS.includes(w) && SHIFT_TYPES.some(t => t.id === srcDay[w])) validShifts[w] = srcDay[w];
       });
       if(Object.keys(validShifts).length > 0) SCHEDULE[dateStr] = validShifts;
     }
   });
-
   await fbSet(bp('schedule'), SCHEDULE);
   renderCalendar();
   await refreshForecast();
@@ -2397,23 +2353,18 @@ $('btn-copy-last-month').addEventListener('click', async () => {
   const [cy, cm] = monthVal.split('-').map(Number);
   const curDays = new Date(cy, cm, 0).getDate();
 
-  // Проверим, есть ли вообще данные в прошлом месяце
   let hasData = false;
   for(let d = 1; d <= prevDays; d++){
     const dateStr = `${prevMonth}-${String(d).padStart(2,'0')}`;
     if(SCHEDULE[dateStr] && Object.keys(SCHEDULE[dateStr]).length > 0){ hasData = true; break; }
   }
   if(!hasData){ showToast('В прошлом месяце график пуст'); return; }
+  if(!confirm(`Скопировать график из ${monthTitleRu(prevMonth)} в ${monthTitleRu(monthVal)}?`)) return;
 
-  if(!confirm(`Скопировать график из ${monthTitleRu(prevMonth)} в ${monthTitleRu(monthVal)}?\nЗаписи текущего месяца будут перезаписаны.`)) return;
-
-  // Очищаем текущий месяц
   for(let d = 1; d <= curDays; d++){
     const dateStr = `${monthVal}-${String(d).padStart(2,'0')}`;
     delete SCHEDULE[dateStr];
   }
-
-  // Копируем по номерам дней (1→1, 2→2, …, min(prevDays, curDays))
   const copyCount = Math.min(prevDays, curDays);
   for(let d = 1; d <= copyCount; d++){
     const prevDateStr = `${prevMonth}-${String(d).padStart(2,'0')}`;
@@ -2427,7 +2378,6 @@ $('btn-copy-last-month').addEventListener('click', async () => {
       if(Object.keys(validShifts).length > 0) SCHEDULE[curDateStr] = validShifts;
     }
   }
-
   await fbSet(bp('schedule'), SCHEDULE);
   renderCalendar();
   await refreshForecast();
@@ -2881,7 +2831,6 @@ if(btnSaveMySalary){
     const m = $('my-salary-month').value;
     const actual = parseFloat($('my-salary-actual').value) || 0;
     if(!m){ showToast('Выберите месяц'); return; }
-    // Сохраняем старое значение для отката
     const existingData = (await fbGet(bp('payroll/' + m))) || {};
     const oldActual = (existingData[PROFILE.fio] || {}).actual || 0;
 
@@ -3060,13 +3009,11 @@ function exportBrigadeToExcel(byCategory, categories, total, dateStr){
   });
   rows.push([]);
   rows.push(['', 'ИТОГО', total]);
-
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{ wch: 22 }, { wch: 32 }, { wch: 14 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Выписка');
-  const fileName = `Выписка_${PROFILE.factory.replace(/[\s«»]+/g,'_')}_${dateStr}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  XLSX.writeFile(wb, `Выписка_${PROFILE.factory.replace(/[\s«»]+/g,'_')}_${dateStr}.xlsx`);
   showToast('Excel-файл скачан');
 }
 
@@ -3217,7 +3164,6 @@ function exportPersonalToExcel(own, periodLabel){
   const totalQty = own.reduce((s,e) => s + e.qty, 0);
   rows.push([]);
   rows.push(['', '', 'ИТОГО', totalQty, '']);
-
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 32 }, { wch: 12 }, { wch: 30 }];
   const wb = XLSX.utils.book_new();
@@ -3426,9 +3372,7 @@ function renderAnalytics(){
   const range = getAnalyticsRange();
   const own = ENTRIES.filter(e => e.worker === PROFILE.fio && e.date >= range.from && e.date <= range.to);
 
-  // ===== Chart 1: динамика по дням =====
   const dailyMap = {};
-  // Готовим список дат в диапазоне
   const dates = [];
   const fromD = new Date(range.from + 'T00:00:00');
   const toD = new Date(range.to + 'T00:00:00');
@@ -3470,24 +3414,12 @@ function renderAnalytics(){
         plugins: {
           legend: { display: false },
           tooltip: {
-            callbacks: {
-              title: (items) => {
-                const idx = items[0].dataIndex;
-                return formatDateRu(dates[idx]);
-              },
-            },
+            callbacks: { title: (items) => formatDateRu(dates[items[0].dataIndex]) },
           },
         },
         scales: {
-          x: {
-            ticks: { maxTicksLimit: 8, font: { size: 10 }, color: '#8E8E93' },
-            grid: { display: false },
-          },
-          y: {
-            beginAtZero: true,
-            ticks: { font: { size: 10 }, color: '#8E8E93', precision: 0 },
-            grid: { color: '#F0F1F3' },
-          },
+          x: { ticks: { maxTicksLimit: 8, font: { size: 10 }, color: '#8E8E93' }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { font: { size: 10 }, color: '#8E8E93', precision: 0 }, grid: { color: '#F0F1F3' } },
         },
       },
     });
@@ -3501,7 +3433,6 @@ function renderAnalytics(){
     hintEl.textContent = `Всего за период: ${fmtMoney(totalInRange)} шт · активных дней: ${activeDays} · в среднем за активный день: ${fmtMoney(avgPerDay)} шт`;
   }
 
-  // ===== Chart 2: топ деталей =====
   const byPart = {};
   own.forEach(e => { byPart[e.part] = (byPart[e.part] || 0) + e.qty; });
   const topParts = Object.entries(byPart).sort((a,b) => b[1]-a[1]).slice(0, 7);
@@ -3540,30 +3471,23 @@ function renderAnalytics(){
     }
   }
 
-  // ===== Рекорды =====
   renderPersonalRecords();
-
-  // ===== Топ-3 бригады =====
   if(isOwner()) renderTop3();
 }
 
 function renderPersonalRecords(){
   const wrap = $('records-list');
   if(!wrap || !PROFILE) return;
-
   const own = ENTRIES.filter(e => e.worker === PROFILE.fio);
   if(own.length === 0){
     wrap.innerHTML = `<div class="empty-state"><div class="emoji">🏅</div><div class="msg">Пока нет записей</div></div>`;
     return;
   }
-
-  // Лучший день
   const byDay = {};
   own.forEach(e => { byDay[e.date] = (byDay[e.date] || 0) + e.qty; });
   let bestDay = { date: '', qty: 0 };
   Object.keys(byDay).forEach(d => { if(byDay[d] > bestDay.qty) bestDay = { date: d, qty: byDay[d] }; });
 
-  // Лучший месяц
   const byMonth = {};
   own.forEach(e => {
     const m = e.date.slice(0,7);
@@ -3572,13 +3496,11 @@ function renderPersonalRecords(){
   let bestMonth = { month: '', qty: 0 };
   Object.keys(byMonth).forEach(m => { if(byMonth[m] > bestMonth.qty) bestMonth = { month: m, qty: byMonth[m] }; });
 
-  // Лучшая деталь
   const byPart = {};
   own.forEach(e => { byPart[e.part] = (byPart[e.part] || 0) + e.qty; });
   let bestPart = { name: '', qty: 0 };
   Object.keys(byPart).forEach(p => { if(byPart[p] > bestPart.qty) bestPart = { name: p, qty: byPart[p] }; });
 
-  // Текущая серия (сколько дней подряд есть записи, считая с сегодня или последней записи)
   const allDates = [...new Set(own.map(e => e.date))].sort().reverse();
   let streak = 0;
   if(allDates.length > 0){
@@ -3650,7 +3572,6 @@ function renderTop3(){
   const rankClasses = ['r1','r2','r3'];
   const medals = ['🥇','🥈','🥉'];
   wrap.innerHTML = stats.map((s, i) => {
-    const initials = s.worker.trim().split(/\s+/).map(p=>p[0]).slice(0,2).join('').toUpperCase();
     const percent = totalAll > 0 ? Math.round((s.qty / totalAll) * 100) : 0;
     return `
       <div class="top3-row">
@@ -3676,7 +3597,6 @@ function declOfNum(n, forms){
   return forms[2];
 }
 
-// ---------- ЭКСПОРТ В EXCEL (полный) ----------
 $('btn-export-excel-full').addEventListener('click', () => {
   if(!window.XLSX){ showToast('Модуль Excel не загрузился'); return; }
   if(ENTRIES.length === 0){ showToast('Нет данных для экспорта'); return; }
@@ -3690,7 +3610,6 @@ $('btn-export-excel-full').addEventListener('click', () => {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Выработка');
 
-  // Сводная по работникам
   const byWorker = {};
   ENTRIES.forEach(e => { byWorker[e.worker] = (byWorker[e.worker] || 0) + e.qty; });
   const rows2 = [['Работник', 'Итого, шт']];
@@ -3699,7 +3618,6 @@ $('btn-export-excel-full').addEventListener('click', () => {
   ws2['!cols'] = [{ wch: 30 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, ws2, 'Сводка по работникам');
 
-  // Сводная по деталям
   const byPart = {};
   ENTRIES.forEach(e => {
     const k = e.category + ' / ' + e.part;
@@ -3711,12 +3629,10 @@ $('btn-export-excel-full').addEventListener('click', () => {
   ws3['!cols'] = [{ wch: 40 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, ws3, 'Сводка по деталям');
 
-  const fileName = `Выработка_${PROFILE.factory.replace(/[\s«»]+/g,'_')}_${toISODate(new Date())}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  XLSX.writeFile(wb, `Выработка_${PROFILE.factory.replace(/[\s«»]+/g,'_')}_${toISODate(new Date())}.xlsx`);
   showToast('Excel-файл скачан');
 });
 
-// ---------- ЭКСПОРТ/ИМПОРТ JSON ----------
 $('btn-export-json').addEventListener('click', async () => {
   if(!PROFILE) return;
   showToast('Готовим копию...');
@@ -3997,7 +3913,6 @@ async function openAdminOverlay(){
     let parsed;
     try{ parsed = JSON.parse(text); }catch(e){ showToast('Файл не распознан как JSON'); return; }
 
-    // Поддержка двух форматов: с обёрткой (backup) и без неё
     const payload = parsed.data || parsed;
     if(!payload || typeof payload !== 'object'){ showToast('Нет данных в файле'); return; }
 
