@@ -66,7 +66,6 @@
   .icon-btn:active{ background:rgba(255,255,255,.3); }
   .icon-btn.undo-btn{ background:rgba(255,255,255,.28); }
   .icon-btn.undo-btn:disabled{ opacity:.35; }
-
   .content{ flex:1; padding:16px; padding-bottom:90px; }
   .card{
     background:var(--card); border-radius:var(--radius); padding:16px;
@@ -116,7 +115,6 @@
     width:18px; height:18px; display:flex; align-items:center; justify-content:center;
   }
   .chip.chip-excluded{ background:#FFF4E5; border-color:#F4D9A8; }
-
   .user-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
     padding:10px 4px; border-bottom:1px solid var(--border);
@@ -137,7 +135,6 @@
   .user-stat{ text-align:right; flex-shrink:0; }
   .user-stat .val{ font-family:var(--mono); font-size:14px; font-weight:700; color:var(--accent); }
   .user-stat .lbl{ font-size:10px; color:var(--text-secondary); }
-
   .payroll-row{
     background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
     padding:14px 16px; margin-bottom:10px;
@@ -148,7 +145,6 @@
     padding-top:10px; border-top:1px dashed var(--border); font-size:13px; color:var(--text-secondary);
   }
   .payroll-total .val{ font-family:var(--mono); font-size:16px; font-weight:800; color:var(--accent); }
-
   .payroll-calc{
     border:1px dashed var(--border); border-radius:12px; padding:10px 12px;
     background:#FAFBFF; margin-bottom:14px;
@@ -171,7 +167,6 @@
   }
   .calc-salary .lbl{ font-size:12.5px; color:#1E8A44; font-weight:600; }
   .calc-salary .val{ font-family:var(--mono); font-size:16px; font-weight:800; color:#1E8A44; white-space:nowrap; }
-
   .month-history-row{
     display:flex; justify-content:space-between; align-items:center;
     padding:9px 12px; margin-bottom:6px;
@@ -182,7 +177,6 @@
   .month-history-row .mh-meta{ font-size:11.5px; color:var(--text-secondary); margin-top:2px; }
   .month-history-row .mh-cost{ font-family:var(--mono); font-size:12.5px; font-weight:700; color:var(--accent); white-space:nowrap; margin-left:8px; }
   .month-history-row .mh-meta .warn{ color:#E5A93B; }
-
   .forecast-card{
     background:linear-gradient(135deg, #EAF3FE 0%, #F5F8FF 100%);
     border:1px solid #CFE4FB; border-radius:12px;
@@ -209,7 +203,6 @@
   .forecast-progress{ height:6px; background:#DBE6F3; border-radius:3px; overflow:hidden; margin-top:6px; }
   .forecast-progress-fill{ height:100%; background:var(--accent); border-radius:3px; transition: width .3s ease; }
   .forecast-hint{ font-size:11px; color:var(--text-secondary); margin-top:8px; line-height:1.35; }
-
   .btn{
     display:flex; align-items:center; justify-content:center; gap:6px;
     width:100%; padding:13px 16px; border-radius:12px; border:none;
@@ -227,15 +220,12 @@
   .btn-danger{ background:#fff; color:var(--danger); border:1.5px solid var(--danger); }
   .btn-repeat{ background:#EAF3FE; color:var(--accent-dark); border:1.5px solid #CFE4FB; }
   .btn[disabled]{ opacity:.5; cursor:not-allowed; }
-
   .hint{ font-size:12px; color:var(--text-secondary); line-height:1.4; margin-top:6px; }
-
   .section-title{
     font-size:13px; font-weight:600; color:var(--text-secondary);
     text-transform:uppercase; letter-spacing:.3px; margin:20px 0 8px 4px;
   }
   .section-title:first-child{ margin-top:0; }
-
   .worker-block{ margin-bottom:4px; }
   .worker-header{ display:flex; align-items:center; justify-content:space-between; padding:0 4px; margin:14px 0 6px; }
   .worker-name{ font-size:14.5px; font-weight:700; color:var(--text); }
@@ -245,7 +235,6 @@
     color:#fff; font-size:10.5px; font-weight:700; margin-right:6px; vertical-align:-4px;
   }
   .worker-subtotal{ font-family:var(--mono); font-size:13px; color:var(--text-secondary); }
-
   .entry-row{
     display:flex; align-items:flex-start; justify-content:space-between;
     background:var(--card); border:1px solid var(--border); border-radius:12px;
@@ -263,11 +252,9 @@
   .entry-actions{ display:flex; gap:2px; margin-left:6px; flex-shrink:0; }
   .entry-del, .entry-edit{ background:none; border:none; color:var(--text-secondary); font-size:18px; padding:4px 8px; cursor:pointer; }
   .entry-edit{ color: var(--accent); font-size:16px; }
-
   .empty-state{ text-align:center; padding:32px 20px; color:var(--text-secondary); }
   .empty-state .emoji{ font-size:32px; margin-bottom:8px; }
   .empty-state .msg{ font-size:14px; line-height:1.5; }
-
   .day-total-bar{
     display:flex; align-items:center; justify-content:space-between;
     background:#EAF3FE; border:1px solid #CFE4FB; border-radius:12px;
@@ -278,7 +265,6 @@
   .day-total-bar.personal{ background:#E9F9EE; border-color:#B9E8C6; }
   .day-total-bar.personal .label{ color:#1E8A44; }
   .day-total-bar.personal .val{ color:#1E8A44; }
-
   .mini-dash{ display:flex; gap:8px; margin-bottom:14px; }
   .mini-dash-item{
     flex:1; background:var(--card); border:1px solid var(--border); border-radius:12px;
@@ -286,7 +272,6 @@
   }
   .mini-dash-val{ font-family:var(--mono); font-size:20px; font-weight:800; color:var(--accent); line-height:1.1; }
   .mini-dash-lbl{ font-size:10.5px; color:var(--text-secondary); margin-top:3px; text-transform:uppercase; letter-spacing:.2px; }
-
   .tabbar{
     position:fixed; bottom:0; left:50%; transform:translateX(-50%);
     width:100%; max-width:480px; background:#fff; border-top:1px solid var(--border);
@@ -300,7 +285,6 @@
   .tab-btn .tab-icon{ font-size:18px; line-height:1; }
   .tab-btn .tab-label{ font-size:10px; font-weight:600; }
   .tab-btn.active{ color:var(--accent); }
-
   .reg-wrap{ padding:40px 20px; display:flex; flex-direction:column; align-items:center; }
   .reg-logo{
     width:64px;height:64px; border-radius:18px; background:var(--accent);
@@ -309,7 +293,6 @@
   .reg-title{ font-size:20px; font-weight:700; margin-bottom:4px; text-align:center; }
   .reg-sub{ font-size:14px; color:var(--text-secondary); text-align:center; margin-bottom:28px; line-height:1.5; }
   .reg-card{ width:100%; }
-
   .seg-control{ display:flex; flex-wrap:wrap; gap:6px; background:#F0F1F3; border-radius:12px; padding:4px; }
   .seg-btn{
     flex:1 1 30%; min-width:30%; border:none; background:none; padding:9px 4px 8px; border-radius:9px;
@@ -317,7 +300,6 @@
     line-height:1.25;
   }
   .seg-btn.active{ background:#fff; color:var(--accent); box-shadow:0 1px 3px rgba(0,0,0,.08); }
-
   .code-reveal{
     background:#EAF3FE; border:1.5px dashed var(--accent); border-radius:12px;
     padding:14px; text-align:center; margin-top:6px;
@@ -326,7 +308,6 @@
     font-family:var(--mono); font-size:24px; font-weight:800; letter-spacing:3px; color:var(--accent-dark);
     margin:4px 0 8px;
   }
-
   .report-doc{ background:#fff; border-radius:var(--radius); padding:20px 18px; border:1px solid var(--border); }
   .report-doc h2{ font-size:16px; margin:0 0 2px; text-align:center; }
   .report-doc .report-meta{ font-size:12.5px; color:var(--text-secondary); text-align:center; margin-bottom:16px; }
@@ -348,7 +329,6 @@
   .report-total .val{ font-family:var(--mono); color:var(--accent); font-size:18px; }
   .report-actions{ display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
   .report-actions .btn{ flex:1; min-width:130px; }
-
   .naryad-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:var(--radius); }
   .naryad-doc{ background:#fff; border-radius:var(--radius); border:1px solid var(--border); padding:16px; }
   .naryad-head{ text-align:center; margin-bottom:10px; }
@@ -366,7 +346,6 @@
   table.naryad-table tr.naryad-sum-row td{ font-weight:700; background:#EAF3FE; }
   .naryad-sign{ display:flex; justify-content:space-between; gap:20px; margin-top:16px; font-size:11.5px; }
   .naryad-sign div{ flex:1; border-top:1px solid var(--text); padding-top:4px; color:var(--text-secondary); }
-
   .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
   .cal-weekday{ font-size:10px; font-weight:700; color:var(--text-secondary); text-align:center; padding:4px 0; text-transform:uppercase; }
   .cal-day{
@@ -389,7 +368,6 @@
   .day-editor-row:last-child{ border-bottom:none; }
   .day-editor-worker{ font-size:14px; font-weight:600; flex:1; min-width:0; }
   .day-editor-row select{ width:150px; flex-shrink:0; }
-
   @media print{
     body *{ visibility:hidden; }
     .report-doc, .report-doc *{ visibility:visible; }
@@ -397,7 +375,6 @@
     .naryad-doc, .naryad-doc *{ visibility:visible; }
     .naryad-doc{ position:absolute; top:0; left:0; width:100%; border:none; }
   }
-
   .toast{
     position:fixed; bottom:78px; left:50%; transform:translateX(-50%);
     background:#1C1C1E; color:#fff; padding:10px 18px; border-radius:20px;
@@ -406,7 +383,6 @@
     max-width:90vw; text-overflow:ellipsis; overflow:hidden;
   }
   .toast.show{ opacity:1; bottom:88px; }
-
   .modal-overlay{
     display:none; position:fixed; inset:0; background:rgba(0,0,0,.45);
     z-index:250; align-items:center; justify-content:center; padding:16px;
@@ -419,14 +395,12 @@
   .modal-title{ font-size:17px; font-weight:700; margin-bottom:14px; }
   .modal-actions{ display:flex; gap:10px; margin-top:16px; }
   .modal-actions .btn{ flex:1; }
-
   .log-item{
     background:#FAFAFA; border:1px solid var(--border); border-radius:10px;
     padding:10px 12px; margin-bottom:8px; font-size:12.5px;
   }
   .log-item .log-head{ font-weight:600; color:var(--text); margin-bottom:4px; }
   .log-item .log-change{ color:var(--text-secondary); }
-
   .filters-card{
     background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
     padding:14px 16px; margin-bottom:14px;
@@ -440,7 +414,6 @@
     padding:6px 12px; font-size:12.5px; cursor:pointer; margin:0 6px 6px 0;
   }
   .archive-month-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
-
   .chart-wrap{
     position:relative; width:100%; height:220px; margin-bottom:6px;
   }
@@ -459,7 +432,6 @@
   .record-label{ font-size:12px; color:var(--text-secondary); }
   .record-value{ font-family:var(--mono); font-size:17px; font-weight:800; color:var(--accent-dark); margin-top:2px; }
   .record-sub{ font-size:11.5px; color:var(--text-secondary); margin-top:2px; }
-
   .top3-row{
     display:flex; align-items:center; gap:10px;
     padding:11px 14px; background:var(--card); border:1px solid var(--border);
@@ -742,7 +714,7 @@
           <button class="add-btn" id="btn-apply-template" title="Применить шаблон">▶</button>
           <button class="add-btn" id="btn-save-template" title="Сохранить как шаблон">💾</button>
         </div>
-        <div class="hint" style="margin-top:8px;">Шаблон — это снимок графика всей бригады за месяц. Сохраните один раз — потом применяйте на любой месяц одной кнопкой.</div>
+        <div class="hint" style="margin-top:8px;">Шаблон — это снимок графика всей бригады за месяц.</div>
       </div>
 
       <div class="card" id="shift-types-card">
@@ -837,8 +809,6 @@
         <summary>💰 Моя зарплата по месяцам и прогноз</summary>
         <div class="hint" style="margin:8px 0 12px;">
           Внесите <b>фактическую зарплату</b> за каждый закрытый месяц.
-          Приложение посчитает среднюю стоимость изделия (зарплата ÷ выработка)
-          и спрогнозирует вашу зарплату на текущий месяц.
         </div>
         <div class="field-row">
           <div class="field">
@@ -857,12 +827,12 @@
         <div id="my-salary-history"></div>
 
         <div class="calc-salary" style="margin-top:12px;">
-          <span class="lbl" style="line-height:1.3;">Средняя стоимость изделия<br><span style="font-weight:400; opacity:.75; font-size:11px;">по закрытым месяцам с внесённой зарплатой</span></span>
+          <span class="lbl" style="line-height:1.3;">Средняя стоимость изделия</span>
           <span class="val" id="my-avg-cost">—</span>
         </div>
 
         <div class="calc-salary" style="margin-top:8px; background:#EAF3FE; border-color:#CFE4FB;">
-          <span class="lbl" style="color:#2679C9;">Прогноз зарплаты<br><span style="font-weight:400; opacity:.75; font-size:11px;">на текущий месяц</span></span>
+          <span class="lbl" style="color:#2679C9;">Прогноз зарплаты</span>
           <span class="val" id="my-calc-salary" style="color:#2679C9;">—</span>
         </div>
       </details>
@@ -985,7 +955,6 @@
       <div class="card">
         <button class="btn btn-excel" id="btn-export-excel-full" style="margin-bottom:8px;">📊 Скачать всю выработку в Excel</button>
         <button class="btn btn-secondary" id="btn-export-json" style="margin-top:0;">💾 Резервная копия (JSON)</button>
-        <div class="hint" style="margin-top:8px;">JSON-копию можно восстановить через админ-панель (5 тапов по имени в шапке).</div>
       </div>
     </div>
 
@@ -1073,6 +1042,30 @@
 </div>
 
 <script>
+// ===== Глобальный перехватчик ошибок: показывает проблему прямо на экране =====
+window.addEventListener('error', function(e){
+  console.error('Global error:', e.message, 'at', e.filename, ':', e.lineno);
+  if(document.body && !document.getElementById('global-error-box')){
+    const box = document.createElement('div');
+    box.id = 'global-error-box';
+    box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;background:#fff;color:#c00;padding:12px;border:2px solid #c00;border-radius:8px;font-family:monospace;font-size:12px;max-height:40vh;overflow:auto;';
+    box.innerHTML = '<b>⚠️ Ошибка:</b> ' + (e.message || '(без описания)') + '<br><small>строка ' + (e.lineno || '?') + '</small><br><button onclick="this.parentNode.remove()" style="margin-top:8px;padding:6px 12px;background:#c00;color:#fff;border:none;border-radius:6px;font-size:12px;">Закрыть</button>';
+    document.body.appendChild(box);
+  }
+});
+window.addEventListener('unhandledrejection', function(e){
+  const msg = (e.reason && e.reason.message) ? e.reason.message : String(e.reason);
+  console.error('Unhandled promise rejection:', e.reason);
+  if(document.body && !document.getElementById('global-error-box')){
+    const box = document.createElement('div');
+    box.id = 'global-error-box';
+    box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;background:#fff;color:#c00;padding:12px;border:2px solid #c00;border-radius:8px;font-family:monospace;font-size:12px;max-height:40vh;overflow:auto;';
+    box.innerHTML = '<b>⚠️ Ошибка (Promise):</b> ' + msg + '<br><button onclick="this.parentNode.remove()" style="margin-top:8px;padding:6px 12px;background:#c00;color:#fff;border:none;border-radius:6px;font-size:12px;">Закрыть</button>';
+    document.body.appendChild(box);
+  }
+});
+// ===== /Перехватчик =====
+
 const $ = (id) => document.getElementById(id);
 
 const firebaseConfig = {
@@ -1086,22 +1079,31 @@ const firebaseConfig = {
 const CLOUDFLARE_WORKER_URL = "https://naryad-bot-relay.tema-tatarinov2013.workers.dev";
 const APP_SHARED_SECRET = "naryad2026xyz";
 
-// ХЕШ админ-кода (SHA-256). Как сменить — см. комментарий ниже.
-//   crypto.subtle.digest('SHA-256', new TextEncoder().encode('ваш_новый_код'))
-//     .then(h=>console.log([...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join('')))
+// Хеш админ-кода (SHA-256)
 const ADMIN_SECRET_HASH = "9eadf697db31eb58eae0b4a3481879563846da3512d9f164c3851f14a88b97e0";
 
 let db = null;
 let firebaseReady = false;
 
+// ИСПРАВЛЕНО: защита от повторной инициализации + подробное логирование
 function initFirebase(){
   if(!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") return false;
   try{
+    if(firebase.apps && firebase.apps.length > 0){
+      db = firebase.database();
+      firebaseReady = true;
+      console.log('Firebase: уже инициализирован, БД подключена');
+      return true;
+    }
     firebase.initializeApp(firebaseConfig);
     db = firebase.database();
     firebaseReady = true;
+    console.log('Firebase OK. databaseURL:', firebaseConfig.databaseURL);
     return true;
-  }catch(e){ return false; }
+  }catch(e){
+    console.error('initFirebase error:', e.code || '', e.message || e);
+    return false;
+  }
 }
 
 let PROFILE = null;
@@ -1132,9 +1134,10 @@ const NEW_SHIFT_TYPE_IDS_TO_MERGE = ['vacation', 'sick'];
 
 function showToast(msg){
   const t = $('toast');
+  if(!t) return;
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 2000);
+  setTimeout(()=>t.classList.remove('show'), 2500);
 }
 
 async function sha256(text){
@@ -1151,10 +1154,10 @@ function showRoot(name){
 
 async function switchTab(name){
   if(name === 'search' && !isOwner()) name = 'entry';
-
   await refreshBrigadeData();
   ['entry','team','schedule','payroll','report','search','analytics'].forEach(t=>{
-    $('tab-'+t).style.display = (t===name) ? 'block' : 'none';
+    const el = $('tab-'+t);
+    if(el) el.style.display = (t===name) ? 'block' : 'none';
   });
   document.querySelectorAll('.tab-btn').forEach(b=>{
     b.classList.toggle('active', b.getAttribute('data-tab')===name);
@@ -1252,26 +1255,31 @@ async function saveLocalProfile(p){ await localRawSet('profile', JSON.stringify(
 
 function bp(sub){ return `brigades/${PROFILE.code}/${sub}`; }
 
+// ИСПРАВЛЕНО: fb-функции логируют ошибки
 async function fbGet(path){
-  if(!firebaseReady) return null;
+  if(!firebaseReady){ console.warn('fbGet: firebase not ready, path=', path); return null; }
   try{ const snap = await db.ref(path).once('value'); return snap.exists() ? snap.val() : null; }
-  catch(e){ return null; }
+  catch(e){ console.error('fbGet error for', path, ':', e.code || '', e.message || e); return null; }
 }
 async function fbSet(path, value){
-  if(!firebaseReady) return false;
-  try{ await db.ref(path).set(value); return true; }catch(e){ return false; }
+  if(!firebaseReady){ console.warn('fbSet: firebase not ready, path=', path); return false; }
+  try{ await db.ref(path).set(value); return true; }
+  catch(e){ console.error('fbSet error for', path, ':', e.code || '', e.message || e); return false; }
 }
 async function fbPush(path, value){
-  if(!firebaseReady) return null;
-  try{ const ref = db.ref(path).push(); await ref.set(value); return ref.key; }catch(e){ return null; }
+  if(!firebaseReady){ console.warn('fbPush: firebase not ready'); return null; }
+  try{ const ref = db.ref(path).push(); await ref.set(value); return ref.key; }
+  catch(e){ console.error('fbPush error for', path, ':', e.code || '', e.message || e); return null; }
 }
 async function fbUpdate(path, value){
-  if(!firebaseReady) return false;
-  try{ await db.ref(path).update(value); return true; }catch(e){ return false; }
+  if(!firebaseReady){ console.warn('fbUpdate: firebase not ready'); return false; }
+  try{ await db.ref(path).update(value); return true; }
+  catch(e){ console.error('fbUpdate error for', path, ':', e.code || '', e.message || e); return false; }
 }
 async function fbRemove(path){
-  if(!firebaseReady) return false;
-  try{ await db.ref(path).remove(); return true; }catch(e){ return false; }
+  if(!firebaseReady){ console.warn('fbRemove: firebase not ready'); return false; }
+  try{ await db.ref(path).remove(); return true; }
+  catch(e){ console.error('fbRemove error for', path, ':', e.code || '', e.message || e); return false; }
 }
 
 function genCode(){
@@ -1345,16 +1353,30 @@ async function logChange(action, oldValue, newValue, entityId){
   updateUndoButton();
 }
 
+// ИСПРАВЛЕНО: не белый экран, а сразу регистрация + проверка существования бригады с повтором
 async function init(){
+  // Сначала показываем регистрацию — чтобы не было белого экрана
+  // во время обращения к CloudStorage (до 3.5 сек)
+  showRoot('register');
+
   const fbOk = initFirebase();
   if(!fbOk){ showRoot('setup'); return; }
 
   PROFILE = await loadLocalProfile();
   if(!PROFILE || !PROFILE.code){ showRoot('register'); return; }
 
-  const brigadeExists = await fbGet(`brigades/${PROFILE.code}`);
+  let brigadeExists = await fbGet(`brigades/${PROFILE.code}`);
   if(!brigadeExists){
-    showToast('Бригада с этим кодом больше не найдена');
+    // Иногда запись ещё не долетела — ждём и пробуем снова
+    console.warn('Бригада не найдена с первого раза, повтор через 1.5 сек...');
+    await new Promise(r => setTimeout(r, 1500));
+    brigadeExists = await fbGet(`brigades/${PROFILE.code}`);
+  }
+
+  if(!brigadeExists){
+    console.error('Бригада не найдена в Firebase. Код:', PROFILE.code);
+    console.error('Проверьте: 1) databaseURL в firebaseConfig, 2) Rules = .read: true, .write: true, 3) вкладку Data — есть ли ветка brigades/' + PROFILE.code);
+    showToast('⚠️ Бригада не найдена в базе. Проверьте databaseURL и Rules.');
     showRoot('register');
     return;
   }
@@ -1396,13 +1418,10 @@ function isOwner(){
 
 function applyRolePermissions(){
   const owner = isOwner();
-
   const teamTabBtn = document.querySelector('.tab-btn[data-tab="team"]');
   if(teamTabBtn) teamTabBtn.style.display = owner ? 'flex' : 'none';
-
   const payrollTabBtn = document.querySelector('.tab-btn[data-tab="payroll"]');
   if(payrollTabBtn) payrollTabBtn.style.display = owner ? 'flex' : 'none';
-
   const searchTabBtn = document.querySelector('.tab-btn[data-tab="search"]');
   if(searchTabBtn) searchTabBtn.style.display = owner ? 'flex' : 'none';
 
@@ -1412,8 +1431,10 @@ function applyRolePermissions(){
     if(owner) refreshPayrollSummary();
   }
 
-  $('btn-toggle-add-cat').style.display = owner ? 'flex' : 'none';
-  $('btn-toggle-add-part').style.display = owner ? 'flex' : 'none';
+  const addCatBtn = $('btn-toggle-add-cat');
+  if(addCatBtn) addCatBtn.style.display = owner ? 'flex' : 'none';
+  const addPartBtn = $('btn-toggle-add-part');
+  if(addPartBtn) addPartBtn.style.display = owner ? 'flex' : 'none';
   const manageDetails = document.querySelector('.manage-details');
   if(manageDetails) manageDetails.style.display = owner ? 'block' : 'none';
 
@@ -1429,9 +1450,10 @@ function applyRolePermissions(){
   if(rotationCard) rotationCard.style.display = owner ? 'block' : 'none';
   if(actionsCard) actionsCard.style.display = owner ? 'block' : 'none';
 
-  const top3Section = document.querySelector('#top3-list');
+  const top3Section = $('top3-list');
   if(top3Section){
-    top3Section.previousElementSibling.style.display = owner ? 'block' : 'none';
+    const prev = top3Section.previousElementSibling;
+    if(prev) prev.style.display = owner ? 'block' : 'none';
     top3Section.style.display = owner ? 'block' : 'none';
   }
 
@@ -1463,9 +1485,7 @@ $('btn-undo').addEventListener('click', async () => {
   if(!isOwner()){ showToast('Отмена доступна только мастеру'); return; }
   const last = CHANGE_LOG.find(c => ['add_entry','edit_entry','delete_entry','set_actual_salary'].includes(c.action));
   if(!last){ showToast('Нечего отменять'); return; }
-
   const action = last.action;
-
   try{
     if(action === 'add_entry'){
       if(!last.entityId){ showToast('Не удалось определить запись'); return; }
@@ -1509,14 +1529,11 @@ $('btn-undo').addEventListener('click', async () => {
       await fbUpdate(bp('payroll/' + month + '/' + worker), { actual: prev });
       showToast('Зарплата за ' + monthTitleRu(month) + ' отменена');
     }
-
     await fbPush(bp('changeLog'), {
       action: 'undo', by: PROFILE.fio, timestamp: Date.now(),
       oldValue: { undone_action: action, undone_log_id: last.id }, newValue: null,
     });
-
     CHANGE_LOG = CHANGE_LOG.filter(c => c.id !== last.id);
-
     renderEntries(); renderUsersList(); renderMiniDashboard();
     await refreshMyPayroll(); await refreshForecast(); refreshRepeatButton();
     await refreshBrigadeData();
@@ -1555,11 +1572,28 @@ $('btn-register').addEventListener('click', async () => {
 
       const code = await generateUniqueCode();
       PROFILE = { fio, factory, code, isOwner: true };
-      await fbSet(`brigades/${code}`, {
+
+      const writeOk = await fbSet(`brigades/${code}`, {
         factory, categories: [], catalog: [], workers: [fio],
         shiftTypes: DEFAULT_SHIFT_TYPES, schedule: {}, telegramIds: {},
         _schema: 2,
       });
+
+      if(!writeOk){
+        PROFILE = null;
+        console.error('Не удалось создать бригаду в Firebase. Проверьте Rules и databaseURL.');
+        showToast('⚠️ Не удалось записать в Firebase. Проверьте Rules (.read: true, .write: true)');
+        return;
+      }
+
+      // Проверяем, что запись действительно сохранилась
+      const check = await fbGet(`brigades/${code}`);
+      if(!check){
+        PROFILE = null;
+        showToast('⚠️ Запись не подтверждена. Проверьте databaseURL в firebaseConfig.');
+        return;
+      }
+
       await saveLocalProfile(PROFILE);
       await saveTelegramId(fio);
 
@@ -1579,6 +1613,7 @@ $('btn-register').addEventListener('click', async () => {
       await init();
     }
   }catch(e){
+    console.error('Ошибка регистрации:', e);
     showToast('Что-то пошло не так');
   }finally{
     btn.disabled = false;
@@ -1770,7 +1805,7 @@ function renderManageChips(){
   });
 }
 
-// ---------- ПРОГНОЗ ЗАРПЛАТЫ ----------
+// ---------- ПРОГНОЗ ----------
 function getMyClosedMonthsStats(payrollAll){
   if(!PROFILE) return { avgCost: 0, monthsCount: 0, sumActual: 0, sumQty: 0 };
   const currentMonth = toISODate(new Date()).slice(0,7);
@@ -1798,14 +1833,11 @@ async function computeForecast(){
   const [y, m] = monthPrefix.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
   const todayDay = parseInt(todayStr.split('-')[2], 10);
-
   const own = ENTRIES.filter(e => e.worker === PROFILE.fio && (e.date || '').startsWith(monthPrefix));
   const currentQty = own.reduce((s,e)=> s + e.qty, 0);
   if(currentQty === 0) return null;
-
   const workedDates = new Set(own.map(e => e.date));
   const workedDays = workedDates.size;
-
   let plannedWorkDays = 0, futureWorkDays = 0, hasSchedule = false;
   for(let d = 1; d <= daysInMonth; d++){
     const dateStr = `${monthPrefix}-${String(d).padStart(2,'0')}`;
@@ -1819,7 +1851,6 @@ async function computeForecast(){
       if(d > todayDay) futureWorkDays++;
     }
   }
-
   let forecastQty, approach;
   if(hasSchedule && plannedWorkDays > 0){
     const avgPerDay = currentQty / Math.max(workedDays, 1);
@@ -1830,13 +1861,11 @@ async function computeForecast(){
     forecastQty = Math.round(avgPerDay * daysInMonth);
     approach = 'по календарным дням';
   }
-
   const payrollAll = (await fbGet(bp('payroll'))) || {};
   const stats = getMyClosedMonthsStats(payrollAll);
   const avgCost = stats.avgCost;
   const forecastSalary = avgCost > 0 ? Math.round(avgCost * forecastQty) : 0;
   const currentSalary = avgCost > 0 ? Math.round(avgCost * currentQty) : 0;
-
   return {
     currentQty, forecastQty, avgCost, forecastSalary, currentSalary,
     hasSchedule, plannedWorkDays, futureWorkDays, approach,
@@ -1918,9 +1947,9 @@ function renderMiniDashboard(){
   const weekDates = new Set();
   for(let i=0;i<7;i++){ weekDates.add(toISODate(new Date(Date.now() - i*86400000))); }
   const own = ENTRIES.filter(e => e.worker === PROFILE.fio);
-  $('dash-today').textContent = own.filter(e => e.date === todayStr).reduce((s,e)=> s + e.qty, 0);
-  $('dash-week').textContent = own.filter(e => weekDates.has(e.date)).reduce((s,e)=> s + e.qty, 0);
-  $('dash-month').textContent = own.filter(e => e.date.startsWith(monthPrefix)).reduce((s,e)=> s + e.qty, 0);
+  const el1 = $('dash-today'); if(el1) el1.textContent = own.filter(e => e.date === todayStr).reduce((s,e)=> s + e.qty, 0);
+  const el2 = $('dash-week'); if(el2) el2.textContent = own.filter(e => weekDates.has(e.date)).reduce((s,e)=> s + e.qty, 0);
+  const el3 = $('dash-month'); if(el3) el3.textContent = own.filter(e => e.date.startsWith(monthPrefix)).reduce((s,e)=> s + e.qty, 0);
 }
 
 function renderUsersList(){
@@ -1961,8 +1990,7 @@ function renderEntries(){
   const list = $('entries-list');
   const dayEntries = ENTRIES.filter(e => e.worker === PROFILE.fio && e.date === dateStr).sort((a,b)=> b.ts - a.ts);
   const total = dayEntries.reduce((s,e)=> s + e.qty, 0);
-  $('day-total').textContent = total;
-
+  const dt = $('day-total'); if(dt) dt.textContent = total;
   if(dayEntries.length === 0){
     list.innerHTML = `<div class="empty-state"><div class="emoji">🗂️</div><div class="msg">На эту дату записей нет.</div></div>`;
     return;
@@ -2011,7 +2039,6 @@ $('btn-add').addEventListener('click', async () => {
   if(!part){ showToast('Выберите деталь'); return; }
   if(!qty || qty <= 0){ showToast('Укажите количество'); return; }
   if(qty > 100000){ showToast('Слишком большое число'); return; }
-
   const dateStr = $('entry-date').value || toISODate(new Date());
   const now = new Date();
   const entry = {
@@ -2058,34 +2085,28 @@ $('btn-edit-save').addEventListener('click', async () => {
   if(!editingEntryId) return;
   const old = ENTRIES.find(e => e.id === editingEntryId);
   if(!old) return;
-
   const newWorker = $('edit-worker').value;
   const newCategory = $('edit-category').value;
   const newPart = $('edit-part').value;
   const newQty = parseInt($('edit-qty').value, 10);
   const newDate = $('edit-date').value;
   const newNote = $('edit-note').value.trim();
-
   if(!newQty || newQty <= 0){ showToast('Укажите количество'); return; }
   if(!newDate){ showToast('Укажите дату'); return; }
   if(newQty > 100000){ showToast('Слишком большое число'); return; }
   if(!isOwner() && newWorker !== PROFILE.fio){ showToast('Можно редактировать только свои записи'); return; }
-
   const updated = {
     worker: newWorker, category: newCategory, part: newPart, qty: newQty, date: newDate,
     time: old.time, ts: old.ts, note: newNote || null,
   };
-
   await fbUpdate(bp('entries/' + editingEntryId), updated);
   await logChange('edit_entry',
     { worker: old.worker, category: old.category, part: old.part, qty: old.qty, date: old.date, note: old.note || null },
     { worker: newWorker, category: newCategory, part: newPart, qty: newQty, date: newDate, note: newNote || null },
     editingEntryId
   );
-
   const idx = ENTRIES.findIndex(e => e.id === editingEntryId);
   if(idx !== -1) ENTRIES[idx] = { ...ENTRIES[idx], ...updated };
-
   $('edit-modal').classList.remove('open');
   editingEntryId = null;
   renderEntries(); renderUsersList(); renderMiniDashboard();
@@ -2097,6 +2118,7 @@ $('btn-edit-save').addEventListener('click', async () => {
 // ---------- БРИГАДА ----------
 function refreshWorkerSelect(){
   const sel = $('in-worker-select');
+  if(!sel) return;
   const prev = sel.value;
   if(WORKERS.length === 0){
     sel.innerHTML = `<option value="">Сначала добавьте работника</option>`;
@@ -2142,8 +2164,7 @@ function renderTeam(){
   const list = $('team-list');
   const dayEntries = ENTRIES.filter(e => e.date === dateStr).sort((a,b)=> a.ts - b.ts);
   const total = dayEntries.reduce((s,e)=> s + e.qty, 0);
-  $('team-day-total').textContent = total;
-
+  const tdt = $('team-day-total'); if(tdt) tdt.textContent = total;
   if(dayEntries.length === 0){
     list.innerHTML = `<div class="empty-state"><div class="emoji">👥</div><div class="msg">За эту смену записей нет.</div></div>`;
     return;
@@ -2352,7 +2373,6 @@ $('btn-copy-last-month').addEventListener('click', async () => {
   const prevDays = new Date(py, pm, 0).getDate();
   const [cy, cm] = monthVal.split('-').map(Number);
   const curDays = new Date(cy, cm, 0).getDate();
-
   let hasData = false;
   for(let d = 1; d <= prevDays; d++){
     const dateStr = `${prevMonth}-${String(d).padStart(2,'0')}`;
@@ -2360,7 +2380,6 @@ $('btn-copy-last-month').addEventListener('click', async () => {
   }
   if(!hasData){ showToast('В прошлом месяце график пуст'); return; }
   if(!confirm(`Скопировать график из ${monthTitleRu(prevMonth)} в ${monthTitleRu(monthVal)}?`)) return;
-
   for(let d = 1; d <= curDays; d++){
     const dateStr = `${monthVal}-${String(d).padStart(2,'0')}`;
     delete SCHEDULE[dateStr];
@@ -2427,20 +2446,16 @@ $('btn-apply-rotation').addEventListener('click', async () => {
   const monthVal = $('sched-month').value || toISODate(new Date()).slice(0,7);
   const [y, m] = monthVal.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
-
   if(!worker){ showToast('Выберите работника'); return; }
   if(!startDateStr){ showToast('Укажите дату начала'); return; }
-
   const startDate = new Date(startDateStr + 'T00:00:00');
   const offType = shiftTypeById('off');
-
   function setDay(dateStr, shiftId){
     SCHEDULE[dateStr] = SCHEDULE[dateStr] || {};
     if(shiftId){ SCHEDULE[dateStr][worker] = shiftId; }
     else{ delete SCHEDULE[dateStr][worker]; }
     if(Object.keys(SCHEDULE[dateStr]).length === 0) delete SCHEDULE[dateStr];
   }
-
   if(rotPatternMode === 'simple'){
     const shiftId = $('rot-shift-select').value;
     const workDays = parseInt($('rot-work-days').value, 10) || 2;
@@ -2476,7 +2491,6 @@ $('btn-apply-rotation').addEventListener('click', async () => {
       setDay(dateStr, shiftId);
     }
   }
-
   await fbSet(bp('schedule'), SCHEDULE);
   renderCalendar();
   await refreshForecast();
@@ -2496,12 +2510,10 @@ $('cal-filter-select').addEventListener('change', renderCalendar);
 function renderCalendar(){
   ensureShiftTypesSeeded().then(() => { renderShiftTypeChips(); refreshRotShiftSelect(); });
   refreshCalFilterSelect();
-
   const weekdaysEl = $('cal-weekdays');
   if(weekdaysEl && weekdaysEl.children.length === 0){
     weekdaysEl.innerHTML = WEEKDAY_NAMES.map(w => `<div class="cal-weekday">${w}</div>`).join('');
   }
-
   const monthVal = $('sched-month').value || toISODate(new Date()).slice(0,7);
   const [y, m] = monthVal.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
@@ -2510,11 +2522,9 @@ function renderCalendar(){
   const todayStr = toISODate(new Date());
   const filterWorker = $('cal-filter-select').value;
   const owner = isOwner();
-
   const grid = $('cal-grid');
   let html = '';
   for(let i=0; i<leadOffset; i++){ html += `<div class="cal-day empty"></div>`; }
-
   for(let d=1; d<=daysInMonth; d++){
     const dateObj = new Date(y, m-1, d);
     const dateStr = toISODate(dateObj);
@@ -2535,7 +2545,6 @@ function renderCalendar(){
       </div>`;
   }
   grid.innerHTML = html;
-
   if(owner){
     grid.querySelectorAll('.cal-day:not(.empty)').forEach(cell => {
       cell.addEventListener('click', () => openDayEditor(cell.getAttribute('data-date')));
@@ -2550,14 +2559,11 @@ function openDayEditor(dateStr){
   if(!isOwner()){ showToast('График может менять только мастер'); return; }
   selectedCalDate = dateStr;
   document.querySelectorAll('.cal-day').forEach(c => c.classList.toggle('selected', c.getAttribute('data-date')===dateStr));
-
   const card = $('day-editor-card');
   card.style.display = 'block';
   $('day-editor-title').textContent = formatDateRu(dateStr);
-
   const dayShifts = SCHEDULE[dateStr] || {};
   const rows = WORKERS.length ? WORKERS : (PROFILE ? [PROFILE.fio] : []);
-
   $('day-editor-rows').innerHTML = rows.map(worker => {
     const current = dayShifts[worker] || '';
     const options = `<option value="">—</option>` + SHIFT_TYPES.map(t =>
@@ -2569,7 +2575,6 @@ function openDayEditor(dateStr){
         <select data-worker="${escapeHtml(worker)}">${options}</select>
       </div>`;
   }).join('') || `<div class="hint">В бригаде пока нет работников</div>`;
-
   $('btn-save-day-schedule').style.display = 'flex';
 }
 
@@ -2664,7 +2669,6 @@ async function renderPayroll(){
         </div>
       </div>`;
   }).join('');
-
   wrap.querySelectorAll('.payroll-advance, .payroll-final').forEach(input => {
     input.addEventListener('input', () => {
       const safeId = input.getAttribute('data-worker').replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
@@ -2720,7 +2724,6 @@ async function refreshMyPayroll(){
   const data = (await fbGet(bp('payroll/' + currentMonth))) || {};
   const rec = data[PROFILE.fio] || {};
   const actual = Number(rec.actual) || 0;
-
   if(actual > 0){
     valEl.textContent = fmtMoney(actual) + ' ₽';
     if(hintEl){ hintEl.textContent = 'Фактическая зарплата за текущий месяц'; hintEl.style.display = ''; }
@@ -2780,7 +2783,6 @@ async function refreshMyCalc(){
   const monthInfoEl = $('my-salary-month-info');
   const avgCostEl = $('my-avg-cost');
   const forecastEl = $('my-calc-salary');
-
   if(monthInput && !monthInput.value){
     monthInput.value = shiftMonth(toISODate(new Date()).slice(0,7), -1);
   }
@@ -2833,7 +2835,6 @@ if(btnSaveMySalary){
     if(!m){ showToast('Выберите месяц'); return; }
     const existingData = (await fbGet(bp('payroll/' + m))) || {};
     const oldActual = (existingData[PROFILE.fio] || {}).actual || 0;
-
     const ok = await fbUpdate(bp('payroll/' + m + '/' + PROFILE.fio), { actual });
     if(ok){
       await logChange('set_actual_salary',
@@ -2940,7 +2941,6 @@ function buildBrigadeReport(dateStr){
   Object.values(byKey).forEach(row => { (byCategory[row.category] = byCategory[row.category] || []).push(row); });
   const categories = Object.keys(byCategory).sort((a,b)=> a.localeCompare(b,'ru'));
   const total = Object.values(byKey).reduce((s,r)=> s + r.qty, 0);
-
   let rowsHtml = '';
   categories.forEach(cat => {
     const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
@@ -2952,7 +2952,6 @@ function buildBrigadeReport(dateStr){
   if(categories.length === 0){
     rowsHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за эту дату</td></tr>`;
   }
-
   $('report-output').innerHTML = `
     <div class="report-doc" id="report-doc">
       <h2>Выписка по цеху</h2>
@@ -3052,11 +3051,9 @@ function buildPersonalReport(fromDate, toDate, periodLabel, showDailyBreakdown){
   Object.values(byKey).forEach(row => { (byCategory[row.category] = byCategory[row.category] || []).push(row); });
   const categories = Object.keys(byCategory).sort((a,b)=> a.localeCompare(b,'ru'));
   const total = Object.values(byKey).reduce((s,r)=> s + r.qty, 0);
-
   const byDate = {};
   own.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
   const workDates = Object.keys(byDate).sort();
-
   let dailyHtml = '';
   if(showDailyBreakdown){
     workDates.forEach(date => {
@@ -3071,7 +3068,6 @@ function buildPersonalReport(fromDate, toDate, periodLabel, showDailyBreakdown){
       dailyHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
     }
   }
-
   let rowsHtml = '';
   categories.forEach(cat => {
     const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
@@ -3083,7 +3079,6 @@ function buildPersonalReport(fromDate, toDate, periodLabel, showDailyBreakdown){
   if(categories.length === 0){
     rowsHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
   }
-
   const dailySectionHtml = showDailyBreakdown ? `
       <div class="report-section-title">Разбивка по сменам</div>
       <table class="report-table">
@@ -3092,7 +3087,6 @@ function buildPersonalReport(fromDate, toDate, periodLabel, showDailyBreakdown){
       </table>
       <div class="report-section-title" style="margin-top:18px;">Итого по категориям за период</div>
   ` : '';
-
   $('report-output').innerHTML = `
     <div class="report-doc" id="report-doc">
       <h2>Моя выписка о выполненных работах</h2>
@@ -3222,7 +3216,6 @@ function buildWorkerReport(worker, fromDate, toDate, periodLabel){
   const byDate = {};
   items.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
   const workDates = Object.keys(byDate).sort();
-
   let dailyHtml = '';
   workDates.forEach(date => {
     const dayItems = byDate[date].sort((a,b)=> a.ts - b.ts);
@@ -3246,7 +3239,6 @@ function buildWorkerReport(worker, fromDate, toDate, periodLabel){
   if(categories.length === 0){
     rowsHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей</td></tr>`;
   }
-
   $('report-output').innerHTML = `
     <div class="report-doc" id="report-doc">
       <h2>Выписка по работнику</h2>
@@ -3371,7 +3363,6 @@ function renderAnalytics(){
   if(!PROFILE) return;
   const range = getAnalyticsRange();
   const own = ENTRIES.filter(e => e.worker === PROFILE.fio && e.date >= range.from && e.date <= range.to);
-
   const dailyMap = {};
   const dates = [];
   const fromD = new Date(range.from + 'T00:00:00');
@@ -3382,13 +3373,11 @@ function renderAnalytics(){
     dailyMap[s] = 0;
   }
   own.forEach(e => { if(dailyMap[e.date] !== undefined) dailyMap[e.date] += e.qty; });
-
   const labels = dates.map(d => {
     const [y,m,dd] = d.split('-');
     return `${dd}.${m}`;
   });
   const values = dates.map(d => dailyMap[d]);
-
   const dailyCanvas = $('chart-daily');
   if(dailyCanvas && window.Chart){
     if(chartDaily) chartDaily.destroy();
@@ -3413,9 +3402,7 @@ function renderAnalytics(){
         maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
-          tooltip: {
-            callbacks: { title: (items) => formatDateRu(dates[items[0].dataIndex]) },
-          },
+          tooltip: { callbacks: { title: (items) => formatDateRu(dates[items[0].dataIndex]) } },
         },
         scales: {
           x: { ticks: { maxTicksLimit: 8, font: { size: 10 }, color: '#8E8E93' }, grid: { display: false } },
@@ -3424,7 +3411,6 @@ function renderAnalytics(){
       },
     });
   }
-
   const totalInRange = values.reduce((s,v) => s + v, 0);
   const activeDays = values.filter(v => v > 0).length;
   const avgPerDay = activeDays > 0 ? Math.round(totalInRange / activeDays) : 0;
@@ -3432,11 +3418,9 @@ function renderAnalytics(){
   if(hintEl){
     hintEl.textContent = `Всего за период: ${fmtMoney(totalInRange)} шт · активных дней: ${activeDays} · в среднем за активный день: ${fmtMoney(avgPerDay)} шт`;
   }
-
   const byPart = {};
   own.forEach(e => { byPart[e.part] = (byPart[e.part] || 0) + e.qty; });
   const topParts = Object.entries(byPart).sort((a,b) => b[1]-a[1]).slice(0, 7);
-
   const topCanvas = $('chart-top');
   if(topCanvas && window.Chart){
     if(chartTop) chartTop.destroy();
@@ -3470,7 +3454,6 @@ function renderAnalytics(){
       });
     }
   }
-
   renderPersonalRecords();
   if(isOwner()) renderTop3();
 }
@@ -3487,7 +3470,6 @@ function renderPersonalRecords(){
   own.forEach(e => { byDay[e.date] = (byDay[e.date] || 0) + e.qty; });
   let bestDay = { date: '', qty: 0 };
   Object.keys(byDay).forEach(d => { if(byDay[d] > bestDay.qty) bestDay = { date: d, qty: byDay[d] }; });
-
   const byMonth = {};
   own.forEach(e => {
     const m = e.date.slice(0,7);
@@ -3495,12 +3477,10 @@ function renderPersonalRecords(){
   });
   let bestMonth = { month: '', qty: 0 };
   Object.keys(byMonth).forEach(m => { if(byMonth[m] > bestMonth.qty) bestMonth = { month: m, qty: byMonth[m] }; });
-
   const byPart = {};
   own.forEach(e => { byPart[e.part] = (byPart[e.part] || 0) + e.qty; });
   let bestPart = { name: '', qty: 0 };
   Object.keys(byPart).forEach(p => { if(byPart[p] > bestPart.qty) bestPart = { name: p, qty: byPart[p] }; });
-
   const allDates = [...new Set(own.map(e => e.date))].sort().reverse();
   let streak = 0;
   if(allDates.length > 0){
@@ -3516,7 +3496,6 @@ function renderPersonalRecords(){
       }
     }
   }
-
   wrap.innerHTML = `
     <div class="record-card">
       <div class="record-icon">🥇</div>
@@ -3561,14 +3540,11 @@ function renderTop3(){
     worker: w,
     qty: ENTRIES.filter(e => e.worker === w && e.date.startsWith(m)).reduce((s,e) => s + e.qty, 0),
   })).sort((a,b) => b.qty - a.qty).slice(0, 3);
-
   const totalAll = WORKERS.reduce((s, w) => s + ENTRIES.filter(e => e.worker === w && e.date.startsWith(m)).reduce((a,e) => a + e.qty, 0), 0);
-
   if(totalAll === 0){
     wrap.innerHTML = `<div class="empty-state"><div class="emoji">🥇</div><div class="msg">В этом месяце ещё нет выработки</div></div>`;
     return;
   }
-
   const rankClasses = ['r1','r2','r3'];
   const medals = ['🥇','🥈','🥉'];
   wrap.innerHTML = stats.map((s, i) => {
@@ -3600,7 +3576,6 @@ function declOfNum(n, forms){
 $('btn-export-excel-full').addEventListener('click', () => {
   if(!window.XLSX){ showToast('Модуль Excel не загрузился'); return; }
   if(ENTRIES.length === 0){ showToast('Нет данных для экспорта'); return; }
-
   const rows = [['Дата', 'Работник', 'Категория', 'Деталь', 'Количество', 'Время', 'Примечание']];
   ENTRIES.slice().sort((a,b) => a.date.localeCompare(b.date) || a.ts - b.ts).forEach(e => {
     rows.push([formatDateRu(e.date), e.worker, e.category, e.part, e.qty, e.time, e.note || '']);
@@ -3609,7 +3584,6 @@ $('btn-export-excel-full').addEventListener('click', () => {
   ws['!cols'] = [{ wch: 12 }, { wch: 24 }, { wch: 22 }, { wch: 30 }, { wch: 12 }, { wch: 8 }, { wch: 30 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Выработка');
-
   const byWorker = {};
   ENTRIES.forEach(e => { byWorker[e.worker] = (byWorker[e.worker] || 0) + e.qty; });
   const rows2 = [['Работник', 'Итого, шт']];
@@ -3617,7 +3591,6 @@ $('btn-export-excel-full').addEventListener('click', () => {
   const ws2 = XLSX.utils.aoa_to_sheet(rows2);
   ws2['!cols'] = [{ wch: 30 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, ws2, 'Сводка по работникам');
-
   const byPart = {};
   ENTRIES.forEach(e => {
     const k = e.category + ' / ' + e.part;
@@ -3628,7 +3601,6 @@ $('btn-export-excel-full').addEventListener('click', () => {
   const ws3 = XLSX.utils.aoa_to_sheet(rows3);
   ws3['!cols'] = [{ wch: 40 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, ws3, 'Сводка по деталям');
-
   XLSX.writeFile(wb, `Выработка_${PROFILE.factory.replace(/[\s«»]+/g,'_')}_${toISODate(new Date())}.xlsx`);
   showToast('Excel-файл скачан');
 });
@@ -3681,19 +3653,16 @@ $('btn-search').addEventListener('click', () => {
   const partText = $('search-part').value.trim().toLowerCase();
   const dateFrom = $('search-date-from').value;
   const dateTo = $('search-date-to').value;
-
   let results = ENTRIES.slice();
   if(worker) results = results.filter(e => e.worker === worker);
   if(category) results = results.filter(e => e.category === category);
   if(partText) results = results.filter(e => e.part.toLowerCase().includes(partText));
   if(dateFrom) results = results.filter(e => e.date >= dateFrom);
   if(dateTo) results = results.filter(e => e.date <= dateTo);
-
   results.sort((a,b) => b.date.localeCompare(a.date) || b.ts - a.ts);
   LAST_SEARCH_RESULTS = results;
   const totalQty = results.reduce((s,e) => s + e.qty, 0);
   const wrap = $('search-results');
-
   if(results.length === 0){
     wrap.innerHTML = `<div class="empty-state"><div class="emoji">🔍</div><div class="msg">Ничего не найдено</div></div>`;
     return;
@@ -3843,13 +3812,11 @@ $('btn-close-admin').addEventListener('click', () => { $('admin-overlay').style.
 async function openAdminOverlay(){
   $('admin-overlay').style.display = 'block';
   $('admin-content').innerHTML = `<div class="empty-state"><div class="msg">Загрузка...</div></div>`;
-
   const allBrigades = await fbGet('brigades');
   if(!allBrigades){
     $('admin-content').innerHTML = `<div class="empty-state"><div class="emoji">🗂️</div><div class="msg">Пока нет ни одной бригады</div></div>`;
     return;
   }
-
   const codes = Object.keys(allBrigades);
   const uniqueUsers = new Set();
   let cardsHtml = '';
@@ -3867,13 +3834,11 @@ async function openAdminOverlay(){
         </div>
       </div>`;
   });
-
   $('admin-content').innerHTML = `
     <div class="day-total-bar" style="margin-bottom:16px;">
       <span class="label">Бригад / пользователей</span>
       <span class="val">${codes.length} / ${uniqueUsers.size}</span>
     </div>
-
     <div class="card">
       <div class="manage-block-title" style="margin-bottom:10px;">💾 Резервная копия</div>
       <button class="btn btn-secondary" id="btn-admin-export-all" style="margin-bottom:8px;">Скачать JSON всех бригад</button>
@@ -3881,12 +3846,10 @@ async function openAdminOverlay(){
         <label>Восстановить из файла</label>
         <input type="file" id="admin-import-file" accept="application/json,.json">
       </div>
-      <div class="hint" style="margin-top:6px;">Восстановление <b>заменяет</b> ветку brigades/{код} целиком. Перед импортом сделайте текущую копию.</div>
+      <div class="hint" style="margin-top:6px;">Восстановление <b>заменяет</b> ветку brigades/{код} целиком.</div>
     </div>
-
     ${cardsHtml}
   `;
-
   $('btn-admin-export-all').addEventListener('click', async () => {
     const data = await fbGet('brigades');
     if(!data){ showToast('Пусто'); return; }
@@ -3905,17 +3868,14 @@ async function openAdminOverlay(){
     URL.revokeObjectURL(url);
     showToast('Копия скачана');
   });
-
   $('admin-import-file').addEventListener('change', async (ev) => {
     const file = ev.target.files[0];
     if(!file) return;
     const text = await file.text();
     let parsed;
     try{ parsed = JSON.parse(text); }catch(e){ showToast('Файл не распознан как JSON'); return; }
-
     const payload = parsed.data || parsed;
     if(!payload || typeof payload !== 'object'){ showToast('Нет данных в файле'); return; }
-
     let codes;
     if(parsed._type === 'full-admin-backup'){
       codes = Object.keys(payload);
@@ -3927,10 +3887,8 @@ async function openAdminOverlay(){
     }else{
       codes = Object.keys(payload).filter(k => payload[k] && (payload[k].entries || payload[k].workers || payload[k].factory));
     }
-
     if(codes.length === 0){ showToast('Нет данных для восстановления'); return; }
     if(!confirm(`Восстановить ${codes.length} бригад(у)? Текущие данные этих бригад будут перезаписаны.`)) return;
-
     for(const code of codes){
       const brigadeData = parsed._code ? payload : payload[code];
       await fbSet(`brigades/${code}`, brigadeData);
@@ -3948,6 +3906,13 @@ function initTelegramEnv(){
     try{ wa.setBackgroundColor('#F0F1F3'); }catch(e){}
   }
 }
+
+// ---------- СТАРТ ----------
+console.log('=== Учёт деталей, старт ===');
+console.log('Firebase SDK:', typeof firebase);
+console.log('databaseURL:', firebaseConfig.databaseURL);
+console.log('Telegram WebApp:', typeof window.Telegram);
+
 initTelegramEnv();
 init();
 </script>
