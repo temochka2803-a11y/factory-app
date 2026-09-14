@@ -1639,4 +1639,2039 @@ async function computeForecast(){
   const avgCost = stats.avgCost;
 
   const forecastSalary = avgCost > 0 ? Math.round(avgCost * forecastQty) : 0;
-  const currentSalary = avg
+  const currentSalary = avgCost > 0 ? Math.round(avgCost * currentQty) : 0;
+
+  return {
+    currentQty, forecastQty, avgCost, forecastSalary, currentSalary,
+    hasSchedule, plannedWorkDays, futureWorkDays, approach,
+    daysInMonth, todayDay, monthsCount: stats.monthsCount,
+    progressPct: Math.min(100, Math.round((currentQty / Math.max(forecastQty, 1)) * 100)),
+  };
+}
+
+async function refreshForecast(){
+  const card = $('forecast-card');
+  if(!card || !PROFILE) return;
+
+  const f = await computeForecast();
+  if(!f){ card.style.display = 'none'; return; }
+
+  card.style.display = 'block';
+
+  const badge = $('forecast-badge');
+  if(badge) badge.textContent = `день ${f.todayDay} из ${f.daysInMonth}`;
+
+  const valueEl = $('forecast-value');
+  if(valueEl){
+    if(f.avgCost > 0){
+      valueEl.textContent = `${fmtMoney(f.forecastSalary)} ₽`;
+    }else{
+      valueEl.textContent = `+${fmtMoney(f.forecastQty - f.currentQty)} шт`;
+    }
+  }
+
+  const subEl = $('forecast-sub');
+  if(subEl){
+    subEl.textContent = f.avgCost > 0
+      ? `Прогноз зарплаты (${f.approach})`
+      : `Прогноз выработки (${f.approach})`;
+  }
+
+  const currentQtyEl = $('forecast-current-qty');
+  if(currentQtyEl) currentQtyEl.textContent = `${fmtMoney(f.currentQty)} шт`;
+
+  const totalQtyEl = $('forecast-total-qty');
+  if(totalQtyEl) totalQtyEl.textContent = `${fmtMoney(f.forecastQty)} шт`;
+
+  const fill = $('forecast-progress-fill');
+  if(fill) fill.style.width = f.progressPct + '%';
+
+  const hintEl = $('forecast-hint');
+  if(hintEl){
+    if(f.avgCost <= 0){
+      hintEl.textContent = 'Чтобы увидеть прогноз зарплаты, внесите фактическую зарплату за прошлые месяцы во вкладке «Зарплата».';
+    }else if(f.hasSchedule){
+      hintEl.textContent = `Средняя стоимость: ${fmtMoney2(f.avgCost)} ₽/шт (по ${f.monthsCount} мес.). График: ${f.plannedWorkDays} раб. дней, впереди ${f.futureWorkDays}.`;
+    }else{
+      hintEl.textContent = `Средняя стоимость: ${fmtMoney2(f.avgCost)} ₽/шт (по ${f.monthsCount} мес.). График смен не заполнен.`;
+    }
+  }
+}
+
+// ---------- ПОВТОР ПОСЛЕДНЕЙ ЗАПИСИ ----------
+function getLastEntry(){
+  if(!PROFILE) return null;
+  const own = ENTRIES.filter(e => e.worker === PROFILE.fio);
+  if(own.length === 0) return null;
+  return own.reduce((max, e) => (!max || e.ts > max.ts) ? e : max, null);
+}
+
+function refreshRepeatButton(){
+  const btn = $('btn-repeat-last');
+  const label = $('btn-repeat-label');
+  if(!btn || !label) return;
+
+  const last = getLastEntry();
+  if(!last){ btn.style.display = 'none'; return; }
+  btn.style.display = 'flex';
+  const partShort = last.part.length > 20 ? last.part.slice(0, 20) + '…' : last.part;
+  label.textContent = `Повторить: ${partShort} (${last.qty} шт)`;
+  btn.setAttribute('data-entry-id', last.id);
+}
+
+$('btn-repeat-last').addEventListener('click', async () => {
+  const btn = $('btn-repeat-last');
+  const id = btn.getAttribute('data-entry-id');
+  const last = ENTRIES.find(e => e.id === id);
+  if(!last){ showToast('Не удалось найти последнюю запись'); return; }
+
+  if(!CATEGORIES.includes(last.category)){ showToast('Категория этой записи больше не существует'); return; }
+  const partExists = CATALOG.some(p => p.category === last.category && p.name === last.part);
+  if(!partExists){ showToast('Деталь этой записи больше не существует'); return; }
+
+  $('in-cat-select').value = last.category;
+  refreshPartSelect($('in-part-select'), last.category);
+  $('in-part-select').value = last.part;
+
+  const todayStr = toISODate(new Date());
+  if($('entry-date').value !== todayStr){
+    $('entry-date').value = todayStr;
+    renderEntries();
+  }
+
+  $('in-qty').value = last.qty;
+  $('in-qty').focus();
+  $('in-qty').select();
+
+  showToast(`Подставлено: ${last.part} — ${last.qty} шт`);
+});
+
+// ---------- ВВОД ----------
+function renderMiniDashboard(){
+  if(!PROFILE) return;
+  const todayStr = toISODate(new Date());
+  const monthPrefix = todayStr.slice(0,7);
+
+  const weekDates = new Set();
+  for(let i=0;i<7;i++){ weekDates.add(toISODate(new Date(Date.now() - i*86400000))); }
+
+  const own = ENTRIES.filter(e => e.worker === PROFILE.fio);
+  const todaySum = own.filter(e => e.date === todayStr).reduce((s,e)=> s + e.qty, 0);
+  const weekSum = own.filter(e => weekDates.has(e.date)).reduce((s,e)=> s + e.qty, 0);
+  const monthSum = own.filter(e => e.date.startsWith(monthPrefix)).reduce((s,e)=> s + e.qty, 0);
+
+  $('dash-today').textContent = todaySum;
+  $('dash-week').textContent = weekSum;
+  $('dash-month').textContent = monthSum;
+}
+
+function renderUsersList(){
+  const wrap = $('users-list-view');
+  const countEl = $('users-count');
+  if(!wrap || !countEl) return;
+
+  countEl.textContent = WORKERS.length;
+
+  if(WORKERS.length === 0){
+    wrap.innerHTML = `<div class="hint" style="margin-top:8px;">В бригаде пока никто не зарегистрирован.</div>`;
+    return;
+  }
+
+  const monthPrefix = toISODate(new Date()).slice(0,7);
+  wrap.innerHTML = WORKERS.map(w => {
+    const own = ENTRIES.filter(e => e.worker === w);
+    const monthQty = own.filter(e => e.date.startsWith(monthPrefix)).reduce((s,e)=> s + e.qty, 0);
+    const last = own.reduce((max,e)=> (!max || e.ts > max.ts) ? e : max, null);
+    const initials = w.trim().split(/\s+/).map(p=>p[0]).slice(0,2).join('').toUpperCase();
+    const isMe = PROFILE && w === PROFILE.fio;
+
+    return `
+      <div class="user-row">
+        <div class="user-info">
+          <div class="user-avatar">${initials}</div>
+          <div class="user-name-wrap">
+            <div class="user-name">${escapeHtml(w)}${isMe ? '<span class="user-tag">Вы</span>' : ''}</div>
+            <div class="user-meta">${last ? 'Была запись: ' + formatDateRu(last.date) : 'Записей ещё не было'}</div>
+          </div>
+        </div>
+        <div class="user-stat">
+          <div class="val">${monthQty}</div>
+          <div class="lbl">шт / мес.</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderEntries(){
+  const dateStr = $('entry-date').value || toISODate(new Date());
+  const list = $('entries-list');
+  const dayEntries = ENTRIES.filter(e => e.worker === PROFILE.fio && e.date === dateStr).sort((a,b)=> b.ts - a.ts);
+  const total = dayEntries.reduce((s,e)=> s + e.qty, 0);
+  $('day-total').textContent = total;
+
+  if(dayEntries.length === 0){
+    list.innerHTML = `<div class="empty-state"><div class="emoji">🗂️</div><div class="msg">На эту дату записей нет.<br>Выберите категорию и деталь выше.</div></div>`;
+    return;
+  }
+
+  list.innerHTML = '';
+  dayEntries.forEach(e => {
+    const row = document.createElement('div');
+    row.className = 'entry-row';
+    row.innerHTML = `
+      <div class="entry-info">
+        <div class="entry-part">${escapeHtml(e.part)}</div>
+        <div class="entry-meta">${escapeHtml(e.category)} · ${e.time}</div>
+      </div>
+      <div class="entry-qty">${e.qty}</div>
+      <div class="entry-actions">
+        <button class="entry-edit" data-id="${e.id}" title="Редактировать">✏️</button>
+        <button class="entry-del" data-id="${e.id}" title="Удалить">🗑</button>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+
+  list.querySelectorAll('.entry-edit').forEach(btn => {
+    btn.addEventListener('click', () => openEditModal(btn.getAttribute('data-id')));
+  });
+  list.querySelectorAll('.entry-del').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      const target = ENTRIES.find(e => e.id === id);
+      if(target) await logChange('delete_entry', { worker: target.worker, category: target.category, part: target.part, qty: target.qty, date: target.date }, null);
+      await fbRemove(bp('entries/' + id));
+      ENTRIES = ENTRIES.filter(e => e.id !== id);
+      renderEntries(); renderUsersList(); renderMiniDashboard();
+      await refreshMyPayroll(); await refreshForecast(); refreshRepeatButton();
+      showToast('Запись удалена');
+    });
+  });
+}
+$('entry-date').addEventListener('change', renderEntries);
+
+$('btn-add').addEventListener('click', async () => {
+  const category = $('in-cat-select').value;
+  const part = $('in-part-select').value;
+  const qty = parseInt($('in-qty').value, 10);
+  if(!category){ showToast('Выберите категорию'); return; }
+  if(!part){ showToast('Выберите деталь'); return; }
+  if(!qty || qty <= 0){ showToast('Укажите количество'); return; }
+  if(qty > 100000){ showToast('Слишком большое число, проверьте'); return; }
+
+  const dateStr = $('entry-date').value || toISODate(new Date());
+  const now = new Date();
+  const entry = {
+    worker: PROFILE.fio, category, part, qty, date: dateStr,
+    time: now.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}),
+    ts: now.getTime()
+  };
+  const id = await fbPush(bp('entries'), entry);
+  if(id) ENTRIES.push({ id, ...entry });
+  await logChange('add_entry', null, { worker: PROFILE.fio, category, part, qty, date: dateStr });
+  $('in-qty').value = '';
+  renderEntries(); renderUsersList(); renderMiniDashboard();
+  await refreshMyPayroll(); await refreshForecast(); refreshRepeatButton();
+  showToast('Запись добавлена');
+});
+
+// ---------- РЕДАКТИРОВАНИЕ ----------
+let editingEntryId = null;
+function openEditModal(id){
+  const entry = ENTRIES.find(e => e.id === id);
+  if(!entry) return;
+  editingEntryId = id;
+
+  if(isOwner()){
+    $('edit-worker').innerHTML = WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+  }else{
+    $('edit-worker').innerHTML = `<option value="${escapeHtml(PROFILE.fio)}">${escapeHtml(PROFILE.fio)} (я)</option>`;
+  }
+  $('edit-worker').value = entry.worker;
+  $('edit-worker').disabled = !isOwner();
+
+  $('edit-category').innerHTML = CATEGORIES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  $('edit-category').value = entry.category;
+  refreshPartSelect($('edit-part'), entry.category);
+  $('edit-part').value = entry.part;
+  $('edit-qty').value = entry.qty;
+  $('edit-date').value = entry.date;
+
+  $('edit-modal').classList.add('open');
+}
+$('btn-edit-cancel').addEventListener('click', () => {
+  $('edit-modal').classList.remove('open');
+  editingEntryId = null;
+});
+$('btn-edit-save').addEventListener('click', async () => {
+  if(!editingEntryId) return;
+  const old = ENTRIES.find(e => e.id === editingEntryId);
+  if(!old) return;
+
+  const newWorker = $('edit-worker').value;
+  const newCategory = $('edit-category').value;
+  const newPart = $('edit-part').value;
+  const newQty = parseInt($('edit-qty').value, 10);
+  const newDate = $('edit-date').value;
+
+  if(!newQty || newQty <= 0){ showToast('Укажите количество'); return; }
+  if(!newDate){ showToast('Укажите дату'); return; }
+  if(newQty > 100000){ showToast('Слишком большое число, проверьте'); return; }
+  if(!isOwner() && newWorker !== PROFILE.fio){ showToast('Можно редактировать только свои записи'); return; }
+
+  const updated = { worker: newWorker, category: newCategory, part: newPart, qty: newQty, date: newDate, time: old.time, ts: old.ts };
+
+  await fbUpdate(bp('entries/' + editingEntryId), updated);
+  await logChange('edit_entry',
+    { worker: old.worker, category: old.category, part: old.part, qty: old.qty, date: old.date },
+    { worker: newWorker, category: newCategory, part: newPart, qty: newQty, date: newDate }
+  );
+
+  const idx = ENTRIES.findIndex(e => e.id === editingEntryId);
+  if(idx !== -1) ENTRIES[idx] = { ...ENTRIES[idx], ...updated };
+
+  $('edit-modal').classList.remove('open');
+  editingEntryId = null;
+  renderEntries(); renderUsersList(); renderMiniDashboard();
+  await refreshMyPayroll(); await refreshForecast(); refreshRepeatButton();
+  renderTeam();
+  showToast('Запись изменена');
+});
+
+// ---------- БРИГАДА ----------
+function refreshWorkerSelect(){
+  const sel = $('in-worker-select');
+  const prev = sel.value;
+  if(WORKERS.length === 0){
+    sel.innerHTML = `<option value="">Сначала добавьте работника</option>`;
+  }else{
+    sel.innerHTML = WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+    if(WORKERS.includes(prev)) sel.value = prev;
+  }
+  refreshReportWorkerSelect();
+  refreshSearchWorkerSelect();
+}
+
+function renderWorkerChips(){
+  const wrap = $('worker-chip-list');
+  wrap.innerHTML = WORKERS.length ? WORKERS.map(w => `
+    <span class="chip">${escapeHtml(w)}<button data-worker="${escapeHtml(w)}" title="Удалить">✕</button></span>
+  `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Пока нет работников</span>`;
+  wrap.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!isOwner()){ showToast('Список работников может менять только мастер бригады'); return; }
+      const w = btn.getAttribute('data-worker');
+      WORKERS = WORKERS.filter(x => x !== w);
+      await fbSet(bp('workers'), WORKERS);
+      refreshWorkerSelect();
+      renderWorkerChips();
+      showToast('Работник удалён из списка');
+    });
+  });
+}
+
+$('btn-add-worker').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Список работников может менять только мастер бригады'); return; }
+  const name = $('in-new-worker').value.trim();
+  if(!name){ showToast('Введите ФИО работника'); return; }
+  if(WORKERS.includes(name)){ showToast('Такой работник уже есть'); return; }
+  WORKERS.push(name);
+  await fbSet(bp('workers'), WORKERS);
+  $('in-new-worker').value = '';
+  refreshWorkerSelect();
+  renderWorkerChips();
+  showToast('Работник добавлен');
+});
+
+function renderTeam(){
+  const dateStr = $('team-date').value || toISODate(new Date());
+  const list = $('team-list');
+  const dayEntries = ENTRIES.filter(e => e.date === dateStr).sort((a,b)=> a.ts - b.ts);
+
+  const total = dayEntries.reduce((s,e)=> s + e.qty, 0);
+  $('team-day-total').textContent = total;
+
+  if(dayEntries.length === 0){
+    list.innerHTML = `<div class="empty-state"><div class="emoji">👥</div><div class="msg">За эту смену записей нет.</div></div>`;
+    return;
+  }
+
+  const byWorker = {};
+  dayEntries.forEach(e => { (byWorker[e.worker] = byWorker[e.worker] || []).push(e); });
+
+  list.innerHTML = '';
+  Object.keys(byWorker).forEach(worker => {
+    const items = byWorker[worker];
+    const subtotal = items.reduce((s,e)=> s + e.qty, 0);
+    const initials = worker.trim().split(/\s+/).map(p=>p[0]).slice(0,2).join('').toUpperCase();
+    const block = document.createElement('div');
+    block.className = 'worker-block';
+    block.innerHTML = `
+      <div class="worker-header">
+        <div class="worker-name"><span class="avatar">${initials}</span>${escapeHtml(worker)}</div>
+        <div class="worker-subtotal">${subtotal} шт</div>
+      </div>
+    `;
+    items.forEach(e => {
+      const canDelete = isOwner() || e.worker === PROFILE.fio;
+      const row = document.createElement('div');
+      row.className = 'entry-row';
+      row.innerHTML = `
+        <div class="entry-info">
+          <div class="entry-part">${escapeHtml(e.part)}</div>
+          <div class="entry-meta">${escapeHtml(e.category)} · ${e.time}</div>
+        </div>
+        <div class="entry-qty">${e.qty}</div>
+        ${canDelete ? `<div class="entry-actions">
+          <button class="entry-edit" data-id="${e.id}" title="Редактировать">✏️</button>
+          <button class="entry-del" data-id="${e.id}" title="Удалить">🗑</button>
+        </div>` : ''}
+      `;
+      block.appendChild(row);
+    });
+    list.appendChild(block);
+  });
+
+  list.querySelectorAll('.entry-edit').forEach(btn => {
+    btn.addEventListener('click', () => openEditModal(btn.getAttribute('data-id')));
+  });
+  list.querySelectorAll('.entry-del').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id');
+      const target = ENTRIES.find(e => e.id === id);
+      if(target && !isOwner() && target.worker !== PROFILE.fio){ showToast('Можно удалять только свои записи'); return; }
+      if(target) await logChange('delete_entry', { worker: target.worker, category: target.category, part: target.part, qty: target.qty, date: target.date }, null);
+      await fbRemove(bp('entries/' + id));
+      ENTRIES = ENTRIES.filter(e => e.id !== id);
+      renderTeam();
+      showToast('Запись удалена');
+    });
+  });
+}
+$('team-date').addEventListener('change', renderTeam);
+
+$('btn-team-add').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Записи за других работников может вносить только мастер бригады'); return; }
+  const worker = $('in-worker-select').value;
+  const category = $('team-cat-select').value;
+  const part = $('team-part-select').value;
+  const qty = parseInt($('in-team-qty').value, 10);
+  if(!worker){ showToast('Выберите работника'); return; }
+  if(!category){ showToast('Выберите категорию'); return; }
+  if(!part){ showToast('Выберите деталь'); return; }
+  if(!qty || qty <= 0){ showToast('Укажите количество'); return; }
+  if(qty > 100000){ showToast('Слишком большое число, проверьте'); return; }
+
+  const dateStr = $('team-date').value || toISODate(new Date());
+  const now = new Date();
+  const entry = {
+    worker, category, part, qty, date: dateStr,
+    time: now.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}),
+    ts: now.getTime()
+  };
+  const id = await fbPush(bp('entries'), entry);
+  if(id) ENTRIES.push({ id, ...entry });
+  await logChange('add_entry', null, { worker, category, part, qty, date: dateStr });
+  $('in-team-qty').value = '';
+  renderTeam();
+  showToast('Запись добавлена');
+});
+
+// ---------- ГРАФИК ----------
+const WEEKDAY_NAMES = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+function shiftTypeById(id){ return SHIFT_TYPES.find(t => t.id === id) || null; }
+
+async function ensureShiftTypesSeeded(){
+  if(!isOwner()) return;
+  let changed = false;
+  if(SHIFT_TYPES.length === 0){
+    SHIFT_TYPES = DEFAULT_SHIFT_TYPES.slice();
+    changed = true;
+  }else{
+    NEW_SHIFT_TYPE_IDS_TO_MERGE.forEach(id => {
+      if(!SHIFT_TYPES.some(t => t.id === id)){
+        const def = DEFAULT_SHIFT_TYPES.find(t => t.id === id);
+        if(def){ SHIFT_TYPES.push(def); changed = true; }
+      }
+    });
+  }
+  if(changed) await fbSet(bp('shiftTypes'), SHIFT_TYPES);
+}
+
+function renderShiftTypeChips(){
+  const wrap = $('shift-type-chip-list');
+  if(!wrap) return;
+  wrap.innerHTML = SHIFT_TYPES.length ? SHIFT_TYPES.map(t => `
+    <span class="chip"><span class="shift-dot" style="background:${t.color};display:inline-block;"></span>${escapeHtml(t.name)}<button data-id="${escapeHtml(t.id)}" title="Удалить">✕</button></span>
+  `).join('') : `<span style="font-size:12.5px;color:var(--text-secondary);">Нет типов смен</span>`;
+  wrap.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!isOwner()){ showToast('Типы смен может менять только мастер бригады'); return; }
+      const id = btn.getAttribute('data-id');
+      SHIFT_TYPES = SHIFT_TYPES.filter(t => t.id !== id);
+      await fbSet(bp('shiftTypes'), SHIFT_TYPES);
+      renderShiftTypeChips(); refreshRotShiftSelect(); renderCalendar();
+      showToast('Тип смены удалён');
+    });
+  });
+}
+
+$('btn-add-shift-type').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Типы смен может менять только мастер бригады'); return; }
+  const name = $('in-new-shift-name').value.trim();
+  const color = $('in-new-shift-color').value || '#3390EC';
+  if(!name){ showToast('Введите название типа смены'); return; }
+  const id = 'shift_' + Date.now().toString(36);
+  SHIFT_TYPES.push({ id, name, color });
+  await fbSet(bp('shiftTypes'), SHIFT_TYPES);
+  $('in-new-shift-name').value = '';
+  renderShiftTypeChips(); refreshRotShiftSelect();
+  showToast('Тип смены добавлен');
+});
+
+function refreshRotWorkerSelect(){
+  const sel = $('rot-worker-select');
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = WORKERS.length
+    ? WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('')
+    : `<option value="">Сначала добавьте работника</option>`;
+  if(WORKERS.includes(prev)) sel.value = prev;
+}
+function refreshRotShiftSelect(){
+  [$('rot-shift-select'), $('rot-day-shift-select'), $('rot-night-shift-select')].forEach(sel => {
+    if(!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = SHIFT_TYPES.length
+      ? SHIFT_TYPES.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join('')
+      : `<option value="">Сначала добавьте тип смены</option>`;
+    if(SHIFT_TYPES.some(t => t.id === prev)) sel.value = prev;
+  });
+  const dayType = shiftTypeById('day') || SHIFT_TYPES[0];
+  const nightType = shiftTypeById('night') || SHIFT_TYPES[1];
+  if(dayType && $('rot-day-shift-select') && !$('rot-day-shift-select').value) $('rot-day-shift-select').value = dayType.id;
+  if(nightType && $('rot-night-shift-select') && !$('rot-night-shift-select').value) $('rot-night-shift-select').value = nightType.id;
+}
+
+let rotPatternMode = 'simple';
+document.querySelectorAll('#rot-pattern-mode .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    rotPatternMode = btn.getAttribute('data-pattern');
+    document.querySelectorAll('#rot-pattern-mode .seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+    $('rot-simple-fields').style.display = (rotPatternMode === 'simple') ? 'block' : 'none';
+    $('rot-3block-fields').style.display = (rotPatternMode === 'dayoffnight') ? 'block' : 'none';
+  });
+});
+
+$('sched-month').addEventListener('change', renderCalendar);
+
+$('btn-apply-rotation').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('График может менять только мастер бригады'); return; }
+  const worker = $('rot-worker-select').value;
+  const startDateStr = $('rot-start-date').value;
+  const monthVal = $('sched-month').value || toISODate(new Date()).slice(0,7);
+  const [y, m] = monthVal.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+
+  if(!worker){ showToast('Выберите работника'); return; }
+  if(!startDateStr){ showToast('Укажите дату начала отсчёта'); return; }
+
+  const startDate = new Date(startDateStr + 'T00:00:00');
+  const offType = shiftTypeById('off');
+
+  function setDay(dateStr, shiftId){
+    SCHEDULE[dateStr] = SCHEDULE[dateStr] || {};
+    if(shiftId){ SCHEDULE[dateStr][worker] = shiftId; }
+    else{ delete SCHEDULE[dateStr][worker]; }
+    if(Object.keys(SCHEDULE[dateStr]).length === 0) delete SCHEDULE[dateStr];
+  }
+
+  if(rotPatternMode === 'simple'){
+    const shiftId = $('rot-shift-select').value;
+    const workDays = parseInt($('rot-work-days').value, 10) || 2;
+    const offDays = parseInt($('rot-off-days').value, 10) || 0;
+    if(!shiftId){ showToast('Выберите тип смены'); return; }
+
+    const cycleLen = workDays + offDays;
+    for(let d = 1; d <= daysInMonth; d++){
+      const dateObj = new Date(y, m-1, d);
+      const dateStr = toISODate(dateObj);
+      const diffDays = Math.round((dateObj - startDate) / 86400000);
+      if(diffDays < 0) continue;
+      const pos = ((diffDays % cycleLen) + cycleLen) % cycleLen;
+      setDay(dateStr, pos < workDays ? shiftId : (offType ? offType.id : null));
+    }
+  }else{
+    const dayShiftId = $('rot-day-shift-select').value;
+    const nightShiftId = $('rot-night-shift-select').value;
+    const blockDays = parseInt($('rot-block-days').value, 10) || 2;
+    if(!dayShiftId || !nightShiftId){ showToast('Выберите типы смен для дня и ночи'); return; }
+    if(!offType){ showToast('В списке типов смен нет «Выходной» — добавьте его сначала'); return; }
+
+    const cycleLen = blockDays * 4;
+    for(let d = 1; d <= daysInMonth; d++){
+      const dateObj = new Date(y, m-1, d);
+      const dateStr = toISODate(dateObj);
+      const diffDays = Math.round((dateObj - startDate) / 86400000);
+      if(diffDays < 0) continue;
+      const pos = ((diffDays % cycleLen) + cycleLen) % cycleLen;
+      let shiftId;
+      if(pos < blockDays) shiftId = dayShiftId;
+      else if(pos < blockDays*2) shiftId = offType.id;
+      else if(pos < blockDays*3) shiftId = nightShiftId;
+      else shiftId = offType.id;
+      setDay(dateStr, shiftId);
+    }
+  }
+
+  await fbSet(bp('schedule'), SCHEDULE);
+  renderCalendar();
+  await refreshForecast();
+  showToast('Месяц заполнен по шаблону');
+});
+
+function refreshCalFilterSelect(){
+  const sel = $('cal-filter-select');
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = `<option value="">Вся бригада</option>` +
+    WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+  if(prev && (prev === '' || WORKERS.includes(prev))) sel.value = prev;
+}
+$('cal-filter-select').addEventListener('change', renderCalendar);
+
+function renderCalendar(){
+  ensureShiftTypesSeeded().then(() => { renderShiftTypeChips(); refreshRotShiftSelect(); });
+  refreshCalFilterSelect();
+
+  const weekdaysEl = $('cal-weekdays');
+  if(weekdaysEl && weekdaysEl.children.length === 0){
+    weekdaysEl.innerHTML = WEEKDAY_NAMES.map(w => `<div class="cal-weekday">${w}</div>`).join('');
+  }
+
+  const monthVal = $('sched-month').value || toISODate(new Date()).slice(0,7);
+  const [y, m] = monthVal.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const firstDay = new Date(y, m-1, 1);
+  const leadOffset = (firstDay.getDay() + 6) % 7;
+  const todayStr = toISODate(new Date());
+  const filterWorker = $('cal-filter-select').value;
+  const owner = isOwner();
+
+  const grid = $('cal-grid');
+  let html = '';
+  for(let i=0; i<leadOffset; i++){ html += `<div class="cal-day empty"></div>`; }
+
+  for(let d=1; d<=daysInMonth; d++){
+    const dateObj = new Date(y, m-1, d);
+    const dateStr = toISODate(dateObj);
+    const dayShifts = SCHEDULE[dateStr] || {};
+
+    let workerIds = Object.keys(dayShifts);
+    if(filterWorker) workerIds = workerIds.filter(w => w === filterWorker);
+
+    const colors = workerIds.slice(0, 4).map(worker => {
+      const t = shiftTypeById(dayShifts[worker]);
+      return t ? t.color : '#C7C7CC';
+    });
+
+    const fillHtml = colors.length
+      ? `<div class="cal-day-fill">${colors.map(c => `<div style="background:${c};"></div>`).join('')}</div>`
+      : '';
+
+    html += `
+      <div class="cal-day${dateStr===todayStr ? ' today' : ''}${owner ? '' : ' readonly'}" data-date="${dateStr}">
+        ${fillHtml}
+        <div class="cal-day-num">${d}</div>
+      </div>`;
+  }
+  grid.innerHTML = html;
+
+  // Клик по календарю открывает редактор только у мастера.
+  // Работнику календарь доступен в режиме просмотра (свой график видит через фильтр).
+  if(owner){
+    grid.querySelectorAll('.cal-day:not(.empty)').forEach(cell => {
+      cell.addEventListener('click', () => openDayEditor(cell.getAttribute('data-date')));
+    });
+  }else{
+    // Закрываем редактор, если он был открыт и работник переключился
+    const card = $('day-editor-card');
+    if(card) card.style.display = 'none';
+  }
+}
+
+function openDayEditor(dateStr){
+  if(!isOwner()){ showToast('График может менять только мастер бригады'); return; }
+  selectedCalDate = dateStr;
+  document.querySelectorAll('.cal-day').forEach(c => c.classList.toggle('selected', c.getAttribute('data-date')===dateStr));
+
+  const card = $('day-editor-card');
+  card.style.display = 'block';
+  $('day-editor-title').textContent = formatDateRu(dateStr);
+
+  const dayShifts = SCHEDULE[dateStr] || {};
+  const rows = WORKERS.length ? WORKERS : (PROFILE ? [PROFILE.fio] : []);
+
+  $('day-editor-rows').innerHTML = rows.map(worker => {
+    const current = dayShifts[worker] || '';
+    const options = `<option value="">—</option>` + SHIFT_TYPES.map(t =>
+      `<option value="${escapeHtml(t.id)}" ${t.id===current ? 'selected' : ''}>${escapeHtml(t.name)}</option>`
+    ).join('');
+    return `
+      <div class="day-editor-row">
+        <div class="day-editor-worker">${escapeHtml(worker)}</div>
+        <select data-worker="${escapeHtml(worker)}">${options}</select>
+      </div>`;
+  }).join('') || `<div class="hint">В бригаде пока нет работников</div>`;
+
+  $('btn-save-day-schedule').style.display = 'flex';
+}
+
+$('btn-save-day-schedule').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('График может менять только мастер бригады'); return; }
+  if(!selectedCalDate) return;
+
+  const dayData = {};
+  document.querySelectorAll('#day-editor-rows select').forEach(sel => {
+    const worker = sel.getAttribute('data-worker');
+    if(sel.value) dayData[worker] = sel.value;
+  });
+
+  if(Object.keys(dayData).length > 0){ SCHEDULE[selectedCalDate] = dayData; }
+  else{ delete SCHEDULE[selectedCalDate]; }
+  await fbSet(bp('schedule'), SCHEDULE);
+  renderCalendar();
+  await refreshForecast();
+  showToast('График сохранён');
+});
+
+// ---------- ЗАРПЛАТА ----------
+function shiftMonth(monthKey, delta){
+  const base = (monthKey || toISODate(new Date()).slice(0,7)).split('-').map(Number);
+  const d = new Date(base[0], base[1] - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+function monthTitleRu(monthKey){
+  const p = monthKey.split('-').map(Number);
+  return new Date(p[0], p[1] - 1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
+}
+function qtyForMonth(worker, monthKey){
+  return ENTRIES
+    .filter(e => e.worker === worker && (e.date || '').startsWith(monthKey))
+    .reduce((s, e) => s + (Number(e.qty) || 0), 0);
+}
+function fmtMoney(n){ return (Number(n) || 0).toLocaleString('ru-RU'); }
+function fmtMoney2(n){
+  return (Number(n) || 0).toLocaleString('ru-RU', { minimumFractionDigits:2, maximumFractionDigits:2 });
+}
+function updatePayrollRowTotal(safeId){
+  const a = $('pr-adv-' + safeId);
+  const f = $('pr-fin-' + safeId);
+  const t = $('pr-total-' + safeId);
+  if(!t) return;
+  const adv = a ? (parseFloat(a.value) || 0) : 0;
+  const fin = f ? (parseFloat(f.value) || 0) : 0;
+  t.textContent = fmtMoney(adv + fin) + ' ₽';
+}
+
+$('payroll-month').addEventListener('change', renderPayroll);
+
+async function renderPayroll(){
+  const monthVal = $('payroll-month').value || toISODate(new Date()).slice(0,7);
+  PAYROLL = (await fbGet(bp('payroll/' + monthVal))) || {};
+
+  const wrap = $('payroll-list');
+  if(WORKERS.length === 0){
+    wrap.innerHTML = `<div class="empty-state"><div class="emoji">👥</div><div class="msg">В бригаде пока нет работников</div></div>`;
+    return;
+  }
+
+  wrap.innerHTML = WORKERS.map(worker => {
+    const rec = PAYROLL[worker] || {};
+    const actual = rec.actual || 0;
+    const advance = rec.advance || 0;
+    const final = rec.final || 0;
+    const total = advance + final;
+    const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
+    const qty = qtyForMonth(worker, monthVal);
+    const avgCost = (actual > 0 && qty > 0) ? actual / qty : 0;
+
+    return `
+      <div class="payroll-row">
+        <div class="payroll-worker">${escapeHtml(worker)}</div>
+
+        <div class="field" style="margin-bottom:10px;">
+          <label>Фактическая зарплата за ${escapeHtml(monthTitleRu(monthVal))}, ₽</label>
+          <input type="number" class="payroll-actual" data-worker="${escapeHtml(worker)}" id="pr-act-${safeId}" value="${actual || ''}" placeholder="0" min="0" inputmode="decimal">
+        </div>
+
+        <div class="calc-stats">
+          <div class="calc-stat"><span>Выработка за месяц</span><b>${fmtMoney(qty)} шт</b></div>
+          <div class="calc-stat"><span>Средняя стоимость изделия</span><b>${avgCost > 0 ? fmtMoney2(avgCost) + ' ₽/шт' : '—'}</b></div>
+        </div>
+
+        <div class="field-row" style="margin-top:12px;">
+          <div class="field">
+            <label>Аванс, ₽</label>
+            <input type="number" class="payroll-advance" data-worker="${escapeHtml(worker)}" id="pr-adv-${safeId}" value="${advance || ''}" placeholder="0" min="0" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label>Расчёт, ₽</label>
+            <input type="number" class="payroll-final" data-worker="${escapeHtml(worker)}" id="pr-fin-${safeId}" value="${final || ''}" placeholder="0" min="0" inputmode="decimal">
+          </div>
+        </div>
+        <div class="payroll-total">
+          <span>Итого (аванс + расчёт)</span>
+          <span class="val" id="pr-total-${safeId}">${fmtMoney(total)} ₽</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Автообновление «Итого» при вводе аванса/расчёта
+  wrap.querySelectorAll('.payroll-advance, .payroll-final').forEach(input => {
+    input.addEventListener('input', () => {
+      const safeId = input.getAttribute('data-worker').replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
+      updatePayrollRowTotal(safeId);
+    });
+  });
+}
+
+$('btn-save-payroll').addEventListener('click', async () => {
+  if(!isOwner()){ showToast('Зарплату может вносить только мастер бригады'); return; }
+  const monthVal = $('payroll-month').value || toISODate(new Date()).slice(0,7);
+
+  const updated = {};
+  WORKERS.forEach(worker => {
+    const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
+    const actInput = $('pr-act-' + safeId);
+    const advInput = $('pr-adv-' + safeId);
+    const finInput = $('pr-fin-' + safeId);
+    const actual = actInput ? (parseFloat(actInput.value) || 0) : 0;
+    const advance = advInput ? (parseFloat(advInput.value) || 0) : 0;
+    const final = finInput ? (parseFloat(finInput.value) || 0) : 0;
+    if(actual || advance || final){ updated[worker] = { actual, advance, final }; }
+  });
+
+  PAYROLL = updated;
+  await fbSet(bp('payroll/' + monthVal), PAYROLL);
+  await refreshPayrollSummary();
+  await refreshMyPayroll();
+  await refreshMyCalc();
+  await refreshForecast();
+  showToast('Зарплата сохранена');
+});
+
+function payrollRecordTotal(rec){
+  if(!rec) return 0;
+  const manual = (rec.advance || 0) + (rec.final || 0);
+  return manual || (rec.actual || 0);
+}
+
+async function refreshPayrollSummary(){
+  const bar = $('payroll-summary-bar');
+  const valEl = $('payroll-summary-val');
+  if(!bar || !valEl || !isOwner()) return;
+
+  const monthVal = toISODate(new Date()).slice(0,7);
+  const data = (await fbGet(bp('payroll/' + monthVal))) || {};
+  const total = Object.values(data).reduce((s, r) => s + payrollRecordTotal(r), 0);
+  valEl.textContent = fmtMoney(total) + ' ₽';
+}
+
+// Личная зарплата на вкладке «Ввод»: фактическая за текущий месяц, если внесена,
+// иначе — прогноз (средняя стоимость × прогноз выработки).
+async function refreshMyPayroll(){
+  const valEl = $('my-payroll-val');
+  const hintEl = $('my-payroll-hint');
+  if(!valEl || !PROFILE) return;
+
+  const currentMonth = toISODate(new Date()).slice(0,7);
+  const data = (await fbGet(bp('payroll/' + currentMonth))) || {};
+  const rec = data[PROFILE.fio] || {};
+  const actual = Number(rec.actual) || 0;
+
+  if(actual > 0){
+    valEl.textContent = fmtMoney(actual) + ' ₽';
+    if(hintEl){
+      hintEl.textContent = 'Фактическая зарплата за текущий месяц';
+      hintEl.style.display = '';
+    }
+    return;
+  }
+
+  const f = await computeForecast();
+  if(!f || f.avgCost <= 0){
+    valEl.textContent = '—';
+    if(hintEl){
+      hintEl.textContent = 'Внесите зарплату за прошлые месяцы на вкладке «Зарплата»';
+      hintEl.style.display = '';
+    }
+    return;
+  }
+
+  valEl.textContent = fmtMoney(f.forecastSalary) + ' ₽';
+  if(hintEl){
+    hintEl.textContent = `Прогноз к концу месяца · на текущий момент: ${fmtMoney(f.currentSalary)} ₽`;
+    hintEl.style.display = '';
+  }
+}
+
+// ---------- «МОЯ ЗАРПЛАТА ПО МЕСЯЦАМ» на вкладке Зарплата ----------
+async function renderMySalaryHistory(){
+  const wrap = $('my-salary-history');
+  if(!wrap || !PROFILE) return;
+
+  const payrollAll = (await fbGet(bp('payroll'))) || {};
+  const currentMonth = toISODate(new Date()).slice(0,7);
+
+  const months = new Set();
+  ENTRIES.filter(e => e.worker === PROFILE.fio).forEach(e => { if(e.date) months.add(e.date.slice(0,7)); });
+  Object.keys(payrollAll).forEach(m => { if(payrollAll[m] && payrollAll[m][PROFILE.fio]) months.add(m); });
+  months.add(currentMonth);
+
+  const sorted = [...months].sort().reverse().slice(0, 12);
+
+  if(sorted.length === 0){
+    wrap.innerHTML = '<div class="hint">Пока нет данных</div>';
+    return;
+  }
+
+  wrap.innerHTML = sorted.map(m => {
+    const qty = qtyForMonth(PROFILE.fio, m);
+    const rec = (payrollAll[m] || {})[PROFILE.fio] || {};
+    const actual = Number(rec.actual) || 0;
+    const isCurrent = m === currentMonth;
+    const avgCost = (actual > 0 && qty > 0) ? actual / qty : 0;
+    const label = monthTitleRu(m);
+
+    let meta;
+    if(isCurrent){
+      meta = `${fmtMoney(qty)} шт · текущий месяц`;
+    }else if(actual > 0){
+      meta = `${fmtMoney(qty)} шт · ${fmtMoney(actual)} ₽`;
+    }else{
+      meta = `${fmtMoney(qty)} шт · <span class="warn">зарплата не внесена</span>`;
+    }
+
+    return `
+      <div class="month-history-row${isCurrent ? ' current' : ''}">
+        <div style="min-width:0; flex:1;">
+          <div class="mh-month">${escapeHtml(label)}</div>
+          <div class="mh-meta">${meta}</div>
+        </div>
+        ${avgCost > 0 ? `<div class="mh-cost">${fmtMoney2(avgCost)} ₽/шт</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+async function refreshMyCalc(){
+  if(!PROFILE) return;
+
+  const monthInput = $('my-salary-month');
+  const actualInput = $('my-salary-actual');
+  const monthInfoEl = $('my-salary-month-info');
+  const avgCostEl = $('my-avg-cost');
+  const forecastEl = $('my-calc-salary');
+
+  // По умолчанию — прошлый месяц
+  if(monthInput && !monthInput.value){
+    monthInput.value = shiftMonth(toISODate(new Date()).slice(0,7), -1);
+  }
+
+  // Подставляем сохранённую фактическую зарплату за выбранный месяц
+  if(monthInput && actualInput){
+    const m = monthInput.value;
+    const data = (await fbGet(bp('payroll/' + m))) || {};
+    const rec = data[PROFILE.fio] || {};
+    if(document.activeElement !== actualInput){
+      actualInput.value = rec.actual || '';
+    }
+    if(monthInfoEl){
+      const qty = qtyForMonth(PROFILE.fio, m);
+      monthInfoEl.innerHTML = `<div class="calc-stat"><span>Выработка за ${escapeHtml(monthTitleRu(m))}</span><b>${fmtMoney(qty)} шт</b></div>`;
+    }
+  }
+
+  await renderMySalaryHistory();
+
+  // Средняя стоимость и прогноз
+  const payrollAll = (await fbGet(bp('payroll'))) || {};
+  const stats = getMyClosedMonthsStats(payrollAll);
+
+  if(avgCostEl){
+    avgCostEl.textContent = stats.avgCost > 0
+      ? `${fmtMoney2(stats.avgCost)} ₽/шт`
+      : '—';
+  }
+
+  if(forecastEl){
+    if(stats.avgCost <= 0){
+      forecastEl.textContent = '—';
+    }else{
+      const f = await computeForecast();
+      forecastEl.textContent = (f && f.avgCost > 0)
+        ? fmtMoney(f.forecastSalary) + ' ₽'
+        : '—';
+    }
+  }
+}
+
+// Обработчики на новый блок «Моя зарплата по месяцам»
+const mySalaryMonthEl = $('my-salary-month');
+if(mySalaryMonthEl){
+  mySalaryMonthEl.addEventListener('change', refreshMyCalc);
+}
+
+const mySalaryActualEl = $('my-salary-actual');
+if(mySalaryActualEl){
+  mySalaryActualEl.addEventListener('input', () => {
+    if(!PROFILE) return;
+    const m = $('my-salary-month').value;
+    if(!m) return;
+    const infoEl = $('my-salary-month-info');
+    if(infoEl){
+      const qty = qtyForMonth(PROFILE.fio, m);
+      infoEl.innerHTML = `<div class="calc-stat"><span>Выработка за ${escapeHtml(monthTitleRu(m))}</span><b>${fmtMoney(qty)} шт</b></div>`;
+    }
+  });
+}
+
+const btnSaveMySalary = $('btn-save-my-salary');
+if(btnSaveMySalary){
+  btnSaveMySalary.addEventListener('click', async () => {
+    if(!PROFILE) return;
+    const m = $('my-salary-month').value;
+    const actual = parseFloat($('my-salary-actual').value) || 0;
+    if(!m){ showToast('Выберите месяц'); return; }
+
+    const ok = await fbUpdate(bp('payroll/' + m + '/' + PROFILE.fio), { actual });
+    if(ok){
+      await logChange('set_actual_salary', null, { month: m, worker: PROFILE.fio, actual });
+      showToast('Зарплата за ' + monthTitleRu(m) + ' сохранена');
+    }else{
+      showToast('Не удалось сохранить');
+    }
+    await refreshMyCalc();
+    await refreshMyPayroll();
+    await refreshForecast();
+  });
+}
+
+// ---------- ОТЧЁТ ----------
+let REPORT_MODE = 'brigade';
+const REPORT_BTN_LABELS = {
+  brigade: 'Сформировать выписку для мастера',
+  day: 'Сформировать мою выписку за день',
+  month: 'Сформировать мою выписку за месяц',
+  worker: 'Сформировать выписку по работнику',
+  naryad: 'Сформировать бланк для печати'
+};
+
+function refreshReportWorkerSelect(){
+  const sel = $('rep-worker-select');
+  if(!sel) return;
+  const prev = sel.value;
+  if(WORKERS.length === 0){
+    sel.innerHTML = `<option value="">Сначала добавьте работника во вкладке «Бригада»</option>`;
+  }else{
+    sel.innerHTML = WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+    if(WORKERS.includes(prev)) sel.value = prev;
+  }
+}
+function refreshNaryadWorkerSelect(){
+  const sel = $('rep-worker-select');
+  if(!sel) return;
+  if(isOwner()){ refreshReportWorkerSelect(); }
+  else{ sel.innerHTML = `<option value="${escapeHtml(PROFILE.fio)}">${escapeHtml(PROFILE.fio)} (я)</option>`; }
+}
+
+document.querySelectorAll('#report-mode .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    REPORT_MODE = btn.getAttribute('data-mode');
+    document.querySelectorAll('#report-mode .seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+    $('rep-date-field').style.display = (REPORT_MODE === 'brigade' || REPORT_MODE === 'day') ? 'block' : 'none';
+    $('rep-month-field').style.display = (REPORT_MODE === 'month' || REPORT_MODE === 'worker' || REPORT_MODE === 'naryad') ? 'block' : 'none';
+    $('rep-worker-field').style.display = (REPORT_MODE === 'worker' || REPORT_MODE === 'naryad') ? 'block' : 'none';
+    if(REPORT_MODE === 'worker') refreshReportWorkerSelect();
+    if(REPORT_MODE === 'naryad') refreshNaryadWorkerSelect();
+    $('btn-build-report').textContent = REPORT_BTN_LABELS[REPORT_MODE];
+    $('report-output').innerHTML = '';
+  });
+});
+
+$('btn-build-report').addEventListener('click', async () => {
+  if(!isOwner() && (REPORT_MODE === 'brigade' || REPORT_MODE === 'worker')){
+    showToast('Этот отчёт доступен только мастеру бригады');
+    return;
+  }
+  await refreshBrigadeData();
+  if(REPORT_MODE === 'brigade'){
+    buildBrigadeReport($('rep-date').value || toISODate(new Date()));
+  }else if(REPORT_MODE === 'day'){
+    const d = $('rep-date').value || toISODate(new Date());
+    buildPersonalReport(d, d, formatDateRu(d), false);
+  }else if(REPORT_MODE === 'month'){
+    const monthVal = $('rep-month').value || toISODate(new Date()).slice(0,7);
+    const [y,m] = monthVal.split('-').map(Number);
+    const from = `${monthVal}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${monthVal}-${String(lastDay).padStart(2,'0')}`;
+    const monthLabel = new Date(y, m-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
+    buildPersonalReport(from, to, monthLabel, true);
+  }else if(REPORT_MODE === 'worker'){
+    const worker = $('rep-worker-select').value;
+    if(!worker){ showToast('Выберите работника'); return; }
+    const monthVal = $('rep-month').value || toISODate(new Date()).slice(0,7);
+    const [y,m] = monthVal.split('-').map(Number);
+    const from = `${monthVal}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${monthVal}-${String(lastDay).padStart(2,'0')}`;
+    const monthLabel = new Date(y, m-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
+    buildWorkerReport(worker, from, to, monthLabel);
+  }else{
+    const worker = isOwner() ? $('rep-worker-select').value : PROFILE.fio;
+    if(!worker){ showToast('Выберите работника'); return; }
+    const monthVal = $('rep-month').value || toISODate(new Date()).slice(0,7);
+    buildNaryadBlank(worker, monthVal);
+  }
+});
+
+function buildBrigadeReport(dateStr){
+  const combined = ENTRIES.filter(e => e.date === dateStr && !EXCLUDED_CATEGORIES.includes(e.category));
+  const byKey = {};
+  combined.forEach(e => {
+    const key = e.category + '||' + e.part;
+    if(!byKey[key]) byKey[key] = { category: e.category, part: e.part, qty: 0 };
+    byKey[key].qty += e.qty;
+  });
+  const byCategory = {};
+  Object.values(byKey).forEach(row => { (byCategory[row.category] = byCategory[row.category] || []).push(row); });
+  const categories = Object.keys(byCategory).sort((a,b)=> a.localeCompare(b,'ru'));
+  const total = Object.values(byKey).reduce((s,r)=> s + r.qty, 0);
+
+  let rowsHtml = '';
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    rowsHtml += `<tr class="cat-row"><td>${escapeHtml(cat)}</td><td style="text-align:right;">${catTotal} шт</td></tr>`;
+    byCategory[cat].sort((a,b)=> b.qty - a.qty).forEach(r => {
+      rowsHtml += `<tr><td>${escapeHtml(r.part)}</td><td class="qty">${r.qty}</td></tr>`;
+    });
+  });
+  if(categories.length === 0){
+    rowsHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за эту дату</td></tr>`;
+  }
+
+  $('report-output').innerHTML = `
+    <div class="report-doc" id="report-doc">
+      <h2>Выписка по цеху</h2>
+      <div class="report-meta">Сформировано: ${new Date().toLocaleDateString('ru-RU')}</div>
+      <div class="report-field"><span>Завод / цех</span><span>${escapeHtml(PROFILE.factory)}</span></div>
+      <div class="report-field"><span>Дата</span><span>${formatDateRu(dateStr)}</span></div>
+      <table class="report-table">
+        <thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="report-total"><span>Итого по бригаде, шт</span><span class="val">${total}</span></div>
+    </div>
+  `;
+
+  if(categories.length > 0){
+    const actions = document.createElement('div');
+    actions.className = 'report-actions';
+    actions.innerHTML = `
+      <button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button>
+      <button class="btn btn-primary" id="btn-print">🖨 Печать / PDF</button>
+      <button class="btn btn-whatsapp" id="btn-report-whatsapp">📤 WhatsApp</button>
+      <button class="btn btn-telegram" id="btn-report-telegram">✈️ Telegram</button>
+      <button class="btn btn-vk" id="btn-report-vk">VK</button>
+    `;
+    $('report-output').appendChild(actions);
+
+    const buildShareText = () => {
+      let text = `📋 Выписка по цеху\n`;
+      text += `Завод/цех: ${PROFILE.factory}\n`;
+      text += `Дата: ${formatDateRu(dateStr)}\n\n`;
+      categories.forEach(cat => {
+        const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+        text += `🔧 ${cat} — ${catTotal} шт\n`;
+        byCategory[cat].forEach(r => { text += `   • ${r.part}: ${r.qty} шт\n`; });
+        text += `\n`;
+      });
+      text += `———————————————\n`;
+      text += `Итого по бригаде: ${total} шт`;
+      return text;
+    };
+
+    $('btn-print').addEventListener('click', () => { setPrintOrientation(false); window.print(); });
+    $('btn-download-file').addEventListener('click', () => downloadBrigadeReport(byCategory, categories, total, dateStr));
+    $('btn-report-whatsapp').addEventListener('click', () => shareToWhatsApp(buildShareText()));
+    $('btn-report-telegram').addEventListener('click', () => shareToTelegram(buildShareText()));
+    $('btn-report-vk').addEventListener('click', () => shareToVK(buildShareText()));
+  }
+}
+
+function downloadBrigadeReport(byCategory, categories, total, dateStr){
+  let text = 'ВЫПИСКА ПО ЦЕХУ\r\n';
+  text += `Сформировано: ${new Date().toLocaleDateString('ru-RU')}\r\n`;
+  text += `Завод/цех: ${PROFILE.factory}\r\n`;
+  text += `Дата: ${formatDateRu(dateStr)}\r\n`;
+  text += '----------------------------------------\r\n';
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    text += `\r\n${cat.toUpperCase()} — Итого: ${catTotal} шт\r\n`;
+    byCategory[cat].forEach(r => { text += `  ${r.part}\t${r.qty}\r\n`; });
+  });
+  text += '\r\n----------------------------------------\r\n';
+  text += `ИТОГО ПО БРИГАДЕ: ${total} шт.\r\n`;
+
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Выписка_${PROFILE.factory.replace(/[\s«»]+/g,'_')}_${dateStr}.txt`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Файл скачан');
+}
+
+function buildPersonalReport(fromDate, toDate, periodLabel, showDailyBreakdown){
+  const own = ENTRIES.filter(e => e.worker === PROFILE.fio && e.date >= fromDate && e.date <= toDate);
+  const byKey = {};
+  own.forEach(e => {
+    const key = e.category + '||' + e.part;
+    if(!byKey[key]) byKey[key] = { category: e.category, part: e.part, qty: 0 };
+    byKey[key].qty += e.qty;
+  });
+  const byCategory = {};
+  Object.values(byKey).forEach(row => { (byCategory[row.category] = byCategory[row.category] || []).push(row); });
+  const categories = Object.keys(byCategory).sort((a,b)=> a.localeCompare(b,'ru'));
+  const total = Object.values(byKey).reduce((s,r)=> s + r.qty, 0);
+
+  const byDate = {};
+  own.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
+  const workDates = Object.keys(byDate).sort();
+
+  let dailyHtml = '';
+  if(showDailyBreakdown){
+    workDates.forEach(date => {
+      const items = byDate[date].sort((a,b)=> a.ts - b.ts);
+      const dayTotal = items.reduce((s,e)=> s + e.qty, 0);
+      dailyHtml += `<tr class="cat-row"><td>${formatDateRu(date)}</td><td style="text-align:right;">${dayTotal} шт</td></tr>`;
+      items.forEach(e => {
+        dailyHtml += `<tr><td>${escapeHtml(e.category)} — ${escapeHtml(e.part)}</td><td class="qty">${e.qty}</td></tr>`;
+      });
+    });
+    if(workDates.length === 0){
+      dailyHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
+    }
+  }
+
+  let rowsHtml = '';
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    rowsHtml += `<tr class="cat-row"><td>${escapeHtml(cat)}</td><td style="text-align:right;">${catTotal} шт</td></tr>`;
+    byCategory[cat].sort((a,b)=> b.qty - a.qty).forEach(r => {
+      rowsHtml += `<tr><td>${escapeHtml(r.part)}</td><td class="qty">${r.qty}</td></tr>`;
+    });
+  });
+  if(categories.length === 0){
+    rowsHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
+  }
+
+  const dailySectionHtml = showDailyBreakdown ? `
+      <div class="report-section-title">Разбивка по сменам</div>
+      <table class="report-table">
+        <thead><tr><th>Дата / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
+        <tbody>${dailyHtml}</tbody>
+      </table>
+      <div class="report-section-title" style="margin-top:18px;">Итого по категориям за период</div>
+  ` : '';
+
+  $('report-output').innerHTML = `
+    <div class="report-doc" id="report-doc">
+      <h2>Моя выписка о выполненных работах</h2>
+      <div class="report-meta">Сформировано: ${new Date().toLocaleDateString('ru-RU')}</div>
+      <div class="report-field"><span>Ф.И.О.</span><span>${escapeHtml(PROFILE.fio)}</span></div>
+      <div class="report-field"><span>Завод / цех</span><span>${escapeHtml(PROFILE.factory)}</span></div>
+      <div class="report-field"><span>Период</span><span>${periodLabel}</span></div>
+      ${dailySectionHtml}
+      <table class="report-table">
+        <thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="report-total"><span>Итого изготовлено, шт</span><span class="val">${total}</span></div>
+    </div>
+  `;
+
+  if(categories.length > 0){
+    const actions = document.createElement('div');
+    actions.className = 'report-actions';
+    actions.innerHTML = `
+      <button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button>
+      <button class="btn btn-primary" id="btn-print">🖨 Печать / PDF</button>
+      <button class="btn btn-whatsapp" id="btn-report-whatsapp">📤 WhatsApp</button>
+      <button class="btn btn-telegram" id="btn-report-telegram">✈️ Telegram</button>
+      <button class="btn btn-vk" id="btn-report-vk">VK</button>
+    `;
+    $('report-output').appendChild(actions);
+
+    const buildShareText = () => {
+      let text = `📄 Моя выписка о выполненных работах\n`;
+      text += `Ф.И.О.: ${PROFILE.fio}\n`;
+      text += `Завод/цех: ${PROFILE.factory}\n`;
+      text += `Период: ${periodLabel}\n\n`;
+      if(showDailyBreakdown){
+        text += `— Разбивка по сменам —\n\n`;
+        workDates.forEach(date => {
+          const items = byDate[date].sort((a,b)=> a.ts - b.ts);
+          const dayTotal = items.reduce((s,e)=> s + e.qty, 0);
+          text += `📅 ${formatDateRu(date)} — ${dayTotal} шт\n`;
+          items.forEach(e => { text += `   • ${e.category} — ${e.part}: ${e.qty} шт\n`; });
+          text += `\n`;
+        });
+        text += `— Итого по категориям —\n\n`;
+      }
+      categories.forEach(cat => {
+        const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+        text += `🔧 ${cat} — ${catTotal} шт\n`;
+        byCategory[cat].forEach(r => { text += `   • ${r.part}: ${r.qty} шт\n`; });
+        text += `\n`;
+      });
+      text += `———————————————\n`;
+      text += `Итого: ${total} шт`;
+      return text;
+    };
+
+    $('btn-print').addEventListener('click', () => { setPrintOrientation(false); window.print(); });
+    $('btn-download-file').addEventListener('click', () => downloadPersonalReport(byCategory, categories, total, periodLabel, byDate, workDates, showDailyBreakdown));
+    $('btn-report-whatsapp').addEventListener('click', () => shareToWhatsApp(buildShareText()));
+    $('btn-report-telegram').addEventListener('click', () => shareToTelegram(buildShareText()));
+    $('btn-report-vk').addEventListener('click', () => shareToVK(buildShareText()));
+  }
+}
+
+function downloadPersonalReport(byCategory, categories, total, periodLabel, byDate, workDates, showDailyBreakdown){
+  let text = 'МОЯ ВЫПИСКА О ВЫПОЛНЕННЫХ РАБОТАХ\r\n';
+  text += `Сформировано: ${new Date().toLocaleDateString('ru-RU')}\r\n`;
+  text += `Ф.И.О.: ${PROFILE.fio}\r\n`;
+  text += `Завод/цех: ${PROFILE.factory}\r\n`;
+  text += `Период: ${periodLabel}\r\n`;
+  text += '----------------------------------------\r\n';
+  if(showDailyBreakdown){
+    text += '\r\nРАЗБИВКА ПО СМЕНАМ\r\n';
+    workDates.forEach(date => {
+      const items = byDate[date].sort((a,b)=> a.ts - b.ts);
+      const dayTotal = items.reduce((s,e)=> s + e.qty, 0);
+      text += `\r\n${formatDateRu(date)} — Итого: ${dayTotal} шт\r\n`;
+      items.forEach(e => { text += `  ${e.category} — ${e.part}\t${e.qty}\r\n`; });
+    });
+    text += '\r\n----------------------------------------\r\n';
+    text += 'ИТОГО ПО КАТЕГОРИЯМ ЗА ПЕРИОД\r\n';
+  }
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    text += `\r\n${cat.toUpperCase()} — Итого: ${catTotal} шт\r\n`;
+    byCategory[cat].forEach(r => { text += `  ${r.part}\t${r.qty}\r\n`; });
+  });
+  text += '\r\n----------------------------------------\r\n';
+  text += `ИТОГО: ${total} шт.\r\n`;
+
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Моя_выписка_${PROFILE.fio.replace(/\s+/g,'_')}_${periodLabel.replace(/\s+/g,'_')}.txt`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Файл скачан');
+}
+
+function buildWorkerReport(worker, fromDate, toDate, periodLabel){
+  const items = ENTRIES.filter(e => e.worker === worker && e.date >= fromDate && e.date <= toDate);
+  const byKey = {};
+  items.forEach(e => {
+    const key = e.category + '||' + e.part;
+    if(!byKey[key]) byKey[key] = { category: e.category, part: e.part, qty: 0 };
+    byKey[key].qty += e.qty;
+  });
+  const byCategory = {};
+  Object.values(byKey).forEach(row => { (byCategory[row.category] = byCategory[row.category] || []).push(row); });
+  const categories = Object.keys(byCategory).sort((a,b)=> a.localeCompare(b,'ru'));
+  const total = Object.values(byKey).reduce((s,r)=> s + r.qty, 0);
+
+  const byDate = {};
+  items.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
+  const workDates = Object.keys(byDate).sort();
+
+  let dailyHtml = '';
+  workDates.forEach(date => {
+    const dayItems = byDate[date].sort((a,b)=> a.ts - b.ts);
+    const dayTotal = dayItems.reduce((s,e)=> s + e.qty, 0);
+    dailyHtml += `<tr class="cat-row"><td>${formatDateRu(date)}</td><td style="text-align:right;">${dayTotal} шт</td></tr>`;
+    dayItems.forEach(e => {
+      dailyHtml += `<tr><td>${escapeHtml(e.category)} — ${escapeHtml(e.part)}</td><td class="qty">${e.qty}</td></tr>`;
+    });
+  });
+  if(workDates.length === 0){
+    dailyHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
+  }
+
+  let rowsHtml = '';
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    rowsHtml += `<tr class="cat-row"><td>${escapeHtml(cat)}</td><td style="text-align:right;">${catTotal} шт</td></tr>`;
+    byCategory[cat].sort((a,b)=> b.qty - a.qty).forEach(r => {
+      rowsHtml += `<tr><td>${escapeHtml(r.part)}</td><td class="qty">${r.qty}</td></tr>`;
+    });
+  });
+  if(categories.length === 0){
+    rowsHtml = `<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей за этот период</td></tr>`;
+  }
+
+  $('report-output').innerHTML = `
+    <div class="report-doc" id="report-doc">
+      <h2>Выписка по работнику</h2>
+      <div class="report-meta">Сформировано: ${new Date().toLocaleDateString('ru-RU')}</div>
+      <div class="report-field"><span>Работник</span><span>${escapeHtml(worker)}</span></div>
+      <div class="report-field"><span>Завод / цех</span><span>${escapeHtml(PROFILE.factory)}</span></div>
+      <div class="report-field"><span>Период</span><span>${periodLabel}</span></div>
+      <div class="report-section-title">Разбивка по сменам</div>
+      <table class="report-table">
+        <thead><tr><th>Дата / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
+        <tbody>${dailyHtml}</tbody>
+      </table>
+      <div class="report-section-title" style="margin-top:18px;">Итого по категориям за период</div>
+      <table class="report-table">
+        <thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="report-total"><span>Итого изготовлено, шт</span><span class="val">${total}</span></div>
+    </div>
+  `;
+
+  if(categories.length > 0){
+    const actions = document.createElement('div');
+    actions.className = 'report-actions';
+    actions.innerHTML = `
+      <button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button>
+      <button class="btn btn-primary" id="btn-print">🖨 Печать / PDF</button>
+      <button class="btn btn-whatsapp" id="btn-report-whatsapp">📤 WhatsApp</button>
+      <button class="btn btn-telegram" id="btn-report-telegram">✈️ Telegram</button>
+      <button class="btn btn-vk" id="btn-report-vk">VK</button>
+    `;
+    $('report-output').appendChild(actions);
+
+    const buildShareText = () => {
+      let text = `📄 Выписка по работнику\n`;
+      text += `Работник: ${worker}\n`;
+      text += `Завод/цех: ${PROFILE.factory}\n`;
+      text += `Период: ${periodLabel}\n\n`;
+      text += `— Разбивка по сменам —\n\n`;
+      workDates.forEach(date => {
+        const dayItems = byDate[date].sort((a,b)=> a.ts - b.ts);
+        const dayTotal = dayItems.reduce((s,e)=> s + e.qty, 0);
+        text += `📅 ${formatDateRu(date)} — ${dayTotal} шт\n`;
+        dayItems.forEach(e => { text += `   • ${e.category} — ${e.part}: ${e.qty} шт\n`; });
+        text += `\n`;
+      });
+      text += `— Итого по категориям —\n\n`;
+      categories.forEach(cat => {
+        const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+        text += `🔧 ${cat} — ${catTotal} шт\n`;
+        byCategory[cat].forEach(r => { text += `   • ${r.part}: ${r.qty} шт\n`; });
+        text += `\n`;
+      });
+      text += `———————————————\n`;
+      text += `Итого: ${total} шт`;
+      return text;
+    };
+
+    $('btn-print').addEventListener('click', () => { setPrintOrientation(false); window.print(); });
+    $('btn-download-file').addEventListener('click', () => downloadWorkerReport(worker, byCategory, categories, total, periodLabel, byDate, workDates));
+    $('btn-report-whatsapp').addEventListener('click', () => shareToWhatsApp(buildShareText()));
+    $('btn-report-telegram').addEventListener('click', () => shareToTelegram(buildShareText()));
+    $('btn-report-vk').addEventListener('click', () => shareToVK(buildShareText()));
+  }
+}
+
+function downloadWorkerReport(worker, byCategory, categories, total, periodLabel, byDate, workDates){
+  let text = 'ВЫПИСКА ПО РАБОТНИКУ\r\n';
+  text += `Сформировано: ${new Date().toLocaleDateString('ru-RU')}\r\n`;
+  text += `Работник: ${worker}\r\n`;
+  text += `Завод/цех: ${PROFILE.factory}\r\n`;
+  text += `Период: ${periodLabel}\r\n`;
+  text += '----------------------------------------\r\n';
+  text += '\r\nРАЗБИВКА ПО СМЕНАМ\r\n';
+  workDates.forEach(date => {
+    const dayItems = byDate[date].sort((a,b)=> a.ts - b.ts);
+    const dayTotal = dayItems.reduce((s,e)=> s + e.qty, 0);
+    text += `\r\n${formatDateRu(date)} — Итого: ${dayTotal} шт\r\n`;
+    dayItems.forEach(e => { text += `  ${e.category} — ${e.part}\t${e.qty}\r\n`; });
+  });
+  text += '\r\n----------------------------------------\r\n';
+  text += 'ИТОГО ПО КАТЕГОРИЯМ ЗА ПЕРИОД\r\n';
+  categories.forEach(cat => {
+    const catTotal = byCategory[cat].reduce((s,r)=> s + r.qty, 0);
+    text += `\r\n${cat.toUpperCase()} — Итого: ${catTotal} шт\r\n`;
+    byCategory[cat].forEach(r => { text += `  ${r.part}\t${r.qty}\r\n`; });
+  });
+  text += '\r\n----------------------------------------\r\n';
+  text += `ИТОГО: ${total} шт.\r\n`;
+
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Выписка_${worker.replace(/\s+/g,'_')}_${periodLabel.replace(/\s+/g,'_')}.txt`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Файл скачан');
+}
+
+// ---------- PDF / Telegram ----------
+function setPrintOrientation(landscape){
+  let style = document.getElementById('dynamic-page-style');
+  if(!style){
+    style = document.createElement('style');
+    style.id = 'dynamic-page-style';
+    document.head.appendChild(style);
+  }
+  style.textContent = landscape ? '@page{ size: landscape; margin: 10mm; }' : '';
+}
+
+function buildNaryadBlank(worker, monthVal){
+  const [y, m] = monthVal.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const monthLabel = new Date(y, m-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
+
+  const todayStr = toISODate(new Date());
+  const currentMonthStr = todayStr.slice(0,7);
+  let cutoffDay;
+  if(monthVal === currentMonthStr) cutoffDay = parseInt(todayStr.split('-')[2], 10);
+  else if(monthVal < currentMonthStr) cutoffDay = daysInMonth;
+  else cutoffDay = 0;
+
+  const items = ENTRIES.filter(e => e.worker === worker && e.date.startsWith(monthVal));
+  const byPart = {};
+  items.forEach(e => {
+    const label = `${e.category} ${e.part}`.trim();
+    if(!byPart[label]) byPart[label] = {};
+    const day = parseInt(e.date.split('-')[2], 10);
+    byPart[label][day] = (byPart[label][day] || 0) + e.qty;
+  });
+  const usedParts = Object.keys(byPart).sort((a,b)=> a.localeCompare(b,'ru'));
+  const totalRows = Math.max(usedParts.length + 8, 16);
+  const blankRowsCount = totalRows - usedParts.length;
+
+  let headRow = '<tr><th style="min-width:150px;">Наименование детали</th>';
+  for(let d=1; d<=daysInMonth; d++){ headRow += `<th class="${d>cutoffDay ? 'naryad-future' : ''}">${d}</th>`; }
+  headRow += '<th>Итого</th></tr>';
+
+  let bodyRows = '';
+  const dayTotals = Array(daysInMonth+1).fill(0);
+  usedParts.forEach(part => {
+    let rowTotal = 0;
+    let cells = '';
+    for(let d=1; d<=daysInMonth; d++){
+      const qty = (byPart[part][d]) || 0;
+      if(qty){ dayTotals[d] += qty; rowTotal += qty; }
+      cells += `<td class="${d>cutoffDay ? 'naryad-future' : ''}">${qty || ''}</td>`;
+    }
+    bodyRows += `<tr><td class="naryad-name">${escapeHtml(part)}</td>${cells}<td class="naryad-total">${rowTotal}</td></tr>`;
+  });
+  for(let i=0; i<blankRowsCount; i++){
+    let cells = '';
+    for(let d=1; d<=daysInMonth; d++){ cells += `<td class="${d>cutoffDay ? 'naryad-future' : ''}"></td>`; }
+    bodyRows += `<tr><td class="naryad-name">&nbsp;</td>${cells}<td></td></tr>`;
+  }
+
+  let sumCells = '<td>Итого за день</td>';
+  let grandTotal = 0;
+  for(let d=1; d<=daysInMonth; d++){
+    grandTotal += dayTotals[d];
+    sumCells += `<td class="${d>cutoffDay ? 'naryad-future' : ''}">${dayTotals[d] || ''}</td>`;
+  }
+  sumCells += `<td class="naryad-total">${grandTotal}</td>`;
+
+  $('report-output').innerHTML = `
+    <div class="naryad-doc" id="naryad-doc">
+      <div class="naryad-head">
+        <h2>Наряд на сдельную работу</h2>
+        <div class="row"><span>Ф.И.О.</span><span>${escapeHtml(worker)}</span></div>
+        <div class="row"><span>Завод / цех</span><span>${escapeHtml(PROFILE.factory)}</span></div>
+        <div class="row"><span>Месяц</span><span>${monthLabel}</span></div>
+        <div class="row"><span>Сформировано</span><span>${new Date().toLocaleDateString('ru-RU')}${cutoffDay < daysInMonth ? ` — данные по ${cutoffDay || '0'}-е число, дальше пустые клетки под оставшиеся смены` : ''}</span></div>
+      </div>
+      <div class="naryad-scroll">
+        <table class="naryad-table">
+          <thead>${headRow}</thead>
+          <tbody>
+            ${bodyRows}
+            <tr class="naryad-sum-row">${sumCells}</tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="naryad-sign">
+        <div>Подпись работника</div>
+        <div>Подпись мастера</div>
+      </div>
+    </div>
+  `;
+
+  const actions = document.createElement('div');
+  actions.className = 'report-actions';
+  actions.innerHTML = `<button class="btn btn-primary" id="btn-print-naryad">📄 Скачать PDF</button>`;
+  $('report-output').appendChild(actions);
+  $('btn-print-naryad').addEventListener('click', async () => {
+    try{
+      await downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount });
+    }catch(e){
+      console.error('Ошибка формирования PDF:', e);
+      showToast('Ошибка: ' + (e && e.message ? e.message : 'не удалось сформировать PDF'));
+    }
+  });
+}
+
+async function sendPdfViaBot(blob, fileName){
+  if(!PROFILE) return { ok: false, reason: 'Профиль не загружен' };
+  if(!CLOUDFLARE_WORKER_URL || CLOUDFLARE_WORKER_URL.includes('YOUR-WORKER-NAME')){
+    return { ok: false, reason: 'Адрес Cloudflare Worker не настроен в коде' };
+  }
+  const key = PROFILE.fio.replace(/[.#$\[\]]/g, '_');
+  const chatId = await fbGet(bp('telegramIds/' + key));
+  if(!chatId){
+    return { ok: false, reason: 'Нет сохранённого Telegram ID — откройте приложение через настоящий Telegram и повторите' };
+  }
+
+  const form = new FormData();
+  form.append('chat_id', chatId);
+  form.append('file_name', fileName);
+  form.append('file', blob, fileName);
+
+  let res;
+  try{
+    res = await withPlainTimeout(
+      fetch(CLOUDFLARE_WORKER_URL, {
+        method: 'POST',
+        headers: { 'X-App-Secret': APP_SHARED_SECRET },
+        body: form,
+      }), 15000, null);
+  }catch(e){
+    return { ok: false, reason: 'Сетевая ошибка при обращении к Worker: ' + e.message };
+  }
+  if(!res) return { ok: false, reason: 'Worker не ответил за 15 секунд (таймаут)' };
+
+  const data = await res.json().catch(() => null);
+  if(!res.ok){
+    const errText = (data && (data.error || (data.description))) || `HTTP ${res.status}`;
+    return { ok: false, reason: 'Worker вернул ошибку: ' + errText };
+  }
+  if(!data || !data.ok){
+    const errText = (data && data.description) || 'неизвестная ошибка Telegram API';
+    return { ok: false, reason: 'Telegram отклонил отправку: ' + errText };
+  }
+  return { ok: true };
+}
+
+let cyrillicFontBase64Cache = null;
+
+function arrayBufferToBase64(buffer){
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for(let i = 0; i < bytes.length; i += chunkSize){
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function registerCyrillicFont(doc){
+  const candidateUrls = [
+    'https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans.ttf',
+    'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.ttf',
+    'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/static/Roboto-Regular.ttf',
+    'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/Roboto-Regular.ttf',
+  ];
+  try{
+    if(!cyrillicFontBase64Cache){
+      let lastError = null;
+      for(const fontUrl of candidateUrls){
+        try{
+          const res = await fetch(fontUrl);
+          if(!res.ok) throw new Error('HTTP ' + res.status);
+          const buf = await res.arrayBuffer();
+          if(buf.byteLength < 10000) throw new Error('Файл слишком маленький');
+          cyrillicFontBase64Cache = arrayBufferToBase64(buf);
+          break;
+        }catch(e){ lastError = e; console.error('Не удалось загрузить шрифт с ' + fontUrl + ':', e); }
+      }
+      if(!cyrillicFontBase64Cache) throw lastError || new Error('Ни один источник шрифта не сработал');
+    }
+    doc.addFileToVFS('Roboto-Regular.ttf', cyrillicFontBase64Cache);
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'bold');
+    return true;
+  }catch(e){
+    console.error('Не удалось подключить кириллический шрифт:', e);
+    return false;
+  }
+}
+
+async function downloadNaryadPdf({ worker, monthLabel, monthVal, daysInMonth, cutoffDay, usedParts, byPart, dayTotals, blankRowsCount }){
+  if(!window.jspdf){ showToast('Не удалось загрузить модуль PDF, попробуйте ещё раз'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  showToast('Готовим PDF...');
+  const cyrillicFontOk = await registerCyrillicFont(doc);
+  const fontName = cyrillicFontOk ? 'Roboto' : undefined;
+  if(fontName) doc.setFont(fontName);
+  if(!cyrillicFontOk) showToast('⚠️ Не удалось загрузить кириллический шрифт — текст в PDF может отображаться некорректно');
+
+  doc.setFontSize(13);
+  doc.text('Наряд на сдельную работу', 148.5, 10, { align: 'center' });
+  doc.setFontSize(9);
+  const infoLine = `Ф.И.О.: ${worker}      Завод/цех: ${PROFILE.factory}      Месяц: ${monthLabel}      Сформировано: ${new Date().toLocaleDateString('ru-RU')}`;
+  doc.text(infoLine, 148.5, 16, { align: 'center' });
+
+  const head = [['Наименование детали', ...Array.from({length: daysInMonth}, (_,i)=> String(i+1)), 'Итого']];
+  const body = [];
+  usedParts.forEach(part => {
+    let rowTotal = 0;
+    const row = [part];
+    for(let d=1; d<=daysInMonth; d++){
+      const qty = byPart[part][d] || 0;
+      if(qty) rowTotal += qty;
+      row.push(qty || '');
+    }
+    row.push(rowTotal);
+    body.push(row);
+  });
+  for(let i=0; i<blankRowsCount; i++) body.push(['', ...Array(daysInMonth).fill(''), '']);
+  const grandTotal = dayTotals.reduce((s,v)=> s + (v||0), 0);
+  const sumRow = ['Итого за день', ...Array.from({length: daysInMonth}, (_,i)=> dayTotals[i+1] || ''), grandTotal];
+  body.push(sumRow);
+  const sumRowIndex = body.length - 1;
+
+  const pageMargin = 6;
+  const nameColWidth = 34;
+  const totalColWidth = 13;
+  const pageWidthMM = doc.internal.pageSize.getWidth();
+  const pageHeightMM = doc.internal.pageSize.getHeight();
+  const usableWidth = pageWidthMM - pageMargin * 2;
+  const dayColWidth = (usableWidth - nameColWidth - totalColWidth) / daysInMonth;
+
+  const dayColStyles = {};
+  for(let d=1; d<=daysInMonth; d++){
+    dayColStyles[d] = { cellWidth: dayColWidth, fillColor: d > cutoffDay ? [250,250,250] : undefined };
+  }
+
+  const startY = 20;
+  const bottomReserve = 20;
+  const availableHeight = pageHeightMM - startY - bottomReserve;
+  const totalRows = body.length + 1;
+  const rowHeight = Math.max(4, availableHeight / totalRows);
+
+  doc.autoTable({
+    head, body, startY,
+    theme: 'grid',
+    margin: { left: pageMargin, right: pageMargin },
+    tableWidth: usableWidth,
+    styles: { font: fontName, fontSize: 6, cellPadding: 1, halign: 'center', valign: 'middle', minCellHeight: rowHeight },
+    headStyles: { font: fontName, fillColor: [244,244,245], textColor: [30,30,30], fontStyle: 'bold', minCellHeight: rowHeight },
+    columnStyles: { 0: { cellWidth: nameColWidth, halign: 'left', fontStyle: 'bold' }, ...dayColStyles, [daysInMonth+1]: { cellWidth: totalColWidth, fontStyle: 'bold' } },
+    didParseCell: (data) => {
+      if(data.row.index === sumRowIndex){
+        data.cell.styles.fillColor = [234,243,254];
+        data.cell.styles.fontStyle = 'bold';
+      }
+    },
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 8;
+  doc.setFontSize(9);
+  if(fontName) doc.setFont(fontName);
+  doc.text('_____________________________', 30, finalY);
+  doc.text('Подпись работника', 30, finalY + 5);
+  doc.text('_____________________________', 180, finalY);
+  doc.text('Подпись мастера', 180, finalY + 5);
+
+  const fileName = `Наряд_${worker.replace(/\s+/g,'_')}_${monthVal}.pdf`;
+  const blob = doc.output('blob');
+
+  showToast('Отправляем PDF в Telegram...');
+  const botResult = await sendPdfViaBot(blob, fileName).catch((e) => ({ ok: false, reason: 'Неожиданная ошибка: ' + e.message }));
+  if(botResult.ok){
+    showToast('Готово — файл придёт сообщением в этот чат');
+    return;
+  }
+  console.error('sendPdfViaBot не сработал:', botResult.reason);
+  showToast('⚠️ ' + botResult.reason + ' — пробуем запасной способ...');
+  await new Promise(r => setTimeout(r, 2500));
+
+  let handled = false;
+  if(navigator.share && navigator.canShare){
+    try{
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      if(navigator.canShare({ files: [file] })){
+        await navigator.share({ files: [file], title: fileName });
+        handled = true;
+        showToast('Готово — выберите, куда сохранить PDF');
+      }
+    }catch(e){ handled = true; }
+  }
+  if(!handled){
+    try{
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      showToast('PDF сохранён. Если файла нигде не видно — попробуйте открыть приложение в обычном браузере телефона');
+    }catch(e){
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      showToast('PDF открыт в новой вкладке — сохраните вручную через меню браузера');
+    }
+  }
+}
+
+function shareToWhatsApp(text){ window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank'); }
+function shareToTelegram(text){
+  const url = `https://t.me/share/url?url=&text=${encodeURIComponent(text)}`;
+  if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink){
+    window.Telegram.WebApp.openTelegramLink(url);
+  }else{ window.open(url, '_blank'); }
+}
+function shareToVK(text){ window.open(`https://vk.com/share.php?title=${encodeURIComponent(text)}`, '_blank'); }
+
+function toISODate(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+function formatDateRu(isoDate){ const [y,m,d] = isoDate.split('-'); return `${d}.${m}.${y}`; }
+function escapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+
+// ---------- ПОИСК ----------
+function refreshSearchWorkerSelect(){
+  const sel = $('search-worker');
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = `<option value="">Все работники</option>` +
+    WORKERS.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+  if(WORKERS.includes(prev)) sel.value = prev;
+}
+function renderSearchFilters(){
+  const catSel = $('search-category');
+  if(catSel){
+    const prev = catSel.value;
+    catSel.innerHTML = `<option value="">Все категории</option>` +
+      CATEGORIES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    if(CATEGORIES.includes(prev)) catSel.value = prev;
+  }
+  refreshSearchWorkerSelect();
+}
+
+$('btn-search').addEventListener('click', () => {
+  const worker = $('search-worker').value;
+  const category = $('search-category').value;
+  const partText = $('search-part').value.trim().toLowerCase();
+  const dateFrom = $('search-date-from').value;
+  const dateTo = $('search-date-to').value;
+
+  let results = ENTRIES.slice();
+  if(worker) results = results.filter(e => e.worker === worker);
+  if(category) results = results.filter(e => e.category === category);
+  if(partText) results = results.filter(e => e.part.toLowerCase().includes(partText));
+  if(dateFrom) results = results.filter(e => e.date >= dateFrom);
+  if(dateTo) results = results.filter(e => e.date <= dateTo);
+
+  results.sort((a,b) => b.date.localeCompare(a.date) || b.ts - a.ts);
+  const totalQty = results.reduce((s,e) => s + e.qty, 0);
+  const wrap = $('search-results');
+
+  if(results.length === 0){
+    wrap.innerHTML = `<div class="empty-state"><div class="emoji">🔍</div><div class="msg">Ничего не найдено</div></div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <div class="day-total-bar" style="margin:0 0 12px;">
+      <span class="label">Найдено записей: ${results.length}</span>
+      <span class="val">${totalQty} шт</span>
+    </div>
+    ${results.map(e => `
+      <div class="entry-row">
+        <div class="entry-info">
+          <div class="entry-part">${escapeHtml(e.part)}</div>
+          <div class="entry-meta">${escapeHtml(e.category)} · ${escapeHtml(e.worker)} · ${formatDateRu(e.date)} · ${e.time}</div>
+        </div>
+        <div class="entry-qty">${e.qty}</div>
+        <div class="entry-actions">
+          <button class="entry-edit" data-id="${e.id}" title="Редактировать">✏️</button>
+        </div>
+      </div>
+    `).join('')}
+  `;
+  wrap.querySelectorAll('.entry-edit').forEach(btn => {
+    btn.addEventListener('click', () => openEditModal(btn.getAttribute('data-id')));
+  });
+});
+
+$('btn-search-reset').addEventListener('click', () => {
+  $('search-worker').value = '';
+  $('search-category').value = '';
+  $('search-part').value = '';
+  $('search-date-from').value = '';
+  $('search-date-to').value = '';
+  $('search-results').innerHTML = '';
+});
+
+function renderArchiveMonths(){
+  const wrap = $('archive-months-list');
+  if(!wrap) return;
+  const months = new Set();
+  ENTRIES.forEach(e => { if(e.date) months.add(e.date.slice(0,7)); });
+  const sorted = [...months].sort().reverse();
+
+  if(sorted.length === 0){
+    wrap.innerHTML = `<div class="hint">Пока нет записей</div>`;
+    return;
+  }
+  wrap.innerHTML = sorted.map(m => {
+    const label = monthTitleRu(m);
+    const count = ENTRIES.filter(e => e.date.startsWith(m)).length;
+    return `<button class="archive-month-btn" data-month="${m}">📅 ${label} (${count})</button>`;
+  }).join('');
+
+  wrap.querySelectorAll('.archive-month-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const month = btn.getAttribute('data-month');
+      const from = `${month}-01`;
+      const [y, mo] = month.split('-').map(Number);
+      const lastDay = new Date(y, mo, 0).getDate();
+      const to = `${month}-${String(lastDay).padStart(2,'0')}`;
+      $('search-date-from').value = from;
+      $('search-date-to').value = to;
+      $('btn-search').click();
+      showToast('Архив за ' + monthTitleRu(month));
+    });
+  });
+}
+
+function renderChangeLog(){
+  const wrap = $('change-log-list');
+  if(!wrap) return;
+  if(CHANGE_LOG.length === 0){
+    wrap.innerHTML = `<div class="hint">Пока нет изменений</div>`;
+    return;
+  }
+  const actionLabels = {
+    add_entry: '➕ Добавлена запись',
+    edit_entry: '✏️ Изменена запись',
+    delete_entry: '🗑 Удалена запись',
+    add_category: '➕ Добавлена категория',
+    add_part: '➕ Добавлена деталь',
+    set_actual_salary: '💰 Внесена фактическая зарплата',
+  };
+  wrap.innerHTML = CHANGE_LOG.slice(0, 100).map(item => {
+    const time = new Date(item.timestamp).toLocaleString('ru-RU');
+    let changeHtml = '';
+    if(item.oldValue && item.newValue){
+      changeHtml = `
+        <div class="log-change">Было: ${escapeHtml(JSON.stringify(item.oldValue))}</div>
+        <div class="log-change">Стало: ${escapeHtml(JSON.stringify(item.newValue))}</div>
+      `;
+    } else if(item.newValue){
+      changeHtml = `<div class="log-change">Добавлено: ${escapeHtml(JSON.stringify(item.newValue))}</div>`;
+    } else if(item.oldValue){
+      changeHtml = `<div class="log-change">Удалено: ${escapeHtml(JSON.stringify(item.oldValue))}</div>`;
+    }
+    return `
+      <div class="log-item">
+        <div class="log-head">${actionLabels[item.action] || item.action} — ${escapeHtml(item.by)}</div>
+        <div class="log-change">${time}</div>
+        ${changeHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+// ---------- АДМИН ----------
+const ADMIN_SECRET = "1234";
+let adminTapCount = 0;
+let adminTapTimer = null;
+$('home-fio').addEventListener('click', () => {
+  adminTapCount++;
+  clearTimeout(adminTapTimer);
+  adminTapTimer = setTimeout(() => { adminTapCount = 0; }, 1800);
+  if(adminTapCount >= 5){
+    adminTapCount = 0;
+    $('admin-pin-input').value = '';
+    $('admin-pin-card').style.display = 'flex';
+    $('admin-pin-input').focus();
+  }
+});
+$('btn-admin-pin-cancel').addEventListener('click', () => { $('admin-pin-card').style.display = 'none'; });
+$('btn-admin-pin-confirm').addEventListener('click', async () => {
+  if($('admin-pin-input').value !== ADMIN_SECRET){ showToast('Неверный код'); return; }
+  $('admin-pin-card').style.display = 'none';
+  await openAdminOverlay();
+});
+$('btn-close-admin').addEventListener('click', () => { $('admin-overlay').style.display = 'none'; });
+
+async function openAdminOverlay(){
+  $('admin-overlay').style.display = 'block';
+  $('admin-content').innerHTML = `<div class="empty-state"><div class="msg">Загрузка...</div></div>`;
+
+  const allBrigades = await fbGet('brigades');
+  if(!allBrigades){
+    $('admin-content').innerHTML = `<div class="empty-state"><div class="emoji">🗂️</div><div class="msg">Пока нет ни одной бригады</div></div>`;
+    return;
+  }
+  const codes = Object.keys(allBrigades);
+  const uniqueUsers = new Set();
+  let cardsHtml = '';
+
+  codes.forEach(code => {
+    const b = allBrigades[code] || {};
+    const workers = b.workers || [];
+    workers.forEach(w => uniqueUsers.add(w));
+    const entryCount = b.entries ? Object.keys(b.entries).length : 0;
+    cardsHtml += `
+      <div class="card">
+        <div style="font-weight:700;font-size:14.5px;">${escapeHtml(b.factory || '(без названия)')}</div>
+        <div class="hint" style="margin-top:0;margin-bottom:10px;">Код: <span style="font-family:var(--mono);">${escapeHtml(code)}</span> · записей: ${entryCount}</div>
+        <div class="chip-list" style="margin-bottom:0;">
+          ${workers.length ? workers.map(w=>`<span class="chip">${escapeHtml(w)}</span>`).join('') : '<span style="font-size:12.5px;color:var(--text-secondary);">Нет участников</span>'}
+        </div>
+      </div>`;
+  });
+
+  $('admin-content').innerHTML = `
+    <div class="day-total-bar" style="margin-bottom:16px;">
+      <span class="label">Бригад / пользователей всего</span>
+      <span class="val">${codes.length} / ${uniqueUsers.size}</span>
+    </div>
+    ${cardsHtml}
+  `;
+}
+
+function initTelegramEnv(){
+  if(hasTelegramCloud()){
+    const wa = window.Telegram.WebApp;
+    try{ wa.ready(); wa.expand(); }catch(e){}
+    try{ wa.setHeaderColor('#3390EC'); }catch(e){}
+    try{ wa.setBackgroundColor('#F0F1F3'); }catch(e){}
+  }
+}
+initTelegramEnv();
+init();
+</script>
+
+</body>
+</html>
