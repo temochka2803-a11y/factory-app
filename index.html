@@ -103,6 +103,13 @@
   .calc-salary{ display:flex; align-items:center; justify-content:space-between; gap:10px; background:#E9F9EE; border:1px solid #B9E8C6; border-radius:10px; padding:10px 12px; }
   .calc-salary .lbl{ font-size:12.5px; color:#1E8A44; font-weight:600; }
   .calc-salary .val{ font-family:var(--mono); font-size:16px; font-weight:800; color:#1E8A44; white-space:nowrap; }
+  .calc-forecast{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:#EAF3FE; border:1px solid #CFE4FB; border-radius:8px;
+    padding:8px 10px; margin-top:8px;
+  }
+  .calc-forecast .lbl{ font-size:12px; color:#2679C9; font-weight:600; line-height:1.25; }
+  .calc-forecast .val{ font-family:var(--mono); font-size:14px; font-weight:800; color:#2679C9; white-space:nowrap; }
   .month-history-row{ display:flex; justify-content:space-between; align-items:center; padding:9px 12px; margin-bottom:6px; background:var(--card); border:1px solid var(--border); border-radius:10px; }
   .month-history-row.current{ border-color:#CFE4FB; background:#FAFBFF; }
   .month-history-row .mh-month{ font-size:13.5px; font-weight:600; }
@@ -1361,7 +1368,7 @@ function renderManageChips(){
 }
 
 // ==================================================================
-// 13. ЗАРПЛАТА
+// 13. ПРОГНОЗ (общие функции)
 // ==================================================================
 function qtyForMonth(worker, monthKey){
   return ENTRIES.filter(function(e){ return e.worker === worker && (e.date || '').startsWith(monthKey); })
@@ -1454,7 +1461,71 @@ async function refreshForecast(){
 }
 
 // ==================================================================
-// 14. ПОВТОР
+// 14. ПРОГНОЗ ДЛЯ КОНКРЕТНОГО РАБОТНИКА (используется в разделе ЗП)
+// ==================================================================
+// Средняя стоимость изделия по ЗАКРЫТЫМ месяцам для конкретного работника
+function getClosedMonthsStatsFor(worker, payrollAll){
+  if(!worker || !payrollAll) return { avgCost: 0, monthsCount: 0 };
+  const currentMonth = toISODate(new Date()).slice(0,7);
+  const months = new Set();
+  ENTRIES.filter(function(e){ return e.worker === worker; }).forEach(function(e){ if(e.date) months.add(e.date.slice(0,7)); });
+  Object.keys(payrollAll).forEach(function(m){
+    const rec = (payrollAll[m] || {})[worker];
+    if(rec) months.add(m);
+  });
+  let sumActual = 0, sumQty = 0, count = 0;
+  months.forEach(function(m){
+    if(m >= currentMonth) return;
+    const qty = qtyForMonth(worker, m);
+    const rec = (payrollAll[m] || {})[worker] || {};
+    const actual = Number(rec.actual) || 0;
+    if(actual > 0 && qty > 0){ sumActual += actual; sumQty += qty; count++; }
+  });
+  return { avgCost: sumQty > 0 ? sumActual / sumQty : 0, monthsCount: count };
+}
+
+// Прогноз выработки работника к концу текущего месяца
+// (без запроса к Firebase — использует ENTRIES и SCHEDULE из памяти)
+function computeForecastFor(worker){
+  if(!worker) return null;
+  const todayStr = toISODate(new Date());
+  const monthPrefix = todayStr.slice(0,7);
+  const y = parseInt(monthPrefix.split('-')[0], 10);
+  const m = parseInt(monthPrefix.split('-')[1], 10);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const todayDay = parseInt(todayStr.split('-')[2], 10);
+  const own = ENTRIES.filter(function(e){ return e.worker === worker && (e.date || '').startsWith(monthPrefix); });
+  const currentQty = own.reduce(function(s,e){ return s + e.qty; }, 0);
+  if(currentQty === 0) return null;
+  const workedDates = new Set(own.map(function(e){ return e.date; }));
+  const workedDays = workedDates.size;
+  let plannedWorkDays = 0, futureWorkDays = 0, hasSchedule = false;
+  for(let d = 1; d <= daysInMonth; d++){
+    const dateStr = monthPrefix + '-' + String(d).padStart(2,'0');
+    const dayShifts = SCHEDULE[dateStr] || {};
+    const shiftId = dayShifts[worker];
+    const shift = shiftId ? shiftTypeById(shiftId) : null;
+    const isWorkShift = shift && shift.id !== 'off' && shift.id !== 'vacation' && shift.id !== 'sick';
+    if(isWorkShift){ hasSchedule = true; plannedWorkDays++; if(d > todayDay) futureWorkDays++; }
+  }
+  let forecastQty, approach;
+  if(hasSchedule && plannedWorkDays > 0){
+    forecastQty = Math.round((currentQty / Math.max(workedDays, 1)) * plannedWorkDays);
+    approach = 'по графику смен';
+  } else {
+    forecastQty = Math.round((currentQty / Math.max(todayDay, 1)) * daysInMonth);
+    approach = 'по календарным дням';
+  }
+  return {
+    currentQty: currentQty, forecastQty: forecastQty,
+    hasSchedule: hasSchedule, plannedWorkDays: plannedWorkDays,
+    futureWorkDays: futureWorkDays, approach: approach,
+    daysInMonth: daysInMonth, todayDay: todayDay,
+  };
+}
+
+// ==================================================================
+// 15. ПОВТОР
 // ==================================================================
 function getLastEntry(){
   if(!PROFILE) return null;
@@ -1491,7 +1562,7 @@ if(btnRepeat){
 }
 
 // ==================================================================
-// 15. ВВОД
+// 16. ВВОД
 // ==================================================================
 function renderMiniDashboard(){
   if(!PROFILE) return;
@@ -1580,7 +1651,7 @@ if(btnAdd){
 }
 
 // ==================================================================
-// 16. РЕДАКТИРОВАНИЕ
+// 17. РЕДАКТИРОВАНИЕ
 // ==================================================================
 let editingEntryId = null;
 function openEditModal(id){
@@ -1638,7 +1709,7 @@ if(btnEditSave){
 }
 
 // ==================================================================
-// 17. БРИГАДА
+// 18. БРИГАДА
 // ==================================================================
 function refreshWorkerSelect(){
   const sel = $('in-worker-select');
@@ -1752,7 +1823,7 @@ if(btnTeamAdd){
 }
 
 // ==================================================================
-// 18. ГРАФИК
+// 19. ГРАФИК
 // ==================================================================
 const WEEKDAY_NAMES = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 function shiftTypeById(id){ return SHIFT_TYPES.find(function(t){ return t.id === id; }) || null; }
@@ -2094,7 +2165,7 @@ if(btnSaveDaySchedule){
 }
 
 // ==================================================================
-// 19. ЗАРПЛАТА: РЕНДЕР
+// 20. ЗАРПЛАТА
 // ==================================================================
 function updatePayrollRowTotal(safeId){
   const a = $('pr-adv-' + safeId);
@@ -2107,9 +2178,20 @@ function updatePayrollRowTotal(safeId){
 }
 const payrollMonthEl = $('payroll-month');
 if(payrollMonthEl) payrollMonthEl.addEventListener('change', renderPayroll);
+
 async function renderPayroll(){
   const monthVal = $('payroll-month').value || toISODate(new Date()).slice(0,7);
+  const currentMonthVal = toISODate(new Date()).slice(0,7);
+  const isCurrentMonth = (monthVal === currentMonthVal);
+
   PAYROLL = (await fbGet(bp('payroll/' + monthVal))) || {};
+
+  // Для прогноза нужны данные по всем месяцам — грузим только для текущего
+  let payrollAll = null;
+  if(isCurrentMonth){
+    payrollAll = (await fbGet(bp('payroll'))) || {};
+  }
+
   const wrap = $('payroll-list');
   if(!wrap) return;
   if(WORKERS.length === 0){
@@ -2125,8 +2207,61 @@ async function renderPayroll(){
     const safeId = worker.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
     const qty = qtyForMonth(worker, monthVal);
     const avgCost = (actual > 0 && qty > 0) ? actual / qty : 0;
-    return '<div class="payroll-row"><div class="payroll-worker">'+escapeHtml(worker)+'</div><div class="field" style="margin-bottom:10px;"><label>Фактическая зарплата за '+escapeHtml(monthTitleRu(monthVal))+'</label><input type="number" class="payroll-actual" data-worker="'+escapeHtml(worker)+'" id="pr-act-'+safeId+'" value="'+(actual || '')+'" placeholder="0" min="0"></div><div class="calc-stats"><div class="calc-stat"><span>Выработка за месяц</span><b>'+fmtMoney(qty)+' шт</b></div><div class="calc-stat"><span>Средняя стоимость изделия</span><b>'+(avgCost > 0 ? fmtMoney2(avgCost) + ' ₽/шт' : '—')+'</b></div></div><div class="field-row" style="margin-top:12px;"><div class="field"><label>Аванс, ₽</label><input type="number" class="payroll-advance" data-worker="'+escapeHtml(worker)+'" id="pr-adv-'+safeId+'" value="'+(advance || '')+'" placeholder="0" min="0"></div><div class="field"><label>Расчёт, ₽</label><input type="number" class="payroll-final" data-worker="'+escapeHtml(worker)+'" id="pr-fin-'+safeId+'" value="'+(final || '')+'" placeholder="0" min="0"></div></div><div class="payroll-total"><span>Итого (аванс + расчёт)</span><span class="val" id="pr-total-'+safeId+'">'+fmtMoney(total)+' ₽</span></div></div>';
+
+    // Блок прогноза — только для текущего месяца
+    let forecastHtml = '';
+    if(isCurrentMonth && payrollAll){
+      const stats = getClosedMonthsStatsFor(worker, payrollAll);
+      const f = computeForecastFor(worker);
+      if(f && stats.avgCost > 0){
+        const forecastSalary = Math.round(stats.avgCost * f.forecastQty);
+        forecastHtml =
+          '<div class="calc-forecast">' +
+            '<span class="lbl">🔮 Прогноз на конец месяца</span>' +
+            '<span class="val">' + fmtMoney(forecastSalary) + ' ₽</span>' +
+          '</div>' +
+          '<div class="calc-stat" style="font-size:11px; margin-top:4px;">' +
+            '<span>Ожидаемая выработка (' + escapeHtml(f.approach) + ')</span>' +
+            '<b>' + fmtMoney(f.forecastQty) + ' шт</b>' +
+          '</div>' +
+          '<div class="calc-stat" style="font-size:11px;">' +
+            '<span>Средняя стоимость из закрытых месяцев</span>' +
+            '<b>' + fmtMoney2(stats.avgCost) + ' ₽/шт</b>' +
+          '</div>';
+      } else if(f && stats.avgCost <= 0){
+        forecastHtml =
+          '<div class="calc-forecast" style="background:#F4F4F5; border-color:var(--border);">' +
+            '<span class="lbl" style="color:var(--text-secondary);">🔮 Прогноз зарплаты</span>' +
+            '<span class="val" style="color:var(--text-secondary); font-size:12px; font-family:inherit;">нет данных о зарплате за прошлые месяцы</span>' +
+          '</div>';
+      } else {
+        forecastHtml =
+          '<div class="calc-forecast" style="background:#F4F4F5; border-color:var(--border);">' +
+            '<span class="lbl" style="color:var(--text-secondary);">🔮 Прогноз зарплаты</span>' +
+            '<span class="val" style="color:var(--text-secondary); font-size:12px; font-family:inherit;">нет выработки в этом месяце</span>' +
+          '</div>';
+      }
+    }
+
+    return '<div class="payroll-row">' +
+      '<div class="payroll-worker">' + escapeHtml(worker) + '</div>' +
+      '<div class="field" style="margin-bottom:10px;">' +
+        '<label>Фактическая зарплата за ' + escapeHtml(monthTitleRu(monthVal)) + '</label>' +
+        '<input type="number" class="payroll-actual" data-worker="' + escapeHtml(worker) + '" id="pr-act-' + safeId + '" value="' + (actual || '') + '" placeholder="0" min="0">' +
+      '</div>' +
+      '<div class="calc-stats">' +
+        '<div class="calc-stat"><span>Выработка за месяц</span><b>' + fmtMoney(qty) + ' шт</b></div>' +
+        '<div class="calc-stat"><span>Средняя стоимость изделия</span><b>' + (avgCost > 0 ? fmtMoney2(avgCost) + ' ₽/шт' : '—') + '</b></div>' +
+      '</div>' +
+      forecastHtml +
+      '<div class="field-row" style="margin-top:12px;">' +
+        '<div class="field"><label>Аванс, ₽</label><input type="number" class="payroll-advance" data-worker="' + escapeHtml(worker) + '" id="pr-adv-' + safeId + '" value="' + (advance || '') + '" placeholder="0" min="0"></div>' +
+        '<div class="field"><label>Расчёт, ₽</label><input type="number" class="payroll-final" data-worker="' + escapeHtml(worker) + '" id="pr-fin-' + safeId + '" value="' + (final || '') + '" placeholder="0" min="0"></div>' +
+      '</div>' +
+      '<div class="payroll-total"><span>Итого (аванс + расчёт)</span><span class="val" id="pr-total-' + safeId + '">' + fmtMoney(total) + ' ₽</span></div>' +
+    '</div>';
   }).join('');
+
   wrap.querySelectorAll('.payroll-advance, .payroll-final').forEach(function(input){
     input.addEventListener('input', function(){
       const safeId = input.getAttribute('data-worker').replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '_');
@@ -2134,6 +2269,7 @@ async function renderPayroll(){
     });
   });
 }
+
 const btnSavePayroll = $('btn-save-payroll');
 if(btnSavePayroll){
   btnSavePayroll.addEventListener('click', async function(){
@@ -2287,7 +2423,7 @@ if(btnSaveMySalary){
 }
 
 // ==================================================================
-// 20. ОТЧЁТЫ
+// 21. ОТЧЁТЫ
 // ==================================================================
 let REPORT_MODE = 'brigade';
 const REPORT_BTN_LABELS = {
@@ -2538,7 +2674,7 @@ function buildWorkerReport(worker, fromDate, toDate, periodLabel){
 }
 
 // ==================================================================
-// 21. БЛАНК НАРЯДА ДЛЯ ПЕЧАТИ (восстановленная функция)
+// 22. БЛАНК НАРЯДА ДЛЯ ПЕЧАТИ
 // ==================================================================
 function setPrintOrientation(landscape){
   let style = document.getElementById('dynamic-page-style');
@@ -2549,22 +2685,18 @@ function setPrintOrientation(landscape){
   }
   style.textContent = landscape ? '@page{ size: landscape; margin: 10mm; }' : '';
 }
-
 function buildNaryadBlank(worker, monthVal){
   const y = parseInt(monthVal.split('-')[0], 10);
   const m = parseInt(monthVal.split('-')[1], 10);
   const daysInMonth = new Date(y, m, 0).getDate();
   const monthLabel = new Date(y, m-1, 1).toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
-
   const todayStr = toISODate(new Date());
   const currentMonthStr = todayStr.slice(0,7);
   let cutoffDay;
   if(monthVal === currentMonthStr) cutoffDay = parseInt(todayStr.split('-')[2], 10);
   else if(monthVal < currentMonthStr) cutoffDay = daysInMonth;
   else cutoffDay = 0;
-
   const items = ENTRIES.filter(function(e){ return e.worker === worker && e.date.startsWith(monthVal); });
-
   const byPart = {};
   items.forEach(function(e){
     const label = (e.category + ' ' + e.part).trim();
@@ -2573,14 +2705,11 @@ function buildNaryadBlank(worker, monthVal){
     byPart[label][day] = (byPart[label][day] || 0) + e.qty;
   });
   const usedParts = Object.keys(byPart).sort(function(a,b){ return a.localeCompare(b,'ru'); });
-
   const totalRows = Math.max(usedParts.length + 8, 16);
   const blankRowsCount = totalRows - usedParts.length;
-
   let headRow = '<tr><th style="min-width:150px;">Наименование детали</th>';
   for(let d=1; d<=daysInMonth; d++){ headRow += '<th class="'+(d>cutoffDay ? 'naryad-future' : '')+'">'+d+'</th>'; }
   headRow += '<th>Итого</th></tr>';
-
   let bodyRows = '';
   const dayTotals = new Array(daysInMonth+1).fill(0);
   usedParts.forEach(function(part){
@@ -2593,13 +2722,11 @@ function buildNaryadBlank(worker, monthVal){
     }
     bodyRows += '<tr><td class="naryad-name">'+escapeHtml(part)+'</td>'+cells+'<td class="naryad-total">'+rowTotal+'</td></tr>';
   });
-
   for(let i=0; i<blankRowsCount; i++){
     let cells = '';
     for(let d=1; d<=daysInMonth; d++){ cells += '<td class="'+(d>cutoffDay ? 'naryad-future' : '')+'"></td>'; }
     bodyRows += '<tr><td class="naryad-name">&nbsp;</td>'+cells+'<td></td></tr>';
   }
-
   let sumCells = '<td>Итого за день</td>';
   let grandTotal = 0;
   for(let d=1; d<=daysInMonth; d++){
@@ -2607,9 +2734,7 @@ function buildNaryadBlank(worker, monthVal){
     sumCells += '<td class="'+(d>cutoffDay ? 'naryad-future' : '')+'">' + (dayTotals[d] || '') + '</td>';
   }
   sumCells += '<td class="naryad-total">'+grandTotal+'</td>';
-
-  $('report-output').innerHTML = '<div class="naryad-doc" id="naryad-doc"><div class="naryad-head"><h2>Наряд на сдельную работу</h2><div class="row"><span>Ф.И.О.</span><span>'+escapeHtml(worker)+'</span></div><div class="row"><span>Завод / цех</span><span>'+escapeHtml(PROFILE.factory)+'</span></div><div class="row"><span>Месяц</span><span>'+monthLabel+'</span></div><div class="row"><span>Сформировано</span><span>'+new Date().toLocaleDateString('ru-RU')+(cutoffDay < daysInMonth ? ' — данные по ' + (cutoffDay || '0') + '-е число, дальше пустые клетки' : '')+'</span></div></div><div class="naryad-scroll"><table class="naryad-table"><thead>'+headRow+'</thead><tbody>'+bodyRows+'<tr class="naryad-sum-row">'+sumCells+'</tr></tbody></table></div><div class="naryad-sign"><div>Подпись работника</div><div>Подпись мастера</div></div></div>';
-
+  $('report-output').innerHTML = '<div class="naryad-doc" id="naryad-doc"><div class="naryad-head"><h2>Наряд на сдельную работу</h2><div class="row"><span>Ф.И.О.</span><span>'+escapeHtml(worker)+'</span></div><div class="row"><span>Завод / цех</span><span>'+escapeHtml(PROFILE.factory)+'</span></div><div class="row"><span>Месяц</span><span>'+monthLabel+'</span></div><div class="row"><span>Сформировано</span><span>'+new Date().toLocaleDateString('ru-RU')+(cutoffDay < daysInMonth ? ' — данные по ' + (cutoffDay || '0') + '-е число' : '')+'</span></div></div><div class="naryad-scroll"><table class="naryad-table"><thead>'+headRow+'</thead><tbody>'+bodyRows+'<tr class="naryad-sum-row">'+sumCells+'</tr></tbody></table></div><div class="naryad-sign"><div>Подпись работника</div><div>Подпись мастера</div></div></div>';
   const actions = document.createElement('div');
   actions.className = 'report-actions';
   actions.innerHTML = '<button class="btn btn-primary" id="btn-print-naryad">📄 Скачать PDF</button>';
@@ -2623,7 +2748,6 @@ function buildNaryadBlank(worker, monthVal){
     }
   });
 }
-
 function arrayBufferToBase64(buffer){
   let binary = '';
   const bytes = new Uint8Array(buffer);
@@ -2633,7 +2757,6 @@ function arrayBufferToBase64(buffer){
   }
   return btoa(binary);
 }
-
 async function registerCyrillicFont(doc){
   const candidateUrls = [
     'https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans.ttf',
@@ -2668,7 +2791,6 @@ async function registerCyrillicFont(doc){
     return false;
   }
 }
-
 async function sendPdfViaBot(blob, fileName){
   if(!PROFILE) return { ok: false, reason: 'Профиль не загружен' };
   if(!CLOUDFLARE_WORKER_URL || CLOUDFLARE_WORKER_URL.indexOf('YOUR-WORKER-NAME') !== -1){
@@ -2683,7 +2805,6 @@ async function sendPdfViaBot(blob, fileName){
   form.append('chat_id', chatId);
   form.append('file_name', fileName);
   form.append('file', blob, fileName);
-
   let res;
   try{
     res = await withPlainTimeout(
@@ -2693,7 +2814,6 @@ async function sendPdfViaBot(blob, fileName){
     return { ok: false, reason: 'Сетевая ошибка: ' + e.message };
   }
   if(!res) return { ok: false, reason: 'Worker не ответил за 15 секунд' };
-
   const data = await res.json().catch(function(){ return null; });
   if(!res.ok){
     const errText = (data && (data.error || data.description)) || ('HTTP ' + res.status);
@@ -2705,30 +2825,25 @@ async function sendPdfViaBot(blob, fileName){
   }
   return { ok: true };
 }
-
 async function downloadNaryadPdf(params){
   if(!window.jspdf){ showToast('Модуль PDF не загрузился'); return; }
   const jsPDF = window.jspdf.jsPDF;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
   showToast('Готовим PDF...');
   const cyrillicFontOk = await registerCyrillicFont(doc);
   const fontName = cyrillicFontOk ? 'Roboto' : undefined;
   if(fontName) doc.setFont(fontName);
   if(!cyrillicFontOk) showToast('⚠️ Шрифт не загрузился — текст может отображаться некорректно');
-
   doc.setFontSize(13);
   doc.text('Наряд на сдельную работу', 148.5, 10, { align: 'center' });
   doc.setFontSize(9);
   const infoLine = 'Ф.И.О.: ' + params.worker + '   Завод/цех: ' + PROFILE.factory + '   Месяц: ' + params.monthLabel + '   Сформировано: ' + new Date().toLocaleDateString('ru-RU');
   doc.text(infoLine, 148.5, 16, { align: 'center' });
-
   const headRow = ['Наименование детали'];
   for(let d = 1; d <= params.daysInMonth; d++) headRow.push(String(d));
   headRow.push('Итого');
   const head = [headRow];
   const body = [];
-
   params.usedParts.forEach(function(part){
     let rowTotal = 0;
     const row = [part];
@@ -2740,21 +2855,18 @@ async function downloadNaryadPdf(params){
     row.push(rowTotal);
     body.push(row);
   });
-
   for(let i = 0; i < params.blankRowsCount; i++){
     const blankRow = [''];
     for(let d = 0; d < params.daysInMonth; d++) blankRow.push('');
     blankRow.push('');
     body.push(blankRow);
   }
-
   const grandTotal = params.dayTotals.reduce(function(s, v){ return s + (v || 0); }, 0);
   const sumRow = ['Итого за день'];
   for(let d = 1; d <= params.daysInMonth; d++) sumRow.push(params.dayTotals[d] || '');
   sumRow.push(grandTotal);
   body.push(sumRow);
   const sumRowIndex = body.length - 1;
-
   const pageMargin = 6;
   const nameColWidth = 34;
   const totalColWidth = 13;
@@ -2762,27 +2874,20 @@ async function downloadNaryadPdf(params){
   const pageHeightMM = doc.internal.pageSize.getHeight();
   const usableWidth = pageWidthMM - pageMargin * 2;
   const dayColWidth = (usableWidth - nameColWidth - totalColWidth) / params.daysInMonth;
-
   const dayColStyles = {};
   for(let d = 1; d <= params.daysInMonth; d++){
     dayColStyles[d] = { cellWidth: dayColWidth, fillColor: d > params.cutoffDay ? [250,250,250] : undefined };
   }
-
   const startY = 20;
   const bottomReserve = 20;
   const availableHeight = pageHeightMM - startY - bottomReserve;
   const totalRows = body.length + 1;
   const rowHeight = Math.max(4, availableHeight / totalRows);
-
   const columnStyles = { 0: { cellWidth: nameColWidth, halign: 'left', fontStyle: 'bold' } };
   Object.keys(dayColStyles).forEach(function(k){ columnStyles[k] = dayColStyles[k]; });
   columnStyles[params.daysInMonth + 1] = { cellWidth: totalColWidth, fontStyle: 'bold' };
-
   doc.autoTable({
-    head: head,
-    body: body,
-    startY: startY,
-    theme: 'grid',
+    head: head, body: body, startY: startY, theme: 'grid',
     margin: { left: pageMargin, right: pageMargin },
     tableWidth: usableWidth,
     styles: { font: fontName, fontSize: 6, cellPadding: 1, halign: 'center', valign: 'middle', minCellHeight: rowHeight },
@@ -2795,7 +2900,6 @@ async function downloadNaryadPdf(params){
       }
     },
   });
-
   const finalY = doc.lastAutoTable.finalY + 8;
   doc.setFontSize(9);
   if(fontName) doc.setFont(fontName);
@@ -2803,10 +2907,8 @@ async function downloadNaryadPdf(params){
   doc.text('Подпись работника', 30, finalY + 5);
   doc.text('_____________________________', 180, finalY);
   doc.text('Подпись мастера', 180, finalY + 5);
-
   const fileName = 'Наряд_' + params.worker.replace(/\s+/g,'_') + '_' + params.monthVal + '.pdf';
   const blob = doc.output('blob');
-
   showToast('Отправляем PDF в Telegram...');
   const botResult = await sendPdfViaBot(blob, fileName).catch(function(e){ return { ok: false, reason: 'Неожиданная ошибка: ' + e.message }; });
   if(botResult.ok){
@@ -2816,7 +2918,6 @@ async function downloadNaryadPdf(params){
   console.error('sendPdfViaBot не сработал:', botResult.reason);
   showToast('⚠️ ' + botResult.reason + ' — пробуем запасной способ...');
   await new Promise(function(r){ setTimeout(r, 2500); });
-
   let handled = false;
   if(navigator.share && navigator.canShare){
     try{
@@ -2832,11 +2933,10 @@ async function downloadNaryadPdf(params){
     try{
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
+      a.href = url; a.download = fileName;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
-      showToast('PDF сохранён. Если файла нет — откройте приложение в обычном браузере телефона');
+      showToast('PDF сохранён');
     }catch(e){
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
@@ -2844,7 +2944,6 @@ async function downloadNaryadPdf(params){
     }
   }
 }
-
 function shareToWhatsApp(text){ window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank'); }
 function shareToTelegram(text){
   const url = 'https://t.me/share/url?url=&text=' + encodeURIComponent(text);
@@ -2854,7 +2953,7 @@ function shareToTelegram(text){
 function shareToVK(text){ window.open('https://vk.com/share.php?title=' + encodeURIComponent(text), '_blank'); }
 
 // ==================================================================
-// 22. АНАЛИТИКА
+// 23. АНАЛИТИКА
 // ==================================================================
 document.querySelectorAll('#an-period .seg-btn').forEach(function(btn){
   btn.addEventListener('click', function(){
@@ -2998,7 +3097,7 @@ if(btnExportJson){
 }
 
 // ==================================================================
-// 23. ПОИСК
+// 24. ПОИСК
 // ==================================================================
 function refreshSearchWorkerSelect(){
   const sel = $('search-worker');
@@ -3120,7 +3219,7 @@ function renderChangeLog(){
 }
 
 // ==================================================================
-// 24. АДМИН
+// 25. АДМИН
 // ==================================================================
 let adminTapCount = 0;
 let adminTapTimer = null;
@@ -3177,7 +3276,7 @@ async function openAdminOverlay(){
 }
 
 // ==================================================================
-// 25. СТАРТ
+// 26. СТАРТ
 // ==================================================================
 function initTelegramEnv(){
   if(hasTelegramCloud()){
