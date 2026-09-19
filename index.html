@@ -569,11 +569,7 @@
     <div class="tabbar">
       <button class="tab-btn active" data-tab="entry"><span class="tab-icon">📝</span><span class="tab-label">Ввод</span></button>
       <button class="tab-btn" data-tab="team"><span class="tab-icon">👥</span><span class="tab-label">Бригада</span></button>
-      <button class="tab-btn" data-tab="schedule"><span class="tab-icon">📅</span><span class="tab-label">График</span></button>
-      <button class="tab-btn" data-tab="payroll"><span class="tab-icon">💰</span><span class="tab-label">ЗП</span></button>
       <button class="tab-btn" data-tab="report"><span class="tab-icon">📄</span><span class="tab-label">Отчёт</span></button>
-      <button class="tab-btn" data-tab="search"><span class="tab-icon">🔍</span><span class="tab-label">Поиск</span></button>
-      <button class="tab-btn" data-tab="analytics"><span class="tab-icon">📊</span><span class="tab-label">Анализ</span></button>
     </div>
   </div>
 </div>
@@ -976,10 +972,7 @@ function applyRolePermissions(){
   const owner = isOwner();
   const teamTabBtn = document.querySelector('.tab-btn[data-tab="team"]');
   if(teamTabBtn) teamTabBtn.style.display = owner ? 'flex' : 'none';
-  const payrollTabBtn = document.querySelector('.tab-btn[data-tab="payroll"]');
-  if(payrollTabBtn) payrollTabBtn.style.display = owner ? 'flex' : 'none';
-  const searchTabBtn = document.querySelector('.tab-btn[data-tab="search"]');
-  if(searchTabBtn) searchTabBtn.style.display = owner ? 'flex' : 'none';
+  // График, ЗП, Поиск, Аналитика — доступны только через админ-панель
   const payrollBar = $('payroll-summary-bar');
   if(payrollBar){ payrollBar.style.display = owner ? 'flex' : 'none'; if(owner) refreshPayrollSummary(); }
   const addCatBtn = $('btn-toggle-add-cat'); if(addCatBtn) addCatBtn.style.display = owner ? 'flex' : 'none';
@@ -1012,7 +1005,10 @@ function applyRolePermissions(){
 // 9. ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
 // ==================================================================
 async function switchTab(name){
-  if(name === 'search' && !isOwner()) name = 'entry';
+  // Скрытые разделы (График, ЗП, Поиск, Аналитика) — только для мастера
+  const adminTabs = ['schedule', 'payroll', 'search', 'analytics'];
+  if(adminTabs.indexOf(name) !== -1 && !isOwner()) name = 'entry';
+
   await refreshBrigadeData();
   ['entry','team','schedule','payroll','report','search','analytics'].forEach(function(t){
     const el = $('tab-' + t);
@@ -1368,7 +1364,7 @@ function renderManageChips(){
 }
 
 // ==================================================================
-// 13. ПРОГНОЗ (общие функции)
+// 13. ПРОГНОЗ (общие)
 // ==================================================================
 function qtyForMonth(worker, monthKey){
   return ENTRIES.filter(function(e){ return e.worker === worker && (e.date || '').startsWith(monthKey); })
@@ -1461,9 +1457,8 @@ async function refreshForecast(){
 }
 
 // ==================================================================
-// 14. ПРОГНОЗ ДЛЯ КОНКРЕТНОГО РАБОТНИКА (используется в разделе ЗП)
+// 14. ПРОГНОЗ ДЛЯ КОНКРЕТНОГО РАБОТНИКА
 // ==================================================================
-// Средняя стоимость изделия по ЗАКРЫТЫМ месяцам для конкретного работника
 function getClosedMonthsStatsFor(worker, payrollAll){
   if(!worker || !payrollAll) return { avgCost: 0, monthsCount: 0 };
   const currentMonth = toISODate(new Date()).slice(0,7);
@@ -1483,9 +1478,6 @@ function getClosedMonthsStatsFor(worker, payrollAll){
   });
   return { avgCost: sumQty > 0 ? sumActual / sumQty : 0, monthsCount: count };
 }
-
-// Прогноз выработки работника к концу текущего месяца
-// (без запроса к Firebase — использует ENTRIES и SCHEDULE из памяти)
 function computeForecastFor(worker){
   if(!worker) return null;
   const todayStr = toISODate(new Date());
@@ -2186,7 +2178,6 @@ async function renderPayroll(){
 
   PAYROLL = (await fbGet(bp('payroll/' + monthVal))) || {};
 
-  // Для прогноза нужны данные по всем месяцам — грузим только для текущего
   let payrollAll = null;
   if(isCurrentMonth){
     payrollAll = (await fbGet(bp('payroll'))) || {};
@@ -2208,7 +2199,6 @@ async function renderPayroll(){
     const qty = qtyForMonth(worker, monthVal);
     const avgCost = (actual > 0 && qty > 0) ? actual / qty : 0;
 
-    // Блок прогноза — только для текущего месяца
     let forecastHtml = '';
     if(isCurrentMonth && payrollAll){
       const stats = getClosedMonthsStatsFor(worker, payrollAll);
@@ -2674,7 +2664,7 @@ function buildWorkerReport(worker, fromDate, toDate, periodLabel){
 }
 
 // ==================================================================
-// 22. БЛАНК НАРЯДА ДЛЯ ПЕЧАТИ
+// 22. БЛАНК НАРЯДА
 // ==================================================================
 function setPrintOrientation(landscape){
   let style = document.getElementById('dynamic-page-style');
@@ -3254,14 +3244,44 @@ const adminPinInput = $('admin-pin-input');
 if(adminPinInput) adminPinInput.addEventListener('keydown', function(e){ if(e.key === 'Enter') $('btn-admin-pin-confirm').click(); });
 const btnCloseAdmin = $('btn-close-admin');
 if(btnCloseAdmin) btnCloseAdmin.addEventListener('click', function(){ $('admin-overlay').style.display = 'none'; });
+
 async function openAdminOverlay(){
   $('admin-overlay').style.display = 'block';
   $('admin-content').innerHTML = '<div class="empty-state"><div class="msg">Загрузка...</div></div>';
+
+  // Блок со скрытыми разделами
+  const sectionsHtml =
+    '<div class="card">' +
+      '<div class="manage-block-title" style="margin-bottom:10px;">🧭 Скрытые разделы</div>' +
+      '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
+        '<button class="btn btn-secondary btn-sm" data-admin-nav="schedule">📅 График</button>' +
+        '<button class="btn btn-secondary btn-sm" data-admin-nav="payroll">💰 ЗП</button>' +
+        '<button class="btn btn-secondary btn-sm" data-admin-nav="search">🔍 Поиск</button>' +
+        '<button class="btn btn-secondary btn-sm" data-admin-nav="analytics">📊 Аналитика</button>' +
+      '</div>' +
+      '<div class="hint" style="margin-top:8px;">Доступны только мастеру. В обычной навигации их нет.</div>' +
+    '</div>';
+
+  function bindAdminNav(){
+    $('admin-content').querySelectorAll('[data-admin-nav]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const target = btn.getAttribute('data-admin-nav');
+        $('admin-overlay').style.display = 'none';
+        switchTab(target);
+      });
+    });
+  }
+
+  $('admin-content').innerHTML = sectionsHtml + '<div class="empty-state"><div class="msg">Загрузка бригад...</div></div>';
+  bindAdminNav();
+
   const allBrigades = await fbGet('brigades');
   if(!allBrigades){
-    $('admin-content').innerHTML = '<div class="empty-state"><div class="emoji">🗂️</div><div class="msg">Нет данных</div></div>';
+    $('admin-content').innerHTML = sectionsHtml + '<div class="empty-state"><div class="emoji">🗂️</div><div class="msg">Нет данных о бригадах</div></div>';
+    bindAdminNav();
     return;
   }
+
   const codes = Object.keys(allBrigades);
   const uniqueUsers = new Set();
   let cardsHtml = '';
@@ -3272,7 +3292,16 @@ async function openAdminOverlay(){
     const entryCount = b.entries ? Object.keys(b.entries).length : 0;
     cardsHtml += '<div class="card"><div style="font-weight:700;font-size:14.5px;">'+escapeHtml(b.factory || '(без названия)')+'</div><div class="hint" style="margin-top:0;margin-bottom:10px;">Код: '+escapeHtml(code)+' · записей: '+entryCount+'</div><div class="chip-list" style="margin-bottom:0;">' + (workers.length ? workers.map(function(w){ return '<span class="chip">'+escapeHtml(w)+'</span>'; }).join('') : '<span style="font-size:12.5px;color:var(--text-secondary);">Нет участников</span>') + '</div></div>';
   });
-  $('admin-content').innerHTML = '<div class="day-total-bar" style="margin-bottom:16px;"><span class="label">Бригад / пользователей</span><span class="val">'+codes.length+' / '+uniqueUsers.size+'</span></div>' + cardsHtml;
+
+  $('admin-content').innerHTML =
+    sectionsHtml +
+    '<div class="day-total-bar" style="margin-bottom:16px;">' +
+      '<span class="label">Бригад / пользователей</span>' +
+      '<span class="val">' + codes.length + ' / ' + uniqueUsers.size + '</span>' +
+    '</div>' +
+    cardsHtml;
+
+  bindAdminNav();
 }
 
 // ==================================================================
