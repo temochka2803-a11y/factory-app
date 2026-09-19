@@ -218,7 +218,7 @@
   .cal-weekday{ font-size:10px; font-weight:700; color:var(--text-secondary); text-align:center; padding:4px 0; text-transform:uppercase; }
   .cal-day{ aspect-ratio:1; border-radius:10px; border:1.5px solid var(--border); background:#FAFAFA; cursor:pointer; padding:0; position:relative; overflow:hidden; }
   .cal-day.empty{ visibility:hidden; cursor:default; }
-  .cal-day.today{ border-color:var(--accent); border-width:2px; }
+  .cal-day.today{ border-color:var(--danger); border-width:2px; }
   .cal-day.selected{ outline:2px solid var(--accent-dark); outline-offset:1px; }
   .cal-day.readonly{ cursor:default; }
   .cal-day-fill{ position:absolute; inset:0; display:flex; flex-direction:column; }
@@ -569,6 +569,7 @@
     <div class="tabbar">
       <button class="tab-btn active" data-tab="entry"><span class="tab-icon">📝</span><span class="tab-label">Ввод</span></button>
       <button class="tab-btn" data-tab="team"><span class="tab-icon">👥</span><span class="tab-label">Бригада</span></button>
+      <button class="tab-btn" data-tab="schedule"><span class="tab-icon">📅</span><span class="tab-label">График</span></button>
       <button class="tab-btn" data-tab="report"><span class="tab-icon">📄</span><span class="tab-label">Отчёт</span></button>
     </div>
   </div>
@@ -972,7 +973,7 @@ function applyRolePermissions(){
   const owner = isOwner();
   const teamTabBtn = document.querySelector('.tab-btn[data-tab="team"]');
   if(teamTabBtn) teamTabBtn.style.display = owner ? 'flex' : 'none';
-  // График, ЗП, Поиск, Аналитика — доступны только через админ-панель
+  // График виден всем, но редактирование только мастеру
   const payrollBar = $('payroll-summary-bar');
   if(payrollBar){ payrollBar.style.display = owner ? 'flex' : 'none'; if(owner) refreshPayrollSummary(); }
   const addCatBtn = $('btn-toggle-add-cat'); if(addCatBtn) addCatBtn.style.display = owner ? 'flex' : 'none';
@@ -1005,8 +1006,8 @@ function applyRolePermissions(){
 // 9. ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
 // ==================================================================
 async function switchTab(name){
-  // Скрытые разделы (График, ЗП, Поиск, Аналитика) — только для мастера
-  const adminTabs = ['schedule', 'payroll', 'search', 'analytics'];
+  // Скрытые разделы (ЗП, Поиск, Аналитика) — только для мастера
+  const adminTabs = ['payroll', 'search', 'analytics'];
   if(adminTabs.indexOf(name) !== -1 && !isOwner()) name = 'entry';
 
   await refreshBrigadeData();
@@ -3249,12 +3250,11 @@ async function openAdminOverlay(){
   $('admin-overlay').style.display = 'block';
   $('admin-content').innerHTML = '<div class="empty-state"><div class="msg">Загрузка...</div></div>';
 
-  // Блок со скрытыми разделами
+  // Блок со скрытыми разделами (График убран — он теперь в таббаре)
   const sectionsHtml =
     '<div class="card">' +
       '<div class="manage-block-title" style="margin-bottom:10px;">🧭 Скрытые разделы</div>' +
-      '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">' +
-        '<button class="btn btn-secondary btn-sm" data-admin-nav="schedule">📅 График</button>' +
+      '<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">' +
         '<button class="btn btn-secondary btn-sm" data-admin-nav="payroll">💰 ЗП</button>' +
         '<button class="btn btn-secondary btn-sm" data-admin-nav="search">🔍 Поиск</button>' +
         '<button class="btn btn-secondary btn-sm" data-admin-nav="analytics">📊 Аналитика</button>' +
