@@ -145,6 +145,10 @@
   .favorites-block .manage-block-title{color:#8A5A00;margin-bottom:8px;}
   .fav-btn{padding:8px 12px;border-radius:8px;border:1px solid #F4D9A8;background:#fff;font-size:13px;cursor:pointer;font-family:inherit;color:#5A3800;margin:0 6px 6px 0;}
   .fav-btn:active{background:#FFF4E5;}
+  .frequent-block{padding:10px 12px;background:#F5F8FF;border:1px solid #CFE4FB;border-radius:10px;margin-bottom:14px;}
+  .frequent-block .manage-block-title{color:#2679C9;margin-bottom:8px;}
+  .frequent-btn{padding:8px 12px;border-radius:8px;border:1px solid #CFE4FB;background:#fff;font-size:13px;cursor:pointer;font-family:inherit;color:#2679C9;margin:0 6px 6px 0;}
+  .frequent-btn:active{background:#EAF3FE;}
   .empty-state{text-align:center;padding:32px 20px;color:var(--text-secondary);}
   .empty-state .emoji{font-size:32px;margin-bottom:8px;}
   .empty-state .msg{font-size:14px;line-height:1.5;}
@@ -385,8 +389,13 @@
         <input type="date" id="entry-date">
       </div>
 
+      <div class="frequent-block" id="frequent-block" style="display:none;">
+        <div class="manage-block-title">📌 Мои частые детали (авто)</div>
+        <div id="frequent-list"></div>
+      </div>
+
       <div class="favorites-block" id="favorites-block" style="display:none;">
-        <div class="manage-block-title">⭐ Мои частые записи</div>
+        <div class="manage-block-title">⭐ Мои избранные записи</div>
         <div id="favorites-list"></div>
       </div>
 
@@ -540,6 +549,23 @@
         <div class="field" id="rep-worker-field" style="display:none;"><label>Работник</label><select id="rep-worker-select"></select></div>
         <div class="field" id="rep-date-field"><label>Дата отчёта</label><input type="date" id="rep-date"></div>
         <div class="field" id="rep-month-field" style="display:none;"><label>Месяц</label><input type="month" id="rep-month"></div>
+
+        <div id="rep-naryad-mode-field" style="display:none;">
+          <div class="field">
+            <label>Период бланка</label>
+            <div class="seg-control" id="naryad-period-mode">
+              <button class="seg-btn active" data-nperiod="month">Месяц</button>
+              <button class="seg-btn" data-nperiod="range">Диапазон дат</button>
+            </div>
+          </div>
+          <div id="naryad-range-fields" style="display:none;">
+            <div class="field-row">
+              <div class="field"><label>С</label><input type="date" id="naryad-date-from"></div>
+              <div class="field"><label>По</label><input type="date" id="naryad-date-to"></div>
+            </div>
+          </div>
+        </div>
+
         <button class="btn btn-secondary" id="btn-build-report">Сформировать выписку для мастера</button>
       </div>
       <div id="report-output"></div>
@@ -706,6 +732,8 @@ const NEW_SHIFT_TYPE_IDS_TO_MERGE=['vacation','sick'];
 const QUEUE_KEY='pending_entries_v1';
 const FAV_KEY='favorite_entries_v1';
 const REMINDER_KEY='reminder_dismissed_v1';
+const BACKUP_INTERVAL_MS=7*24*60*60*1000;
+const BACKUPS_TO_KEEP=4;
 
 function showToast(msg){const t=$('toast');if(!t) return;t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2500);}
 async function sha256(text){const buf=new TextEncoder().encode(text);const hash=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(hash)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');}
@@ -809,6 +837,7 @@ async function flushQueue(){
   savePendingQueue();
   updateQueueBadge();
   renderEntries();renderUsersList();renderMiniDashboard();
+  renderFrequentParts();
   await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
 }
 
@@ -851,6 +880,73 @@ async function logChange(action,oldValue,newValue,entityId){
   updateUndoButton();
 }
 
+// ============ АВТОБЭКАП ============
+async function maybeCreateBackup(force){
+  if(!isOwner()||!firebaseReady||!PROFILE) return false;
+  try{
+    const lastTs=await fbGet(bp('backups/_lastBackupTs'));
+    const now=Date.now();
+    if(!force&&lastTs&&(now-lastTs)<BACKUP_INTERVAL_MS){
+      console.log('Бэкап не нужен, последний:',new Date(lastTs).toLocaleString('ru-RU'));
+      return false;
+    }
+    const all=await fbGet('brigades/'+PROFILE.code);
+    if(!all) return false;
+    const clean=Object.assign({},all);
+    delete clean.backups;
+    const dateKey=toISODate(new Date())+'_'+now.toString(36);
+    const writeOk=await fbSet(bp('backups/'+dateKey),{createdAt:now,createdBy:PROFILE.fio,data:clean});
+    if(!writeOk) return false;
+    await fbSet(bp('backups/_lastBackupTs'),now);
+    const backups=await fbGet(bp('backups'));
+    if(backups){
+      const keys=Object.keys(backups).filter(function(k){return k.indexOf('_')!==0;}).sort();
+      while(keys.length>BACKUPS_TO_KEEP){
+        const oldest=keys.shift();
+        await fbRemove(bp('backups/'+oldest));
+      }
+    }
+    console.log('Бэкап создан:',dateKey);
+    return true;
+  }catch(e){console.error('Backup error:',e);return false;}
+}
+
+// ============ ЧАСТЫЕ ДЕТАЛИ ============
+function getFrequentParts(limit){
+  if(!PROFILE) return [];
+  const cutoff=Date.now()-30*86400000;
+  const recent=ENTRIES.filter(function(e){return e.worker===PROFILE.fio&&!e._pending&&e.ts>cutoff;});
+  const counter={};
+  recent.forEach(function(e){const key=e.category+'||'+e.part;counter[key]=(counter[key]||0)+e.qty;});
+  const sorted=Object.keys(counter).map(function(k){
+    const parts=k.split('||');
+    return {category:parts[0],part:parts[1],qty:counter[k]};
+  }).sort(function(a,b){return b.qty-a.qty;});
+  return sorted.slice(0,limit||6);
+}
+function renderFrequentParts(){
+  const block=$('frequent-block');
+  const wrap=$('frequent-list');
+  if(!block||!wrap) return;
+  const list=getFrequentParts(6);
+  if(list.length===0){block.style.display='none';return;}
+  block.style.display='block';
+  wrap.innerHTML=list.map(function(f,i){
+    return '<button class="frequent-btn" data-idx="'+i+'">'+escapeHtml(f.part)+' · '+fmtMoney(f.qty)+' шт</button>';
+  }).join('');
+  wrap.querySelectorAll('.frequent-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      const idx=parseInt(btn.getAttribute('data-idx'),10);
+      const f=list[idx];
+      $('in-cat-select').value=f.category;
+      refreshPartSelect($('in-part-select'),f.category);
+      $('in-part-select').value=f.part;
+      $('in-qty').focus();
+      showToast('Подставлено: '+f.part);
+    });
+  });
+}
+
 async function init(){
   showRoot('register');
   const fbOk=initFirebase();
@@ -879,9 +975,11 @@ async function init(){
   if($('rep-month')) $('rep-month').value=monthISO;
   if($('sched-month')) $('sched-month').value=monthISO;
   if($('payroll-month')) $('payroll-month').value=monthISO;
+  if($('naryad-date-from')) $('naryad-date-from').value=todayISO;
+  if($('naryad-date-to')) $('naryad-date-to').value=todayISO;
 
   refreshAllCategorySelects();refreshAllPartSelects();refreshWorkerSelect();
-  renderManageChips();renderWorkerChips();renderFavorites();
+  renderManageChips();renderWorkerChips();renderFavorites();renderFrequentParts();
   renderEntries();renderUsersList();renderMiniDashboard();
   updateQueueBadge();
   applyRolePermissions();
@@ -889,6 +987,7 @@ async function init(){
   checkEveningReminder();
   await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
   flushQueue();
+  maybeCreateBackup(false).catch(function(e){console.error('backup failed:',e);});
 
   showRoot('main');
   switchTab('entry');
@@ -932,7 +1031,7 @@ async function switchTab(name){
   refreshAllCategorySelects();refreshAllPartSelects();refreshWorkerSelect();
   renderManageChips();renderWorkerChips();
   if(name==='entry'){
-    renderEntries();renderUsersList();renderMiniDashboard();
+    renderEntries();renderUsersList();renderMiniDashboard();renderFrequentParts();
     await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
     updateShiftTodayBar();checkEveningReminder();
     if(isOwner()) refreshPayrollSummary();
@@ -960,7 +1059,6 @@ function updateShiftTodayBar(){
   $('shift-today-name').textContent=shift.name;
   $('shift-today-date').textContent=formatDateRu(today);
 }
-
 function checkEveningReminder(){
   const bar=$('evening-reminder');
   if(!bar||!PROFILE) return;
@@ -1079,7 +1177,6 @@ if($('btn-toggle-add-part')) $('btn-toggle-add-part').addEventListener('click',f
   if(!$('in-cat-select').value){showToast('Сначала выберите категорию');return;}
   $('add-part-panel').classList.toggle('open');$('in-new-part').focus();
 });
-
 if($('btn-save-cat')) $('btn-save-cat').addEventListener('click',async function(){
   if(!isOwner()){showToast('Только мастер');return;}
   const name=$('in-new-cat').value.trim();
@@ -1108,7 +1205,6 @@ if($('btn-save-part')) $('btn-save-part').addEventListener('click',async functio
   renderManageChips();
   showToast('Деталь добавлена');
 });
-
 function renderManageChips(){
   const catWrap=$('cat-chip-list');if(!catWrap) return;
   catWrap.innerHTML=CATEGORIES.length?CATEGORIES.map(function(c){
@@ -1226,7 +1322,6 @@ async function refreshForecast(){
     }
   }catch(e){console.error(e);card.style.display='none';}
 }
-
 async function showHelpSalary(){
   const content=$('help-salary-content');
   if(!content||!PROFILE) return;
@@ -1357,6 +1452,7 @@ function renderEntries(){
         ENTRIES=ENTRIES.filter(function(e){return e.id!==id;});
         updateQueueBadge();
         renderEntries();renderUsersList();renderMiniDashboard();
+        renderFrequentParts();
         showToast('Запись удалена из очереди');
         return;
       }
@@ -1364,6 +1460,7 @@ function renderEntries(){
       await fbRemove(bp('entries/'+id));
       ENTRIES=ENTRIES.filter(function(e){return e.id!==id;});
       renderEntries();renderUsersList();renderMiniDashboard();
+      renderFrequentParts();
       await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
       showToast('Запись удалена');
     });
@@ -1438,6 +1535,7 @@ if($('btn-edit-save')) $('btn-edit-save').addEventListener('click',async functio
   $('edit-modal').classList.remove('open');
   editingEntryId=null;
   renderEntries();renderUsersList();renderMiniDashboard();
+  renderFrequentParts();
   await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
   renderTeam();
   showToast('Запись изменена');
@@ -1475,14 +1573,15 @@ if($('btn-undo')) $('btn-undo').addEventListener('click',async function(){
         showToast('Изменение отменено');
       }
     } else if(last.action==='set_actual_salary'&&last.newValue){
-      const {month,worker}=last.newValue;
+      const m=last.newValue.month;const w=last.newValue.worker;
       const prev=(last.oldValue&&last.oldValue.actual)||0;
-      await fbUpdate(bp('payroll/'+month+'/'+worker),{actual:prev});
+      await fbUpdate(bp('payroll/'+m+'/'+w),{actual:prev});
       showToast('Зарплата отменена');
     }
     await fbPush(bp('changeLog'),{action:'undo',by:PROFILE.fio,timestamp:Date.now(),oldValue:{undone:last.action},newValue:null});
     CHANGE_LOG=CHANGE_LOG.filter(function(c){return c.id!==last.id;});
     renderEntries();renderUsersList();renderMiniDashboard();
+    renderFrequentParts();
     await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
     await refreshBrigadeData();
     renderTeam();
@@ -1568,7 +1667,7 @@ if($('btn-copy-code')) $('btn-copy-code').addEventListener('click',function(){co
 if($('btn-refresh')) $('btn-refresh').addEventListener('click',async function(){
   await refreshBrigadeData();
   refreshAllCategorySelects();refreshAllPartSelects();refreshWorkerSelect();
-  renderManageChips();renderWorkerChips();renderFavorites();
+  renderManageChips();renderWorkerChips();renderFavorites();renderFrequentParts();
   renderEntries();renderUsersList();renderMiniDashboard();renderTeam();
   await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
   updateQueueBadge();updateShiftTodayBar();checkEveningReminder();
@@ -1643,6 +1742,7 @@ function renderTeam(){
       await fbRemove(bp('entries/'+id));
       ENTRIES=ENTRIES.filter(function(e){return e.id!==id;});
       renderTeam();
+      renderFrequentParts();
     });
   });
 }
@@ -2101,7 +2201,17 @@ if($('btn-save-my-salary')) $('btn-save-my-salary').addEventListener('click',asy
 });
 
 let REPORT_MODE='brigade';
+let NARYAD_PERIOD_MODE='month';
 const REPORT_BTN_LABELS={brigade:'Сформировать выписку для мастера',day:'Моя выписка за день',month:'Моя выписка за месяц',worker:'Выписка по работнику',naryad:'Бланк для печати'};
+
+document.querySelectorAll('#naryad-period-mode .seg-btn').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    NARYAD_PERIOD_MODE=btn.getAttribute('data-nperiod');
+    document.querySelectorAll('#naryad-period-mode .seg-btn').forEach(function(b){b.classList.toggle('active',b===btn);});
+    $('naryad-range-fields').style.display=(NARYAD_PERIOD_MODE==='range')?'block':'none';
+  });
+});
+
 function refreshReportWorkerSelect(){
   const sel=$('rep-worker-select');if(!sel) return;
   const prev=sel.value;
@@ -2120,6 +2230,8 @@ document.querySelectorAll('#report-mode .seg-btn').forEach(function(btn){
     $('rep-date-field').style.display=(REPORT_MODE==='brigade'||REPORT_MODE==='day')?'block':'none';
     $('rep-month-field').style.display=(REPORT_MODE==='month'||REPORT_MODE==='worker'||REPORT_MODE==='naryad')?'block':'none';
     $('rep-worker-field').style.display=(REPORT_MODE==='worker'||REPORT_MODE==='naryad')?'block':'none';
+    const naryadModeField=$('rep-naryad-mode-field');
+    if(naryadModeField) naryadModeField.style.display=(REPORT_MODE==='naryad')?'block':'none';
     if(REPORT_MODE==='worker') refreshReportWorkerSelect();
     if(REPORT_MODE==='naryad') refreshNaryadWorkerSelect();
     $('btn-build-report').textContent=REPORT_BTN_LABELS[REPORT_MODE];
@@ -2150,9 +2262,19 @@ if($('btn-build-report')) $('btn-build-report').addEventListener('click',async f
   } else {
     const worker=isOwner()?$('rep-worker-select').value:PROFILE.fio;
     if(!worker){showToast('Выберите');return;}
-    buildNaryadBlank(worker,$('rep-month').value||toISODate(new Date()).slice(0,7));
+    if(NARYAD_PERIOD_MODE==='range'){
+      const fromDate=$('naryad-date-from').value;
+      const toDate=$('naryad-date-to').value;
+      if(!fromDate||!toDate){showToast('Укажите диапазон дат');return;}
+      if(fromDate>toDate){showToast('Дата "С" больше даты "По"');return;}
+      const label=formatDateRu(fromDate)+' — '+formatDateRu(toDate);
+      buildNaryadBlankRange(worker,fromDate,toDate,label);
+    } else {
+      buildNaryadBlank(worker,$('rep-month').value||toISODate(new Date()).slice(0,7));
+    }
   }
 });
+
 function buildBrigadeReport(dateStr){
   const combined=ENTRIES.filter(function(e){return e.date===dateStr&&EXCLUDED_CATEGORIES.indexOf(e.category)===-1;});
   const byKey={};
@@ -2172,11 +2294,28 @@ function buildBrigadeReport(dateStr){
   if(categories.length>0){
     const actions=document.createElement('div');
     actions.className='report-actions';
-    actions.innerHTML='<button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button><button class="btn btn-excel" id="btn-excel-rep">📊 Excel</button><button class="btn btn-primary" id="btn-print">🖨 Печать</button>';
+    actions.innerHTML='<button class="btn btn-secondary" id="btn-download-file">⬇ Скачать файл</button><button class="btn btn-excel" id="btn-excel-rep">📊 Excel</button><button class="btn btn-primary" id="btn-print">🖨 Печать</button><button class="btn btn-whatsapp" id="btn-rep-wa">📤 WhatsApp</button><button class="btn btn-telegram" id="btn-rep-tg">✈️ Telegram</button><button class="btn btn-vk" id="btn-rep-vk">VK</button>';
     $('report-output').appendChild(actions);
     $('btn-print').addEventListener('click',function(){setPrintOrientation(false);window.print();});
     $('btn-download-file').addEventListener('click',function(){downloadBrigadeReport(byCategory,categories,total,dateStr);});
     $('btn-excel-rep').addEventListener('click',function(){exportBrigadeToExcel(byCategory,categories,total,dateStr);});
+    const buildText=function(){
+      let text='📋 Выписка по цеху\n';
+      text+='Завод/цех: '+PROFILE.factory+'\n';
+      text+='Дата: '+formatDateRu(dateStr)+'\n\n';
+      categories.forEach(function(cat){
+        const catTotal=byCategory[cat].reduce(function(s,r){return s+r.qty;},0);
+        text+='🔧 '+cat+' — '+catTotal+' шт\n';
+        byCategory[cat].forEach(function(r){text+='   • '+r.part+': '+r.qty+' шт\n';});
+        text+='\n';
+      });
+      text+='———————————————\n';
+      text+='Итого по бригаде: '+total+' шт';
+      return text;
+    };
+    $('btn-rep-wa').addEventListener('click',function(){shareToWhatsApp(buildText());});
+    $('btn-rep-tg').addEventListener('click',function(){shareToTelegram(buildText());});
+    $('btn-rep-vk').addEventListener('click',function(){shareToVK(buildText());});
   }
 }
 function exportBrigadeToExcel(byCategory,categories,total,dateStr){
@@ -2207,6 +2346,24 @@ function buildPersonalReport(fromDate,toDate,periodLabel){
   Object.values(byKey).forEach(function(row){if(!byCategory[row.category]) byCategory[row.category]=[];byCategory[row.category].push(row);});
   const categories=Object.keys(byCategory).sort(function(a,b){return a.localeCompare(b,'ru');});
   const total=Object.values(byKey).reduce(function(s,r){return s+r.qty;},0);
+
+  const byDate={};
+  own.forEach(function(e){(byDate[e.date]=byDate[e.date]||[]).push(e);});
+  const workDates=Object.keys(byDate).sort();
+  let dailyHtml='';
+  if(workDates.length>0){
+    workDates.forEach(function(date){
+      const items=byDate[date].sort(function(a,b){return a.ts-b.ts;});
+      const dayTotal=items.reduce(function(s,e){return s+e.qty;},0);
+      dailyHtml+='<tr class="cat-row"><td>'+formatDateRu(date)+'</td><td style="text-align:right;">'+dayTotal+' шт</td></tr>';
+      items.forEach(function(e){
+        dailyHtml+='<tr><td>'+escapeHtml(e.category)+' — '+escapeHtml(e.part)+'</td><td class="qty">'+e.qty+'</td></tr>';
+      });
+    });
+  } else {
+    dailyHtml='<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей</td></tr>';
+  }
+
   let rowsHtml='';
   categories.forEach(function(cat){
     const catTotal=byCategory[cat].reduce(function(s,r){return s+r.qty;},0);
@@ -2214,14 +2371,33 @@ function buildPersonalReport(fromDate,toDate,periodLabel){
     byCategory[cat].sort(function(a,b){return b.qty-a.qty;}).forEach(function(r){rowsHtml+='<tr><td>'+escapeHtml(r.part)+'</td><td class="qty">'+r.qty+'</td></tr>';});
   });
   if(categories.length===0) rowsHtml='<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей</td></tr>';
-  $('report-output').innerHTML='<div class="report-doc" id="report-doc"><h2>Моя выписка</h2><div class="report-meta">Сформировано: '+new Date().toLocaleDateString('ru-RU')+'</div><div class="report-field"><span>Ф.И.О.</span><span>'+escapeHtml(PROFILE.fio)+'</span></div><div class="report-field"><span>Завод / цех</span><span>'+escapeHtml(PROFILE.factory)+'</span></div><div class="report-field"><span>Период</span><span>'+periodLabel+'</span></div><table class="report-table"><thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead><tbody>'+rowsHtml+'</tbody></table><div class="report-total"><span>Итого, шт</span><span class="val">'+total+'</span></div></div>';
+
+  $('report-output').innerHTML='<div class="report-doc" id="report-doc"><h2>Моя выписка</h2><div class="report-meta">Сформировано: '+new Date().toLocaleDateString('ru-RU')+'</div><div class="report-field"><span>Ф.И.О.</span><span>'+escapeHtml(PROFILE.fio)+'</span></div><div class="report-field"><span>Завод / цех</span><span>'+escapeHtml(PROFILE.factory)+'</span></div><div class="report-field"><span>Период</span><span>'+periodLabel+'</span></div><div class="report-section-title">Разбивка по дням</div><table class="report-table"><thead><tr><th>Дата / деталь</th><th style="text-align:right;">Количество</th></tr></thead><tbody>'+dailyHtml+'</tbody></table><div class="report-section-title" style="margin-top:18px;">Итого по категориям</div><table class="report-table"><thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead><tbody>'+rowsHtml+'</tbody></table><div class="report-total"><span>Итого, шт</span><span class="val">'+total+'</span></div></div>';
   if(categories.length>0){
     const actions=document.createElement('div');actions.className='report-actions';
-    actions.innerHTML='<button class="btn btn-secondary" id="btn-download-file">⬇ Скачать</button><button class="btn btn-excel" id="btn-excel-rep">📊 Excel</button><button class="btn btn-primary" id="btn-print">🖨 Печать</button>';
+    actions.innerHTML='<button class="btn btn-secondary" id="btn-download-file">⬇ Скачать</button><button class="btn btn-excel" id="btn-excel-rep">📊 Excel</button><button class="btn btn-primary" id="btn-print">🖨 Печать</button><button class="btn btn-whatsapp" id="btn-rep-wa">📤 WhatsApp</button><button class="btn btn-telegram" id="btn-rep-tg">✈️ Telegram</button><button class="btn btn-vk" id="btn-rep-vk">VK</button>';
     $('report-output').appendChild(actions);
     $('btn-print').addEventListener('click',function(){setPrintOrientation(false);window.print();});
     $('btn-download-file').addEventListener('click',function(){downloadPersonalReport(byCategory,categories,total,periodLabel);});
     $('btn-excel-rep').addEventListener('click',function(){exportPersonalToExcel(own,periodLabel);});
+    const buildText=function(){
+      let text='📄 Моя выписка\n';
+      text+='Ф.И.О.: '+PROFILE.fio+'\n';
+      text+='Завод/цех: '+PROFILE.factory+'\n';
+      text+='Период: '+periodLabel+'\n\n';
+      categories.forEach(function(cat){
+        const catTotal=byCategory[cat].reduce(function(s,r){return s+r.qty;},0);
+        text+='🔧 '+cat+' — '+catTotal+' шт\n';
+        byCategory[cat].forEach(function(r){text+='   • '+r.part+': '+r.qty+' шт\n';});
+        text+='\n';
+      });
+      text+='———————————————\n';
+      text+='Итого: '+total+' шт';
+      return text;
+    };
+    $('btn-rep-wa').addEventListener('click',function(){shareToWhatsApp(buildText());});
+    $('btn-rep-tg').addEventListener('click',function(){shareToTelegram(buildText());});
+    $('btn-rep-vk').addEventListener('click',function(){shareToVK(buildText());});
   }
 }
 function exportPersonalToExcel(own,periodLabel){
@@ -2251,6 +2427,24 @@ function buildWorkerReport(worker,fromDate,toDate,periodLabel){
   Object.values(byKey).forEach(function(row){if(!byCategory[row.category]) byCategory[row.category]=[];byCategory[row.category].push(row);});
   const categories=Object.keys(byCategory).sort(function(a,b){return a.localeCompare(b,'ru');});
   const total=Object.values(byKey).reduce(function(s,r){return s+r.qty;},0);
+
+  const byDate={};
+  items.forEach(function(e){(byDate[e.date]=byDate[e.date]||[]).push(e);});
+  const workDates=Object.keys(byDate).sort();
+  let dailyHtml='';
+  if(workDates.length>0){
+    workDates.forEach(function(date){
+      const dayItems=byDate[date].sort(function(a,b){return a.ts-b.ts;});
+      const dayTotal=dayItems.reduce(function(s,e){return s+e.qty;},0);
+      dailyHtml+='<tr class="cat-row"><td>'+formatDateRu(date)+'</td><td style="text-align:right;">'+dayTotal+' шт</td></tr>';
+      dayItems.forEach(function(e){
+        dailyHtml+='<tr><td>'+escapeHtml(e.category)+' — '+escapeHtml(e.part)+'</td><td class="qty">'+e.qty+'</td></tr>';
+      });
+    });
+  } else {
+    dailyHtml='<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей</td></tr>';
+  }
+
   let rowsHtml='';
   categories.forEach(function(cat){
     const catTotal=byCategory[cat].reduce(function(s,r){return s+r.qty;},0);
@@ -2258,12 +2452,45 @@ function buildWorkerReport(worker,fromDate,toDate,periodLabel){
     byCategory[cat].sort(function(a,b){return b.qty-a.qty;}).forEach(function(r){rowsHtml+='<tr><td>'+escapeHtml(r.part)+'</td><td class="qty">'+r.qty+'</td></tr>';});
   });
   if(categories.length===0) rowsHtml='<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей</td></tr>';
-  $('report-output').innerHTML='<div class="report-doc" id="report-doc"><h2>Выписка по работнику</h2><div class="report-meta">Сформировано: '+new Date().toLocaleDateString('ru-RU')+'</div><div class="report-field"><span>Работник</span><span>'+escapeHtml(worker)+'</span></div><div class="report-field"><span>Период</span><span>'+periodLabel+'</span></div><table class="report-table"><thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead><tbody>'+rowsHtml+'</tbody></table><div class="report-total"><span>Итого, шт</span><span class="val">'+total+'</span></div></div>';
+  $('report-output').innerHTML='<div class="report-doc" id="report-doc"><h2>Выписка по работнику</h2><div class="report-meta">Сформировано: '+new Date().toLocaleDateString('ru-RU')+'</div><div class="report-field"><span>Работник</span><span>'+escapeHtml(worker)+'</span></div><div class="report-field"><span>Период</span><span>'+periodLabel+'</span></div><div class="report-section-title">Разбивка по дням</div><table class="report-table"><thead><tr><th>Дата / деталь</th><th style="text-align:right;">Количество</th></tr></thead><tbody>'+dailyHtml+'</tbody></table><div class="report-section-title" style="margin-top:18px;">Итого по категориям</div><table class="report-table"><thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead><tbody>'+rowsHtml+'</tbody></table><div class="report-total"><span>Итого, шт</span><span class="val">'+total+'</span></div></div>';
   if(categories.length>0){
     const actions=document.createElement('div');actions.className='report-actions';
-    actions.innerHTML='<button class="btn btn-primary" id="btn-print">🖨 Печать</button>';
+    actions.innerHTML='<button class="btn btn-secondary" id="btn-download-file">⬇ Скачать</button><button class="btn btn-excel" id="btn-excel-rep">📊 Excel</button><button class="btn btn-primary" id="btn-print">🖨 Печать</button><button class="btn btn-whatsapp" id="btn-rep-wa">📤 WhatsApp</button><button class="btn btn-telegram" id="btn-rep-tg">✈️ Telegram</button><button class="btn btn-vk" id="btn-rep-vk">VK</button>';
     $('report-output').appendChild(actions);
     $('btn-print').addEventListener('click',function(){setPrintOrientation(false);window.print();});
+    $('btn-download-file').addEventListener('click',function(){
+      let text='ВЫПИСКА ПО РАБОТНИКУ\r\nРаботник: '+worker+'\r\nПериод: '+periodLabel+'\r\n';
+      categories.forEach(function(cat){
+        const catTotal=byCategory[cat].reduce(function(s,r){return s+r.qty;},0);
+        text+='\r\n'+cat.toUpperCase()+' — Итого: '+catTotal+' шт\r\n';
+        byCategory[cat].forEach(function(r){text+='  '+r.part+'\t'+r.qty+'\r\n';});
+      });
+      text+='\r\nИТОГО: '+total+' шт.\r\n';
+      const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.href=url;a.download='Выписка_'+worker.replace(/\s+/g,'_')+'_'+periodLabel.replace(/\s+/g,'_')+'.txt';
+      document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+      showToast('Файл скачан');
+    });
+    $('btn-excel-rep').addEventListener('click',function(){exportPersonalToExcel(items,periodLabel);});
+    const buildText=function(){
+      let text='📄 Выписка по работнику\n';
+      text+='Работник: '+worker+'\n';
+      text+='Завод/цех: '+PROFILE.factory+'\n';
+      text+='Период: '+periodLabel+'\n\n';
+      categories.forEach(function(cat){
+        const catTotal=byCategory[cat].reduce(function(s,r){return s+r.qty;},0);
+        text+='🔧 '+cat+' — '+catTotal+' шт\n';
+        byCategory[cat].forEach(function(r){text+='   • '+r.part+': '+r.qty+' шт\n';});
+        text+='\n';
+      });
+      text+='———————————————\n';
+      text+='Итого: '+total+' шт';
+      return text;
+    };
+    $('btn-rep-wa').addEventListener('click',function(){shareToWhatsApp(buildText());});
+    $('btn-rep-tg').addEventListener('click',function(){shareToTelegram(buildText());});
+    $('btn-rep-vk').addEventListener('click',function(){shareToVK(buildText());});
   }
 }
 
@@ -2272,6 +2499,7 @@ function setPrintOrientation(landscape){
   if(!style){style=document.createElement('style');style.id='dynamic-page-style';document.head.appendChild(style);}
   style.textContent=landscape?'@page{ size: landscape; margin: 10mm; }':'';
 }
+
 function buildNaryadBlank(worker,monthVal){
   const y=parseInt(monthVal.split('-')[0],10),m=parseInt(monthVal.split('-')[1],10);
   const daysInMonth=new Date(y,m,0).getDate();
@@ -2318,13 +2546,209 @@ function buildNaryadBlank(worker,monthVal){
   sumCells+='<td class="naryad-total">'+grandTotal+'</td>';
   $('report-output').innerHTML='<div class="naryad-doc" id="naryad-doc"><div class="naryad-head"><h2>Наряд на сдельную работу</h2><div class="row"><span>Ф.И.О.</span><span>'+escapeHtml(worker)+'</span></div><div class="row"><span>Завод / цех</span><span>'+escapeHtml(PROFILE.factory)+'</span></div><div class="row"><span>Месяц</span><span>'+monthLabel+'</span></div></div><div class="naryad-scroll"><table class="naryad-table"><thead>'+headRow+'</thead><tbody>'+bodyRows+'<tr class="naryad-sum-row">'+sumCells+'</tr></tbody></table></div><div class="naryad-sign"><div>Подпись работника</div><div>Подпись мастера</div></div></div>';
   const actions=document.createElement('div');actions.className='report-actions';
-  actions.innerHTML='<button class="btn btn-primary" id="btn-print-naryad">📄 Скачать PDF</button>';
+  actions.innerHTML='<button class="btn btn-primary" id="btn-print-naryad">📄 Скачать PDF</button><button class="btn btn-whatsapp" id="btn-nar-wa">📤 WhatsApp</button><button class="btn btn-telegram" id="btn-nar-tg">✈️ Telegram</button>';
   $('report-output').appendChild(actions);
+  const naryadText=function(){
+    let text='📋 Наряд на сдельную работу\n';
+    text+='Ф.И.О.: '+worker+'\n';
+    text+='Завод/цех: '+PROFILE.factory+'\n';
+    text+='Месяц: '+monthLabel+'\n\n';
+    let grand=0;
+    usedParts.forEach(function(part){
+      let rowTotal=0;
+      for(let d=1;d<=daysInMonth;d++){rowTotal+=(byPart[part][d]||0);}
+      grand+=rowTotal;
+      text+='🔧 '+part+' — '+rowTotal+' шт\n';
+    });
+    text+='———————————————\nИтого за месяц: '+grand+' шт';
+    return text;
+  };
+  $('btn-nar-wa').addEventListener('click',function(){shareToWhatsApp(naryadText());});
+  $('btn-nar-tg').addEventListener('click',function(){shareToTelegram(naryadText());});
   $('btn-print-naryad').addEventListener('click',async function(){
     try{await downloadNaryadPdf({worker:worker,monthLabel:monthLabel,monthVal:monthVal,daysInMonth:daysInMonth,cutoffDay:cutoffDay,usedParts:usedParts,byPart:byPart,dayTotals:dayTotals,blankRowsCount:blankRowsCount});}
     catch(e){console.error(e);showToast('Ошибка: '+e.message);}
   });
 }
+
+function buildNaryadBlankRange(worker,fromDate,toDate,label){
+  const fromD=new Date(fromDate+'T00:00:00');
+  const toD=new Date(toDate+'T00:00:00');
+  const daysCount=Math.round((toD-fromD)/86400000)+1;
+  if(daysCount<=0){showToast('Неверный диапазон');return;}
+  if(daysCount>62){showToast('Максимум 62 дня');return;}
+  const items=ENTRIES.filter(function(e){return e.worker===worker&&e.date>=fromDate&&e.date<=toDate;});
+  const byPart={};
+  items.forEach(function(e){
+    const l=(e.category+' '+e.part).trim();
+    if(!byPart[l]) byPart[l]={};
+    const dayIdx=Math.round((new Date(e.date+'T00:00:00')-fromD)/86400000)+1;
+    byPart[l][dayIdx]=(byPart[l][dayIdx]||0)+e.qty;
+  });
+  const usedParts=Object.keys(byPart).sort(function(a,b){return a.localeCompare(b,'ru');});
+  const totalRows=Math.max(usedParts.length+5,12);
+  const blankRowsCount=totalRows-usedParts.length;
+  let headRow='<tr><th style="min-width:150px;">Деталь</th>';
+  let headRowNums='<tr><th style="min-width:150px;font-size:9px;color:#8E8E93;">Дата</th>';
+  for(let d=0;d<daysCount;d++){
+    const dayDate=new Date(fromD.getTime()+d*86400000);
+    const dd=String(dayDate.getDate()).padStart(2,'0');
+    const mm=String(dayDate.getMonth()+1).padStart(2,'0');
+    headRow+='<th>'+(d+1)+'</th>';
+    headRowNums+='<th style="font-size:8.5px;">'+dd+'.'+mm+'</th>';
+  }
+  headRow+='<th>Итого</th></tr>';
+  headRowNums+='<th></th></tr>';
+  let bodyRows='';
+  const dayTotals=new Array(daysCount+1).fill(0);
+  usedParts.forEach(function(part){
+    let rowTotal=0;
+    let cells='';
+    for(let d=1;d<=daysCount;d++){
+      const qty=byPart[part][d]||0;
+      if(qty){dayTotals[d]+=qty;rowTotal+=qty;}
+      cells+='<td>'+(qty||'')+'</td>';
+    }
+    bodyRows+='<tr><td class="naryad-name">'+escapeHtml(part)+'</td>'+cells+'<td class="naryad-total">'+rowTotal+'</td></tr>';
+  });
+  for(let i=0;i<blankRowsCount;i++){
+    let cells='';
+    for(let d=1;d<=daysCount;d++){cells+='<td></td>';}
+    bodyRows+='<tr><td class="naryad-name">&nbsp;</td>'+cells+'<td></td></tr>';
+  }
+  let sumCells='<td>Итого за день</td>';
+  let grandTotal=0;
+  for(let d=1;d<=daysCount;d++){
+    grandTotal+=dayTotals[d];
+    sumCells+='<td>'+(dayTotals[d]||'')+'</td>';
+  }
+  sumCells+='<td class="naryad-total">'+grandTotal+'</td>';
+  $('report-output').innerHTML='<div class="naryad-doc" id="naryad-doc"><div class="naryad-head"><h2>Наряд на сдельную работу</h2><div class="row"><span>Ф.И.О.</span><span>'+escapeHtml(worker)+'</span></div><div class="row"><span>Завод / цех</span><span>'+escapeHtml(PROFILE.factory)+'</span></div><div class="row"><span>Период</span><span>'+label+'</span></div></div><div class="naryad-scroll"><table class="naryad-table"><thead>'+headRow+headRowNums+'</thead><tbody>'+bodyRows+'<tr class="naryad-sum-row">'+sumCells+'</tr></tbody></table></div><div class="naryad-sign"><div>Подпись работника</div><div>Подпись мастера</div></div></div>';
+  const actions=document.createElement('div');
+  actions.className='report-actions';
+  actions.innerHTML='<button class="btn btn-primary" id="btn-print-naryad">📄 Скачать PDF</button><button class="btn btn-whatsapp" id="btn-nar-wa">📤 WhatsApp</button><button class="btn btn-telegram" id="btn-nar-tg">✈️ Telegram</button>';
+  $('report-output').appendChild(actions);
+  const naryadTextRange=function(){
+    let text='📋 Наряд на сдельную работу\n';
+    text+='Ф.И.О.: '+worker+'\n';
+    text+='Завод/цех: '+PROFILE.factory+'\n';
+    text+='Период: '+label+'\n\n';
+    let grand=0;
+    usedParts.forEach(function(part){
+      let rowTotal=0;
+      for(let d=1;d<=daysCount;d++){rowTotal+=(byPart[part][d]||0);}
+      grand+=rowTotal;
+      text+='🔧 '+part+' — '+rowTotal+' шт\n';
+    });
+    text+='———————————————\nИтого: '+grand+' шт';
+    return text;
+  };
+  $('btn-nar-wa').addEventListener('click',function(){shareToWhatsApp(naryadTextRange());});
+  $('btn-nar-tg').addEventListener('click',function(){shareToTelegram(naryadTextRange());});
+  $('btn-print-naryad').addEventListener('click',async function(){
+    try{
+      await downloadNaryadRangePdf({worker:worker,label:label,fromDate:fromDate,toDate:toDate,daysCount:daysCount,usedParts:usedParts,byPart:byPart,dayTotals:dayTotals,blankRowsCount:blankRowsCount});
+    }catch(e){console.error(e);showToast('Ошибка: '+(e&&e.message?e.message:'не удалось сформировать PDF'));}
+  });
+}
+
+async function downloadNaryadRangePdf(params){
+  if(!window.jspdf){showToast('PDF модуль не загрузился');return;}
+  const jsPDF=window.jspdf.jsPDF;
+  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  showToast('Готовим PDF...');
+  const fontOk=await registerCyrillicFont(doc);
+  const fontName=fontOk?'Roboto':undefined;
+  if(fontName) doc.setFont(fontName);
+  doc.setFontSize(13);
+  doc.text('Наряд на сдельную работу',148.5,10,{align:'center'});
+  doc.setFontSize(9);
+  doc.text('Ф.И.О.: '+params.worker+'   Завод/цех: '+PROFILE.factory+'   Период: '+params.label,148.5,16,{align:'center'});
+  const headRow=['Деталь'];
+  for(let d=1;d<=params.daysCount;d++) headRow.push(String(d));
+  headRow.push('Итого');
+  const head=[headRow];
+  const body=[];
+  params.usedParts.forEach(function(part){
+    let rowTotal=0;
+    const row=[part];
+    for(let d=1;d<=params.daysCount;d++){
+      const qty=params.byPart[part][d]||0;
+      if(qty) rowTotal+=qty;
+      row.push(qty||'');
+    }
+    row.push(rowTotal);
+    body.push(row);
+  });
+  for(let i=0;i<params.blankRowsCount;i++){
+    const br=[''];
+    for(let d=0;d<params.daysCount;d++) br.push('');
+    br.push('');
+    body.push(br);
+  }
+  const grandTotal=params.dayTotals.reduce(function(s,v){return s+(v||0);},0);
+  const sumRow=['Итого за день'];
+  for(let d=1;d<=params.daysCount;d++) sumRow.push(params.dayTotals[d]||'');
+  sumRow.push(grandTotal);
+  body.push(sumRow);
+  const sumRowIndex=body.length-1;
+  const pm=6,ncw=34,tcw=13;
+  const pw=doc.internal.pageSize.getWidth();
+  const ph=doc.internal.pageSize.getHeight();
+  const uw=pw-pm*2;
+  const dcw=(uw-ncw-tcw)/params.daysCount;
+  const dcStyles={};
+  for(let d=1;d<=params.daysCount;d++) dcStyles[d]={cellWidth:dcw};
+  const sy=20,br=20;
+  const ah=ph-sy-br;
+  const tr=body.length+1;
+  const rh=Math.max(4,ah/tr);
+  const colStyles={0:{cellWidth:ncw,halign:'left',fontStyle:'bold'}};
+  Object.keys(dcStyles).forEach(function(k){colStyles[k]=dcStyles[k];});
+  colStyles[params.daysCount+1]={cellWidth:tcw,fontStyle:'bold'};
+  doc.autoTable({
+    head:head,body:body,startY:sy,theme:'grid',
+    margin:{left:pm,right:pm},
+    tableWidth:uw,
+    styles:{font:fontName,fontSize:params.daysCount>40?5:6,cellPadding:1,halign:'center',valign:'middle',minCellHeight:rh},
+    headStyles:{font:fontName,fillColor:[244,244,245],textColor:[30,30,30],fontStyle:'bold',minCellHeight:rh},
+    columnStyles:colStyles,
+    didParseCell:function(data){
+      if(data.row.index===sumRowIndex){
+        data.cell.styles.fillColor=[234,243,254];
+        data.cell.styles.fontStyle='bold';
+      }
+    }
+  });
+  const fy=doc.lastAutoTable.finalY+8;
+  doc.setFontSize(9);
+  if(fontName) doc.setFont(fontName);
+  doc.text('_____________________________',30,fy);
+  doc.text('Подпись работника',30,fy+5);
+  doc.text('_____________________________',180,fy);
+  doc.text('Подпись мастера',180,fy+5);
+  const fileName='Наряд_'+params.worker.replace(/\s+/g,'_')+'_'+params.fromDate+'_'+params.toDate+'.pdf';
+  const blob=doc.output('blob');
+  showToast('Отправляем в Telegram...');
+  const botResult=await sendPdfViaBot(blob,fileName).catch(function(e){return {ok:false,reason:e.message};});
+  if(botResult.ok){showToast('Готово — файл придёт сообщением');return;}
+  showToast('⚠️ '+botResult.reason+' — запасной способ...');
+  await new Promise(function(r){setTimeout(r,2500);});
+  let handled=false;
+  if(navigator.share&&navigator.canShare){
+    try{const file=new File([blob],fileName,{type:'application/pdf'});if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title:fileName});handled=true;}}catch(e){handled=true;}
+  }
+  if(!handled){
+    try{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.href=url;a.download=fileName;
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(url);},5000);
+      showToast('PDF сохранён');
+    }catch(e){const url=URL.createObjectURL(blob);window.open(url,'_blank');}
+  }
+}
+
 function arrayBufferToBase64(buffer){
   let binary='';const bytes=new Uint8Array(buffer);const chunkSize=0x8000;
   for(let i=0;i<bytes.length;i+=chunkSize){binary+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunkSize));}
@@ -2431,6 +2855,13 @@ async function downloadNaryadPdf(params){
     }catch(e){const url=URL.createObjectURL(blob);window.open(url,'_blank');}
   }
 }
+function shareToWhatsApp(text){window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');}
+function shareToTelegram(text){
+  const url='https://t.me/share/url?url=&text='+encodeURIComponent(text);
+  if(window.Telegram&&window.Telegram.WebApp&&window.Telegram.WebApp.openTelegramLink) window.Telegram.WebApp.openTelegramLink(url);
+  else window.open(url,'_blank');
+}
+function shareToVK(text){window.open('https://vk.com/share.php?title='+encodeURIComponent(text),'_blank');}
 
 document.querySelectorAll('#an-period .seg-btn').forEach(function(btn){
   btn.addEventListener('click',function(){
@@ -2639,10 +3070,32 @@ if($('btn-close-admin')) $('btn-close-admin').addEventListener('click',function(
 async function openAdminOverlay(){
   $('admin-overlay').style.display='block';
   $('admin-content').innerHTML='<div class="empty-state"><div class="msg">Загрузка...</div></div>';
-  const sectionsHtml='<div class="card"><div class="manage-block-title" style="margin-bottom:10px;">🧭 Скрытые разделы</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;"><button class="btn btn-secondary btn-sm" data-admin-nav="payroll">💰 ЗП</button><button class="btn btn-secondary btn-sm" data-admin-nav="search">🔍 Поиск</button><button class="btn btn-secondary btn-sm" data-admin-nav="analytics">📊 Аналитика</button></div></div>';
+  const sectionsHtml='<div class="card"><div class="manage-block-title" style="margin-bottom:10px;">🧭 Скрытые разделы</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;"><button class="btn btn-secondary btn-sm" data-admin-nav="payroll">💰 ЗП</button><button class="btn btn-secondary btn-sm" data-admin-nav="search">🔍 Поиск</button><button class="btn btn-secondary btn-sm" data-admin-nav="analytics">📊 Аналитика</button></div></div>'+
+    '<div class="card"><div class="manage-block-title" style="margin-bottom:10px;">💾 Резервные копии</div><button class="btn btn-secondary btn-sm" id="btn-backup-now" style="margin-bottom:8px;">📦 Создать бэкап сейчас</button><div class="hint" id="backup-info">Автобэкап раз в неделю. Хранятся 4 последних.</div></div>';
   function bindNav(){
     $('admin-content').querySelectorAll('[data-admin-nav]').forEach(function(btn){
       btn.addEventListener('click',function(){const t=btn.getAttribute('data-admin-nav');$('admin-overlay').style.display='none';switchTab(t);});
+    });
+    const backupBtn=$('btn-backup-now');
+    if(backupBtn){
+      backupBtn.addEventListener('click',async function(){
+        backupBtn.disabled=true;
+        backupBtn.textContent='Создаём...';
+        const ok=await maybeCreateBackup(true);
+        backupBtn.disabled=false;
+        backupBtn.textContent='📦 Создать бэкап сейчас';
+        showToast(ok?'Бэкап создан':'Не удалось создать бэкап');
+        if(ok){
+          const infoEl=$('backup-info');
+          if(infoEl) infoEl.textContent='Последний бэкап: '+new Date().toLocaleString('ru-RU')+'. Хранятся 4 последних, автобэкап раз в неделю.';
+        }
+      });
+    }
+    fbGet(bp('backups/_lastBackupTs')).then(function(lastTs){
+      const infoEl=$('backup-info');
+      if(infoEl&&lastTs){
+        infoEl.textContent='Последний бэкап: '+new Date(lastTs).toLocaleString('ru-RU')+'. Хранятся 4 последних, автобэкап раз в неделю.';
+      }
     });
   }
   $('admin-content').innerHTML=sectionsHtml+'<div class="empty-state"><div class="msg">Загрузка бригад...</div></div>';
