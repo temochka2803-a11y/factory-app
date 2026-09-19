@@ -114,8 +114,10 @@
   .btn-excel{background:#1D6F42;color:#fff;}
   .btn-repeat{background:#EAF3FE;color:var(--accent-dark);border:1.5px solid #CFE4FB;}
   .btn-warning{background:#FFF4E5;color:#8A5A00;border:1.5px solid #F4D9A8;}
+  .btn-bulk{background:#E9F9EE;color:#1E8A44;border:1.5px solid #B9E8C6;}
   .btn[disabled]{opacity:.5;cursor:not-allowed;}
   .hint{font-size:12px;color:var(--text-secondary);line-height:1.4;margin-top:6px;}
+  .qty-hint{font-size:13px;color:#1E8A44;font-weight:600;margin-top:6px;display:none;}
   .section-title{font-size:13px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.3px;margin:20px 0 8px 4px;}
   .section-title:first-child{margin-top:0;}
   .worker-block{margin-bottom:4px;}
@@ -158,8 +160,12 @@
   .day-total-bar.personal{background:#E9F9EE;border-color:#B9E8C6;}
   .day-total-bar.personal .label{color:#1E8A44;}
   .day-total-bar.personal .val{color:#1E8A44;}
+  .day-total-bar.salary-today{background:#FFF7E5;border-color:#F4D9A8;margin-top:-8px;}
+  .day-total-bar.salary-today .label{color:#8A5A00;font-size:12.5px;}
+  .day-total-bar.salary-today .val{color:#8A5A00;font-size:16px;}
   .shift-bar{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:13px;}
   .shift-bar .shift-dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:-2px;}
+  .shift-bar.tomorrow{border-style:dashed;background:#FAFBFF;}
   .reminder-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#FFF4E5;border:1px solid #F4D9A8;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#8A5A00;}
   .reminder-bar button{background:transparent;border:none;color:#8A5A00;font-weight:700;cursor:pointer;font-size:13px;padding:4px 8px;font-family:inherit;}
   .mini-dash{display:flex;gap:8px;margin-bottom:14px;}
@@ -226,12 +232,19 @@
   .day-editor-row:last-child{border-bottom:none;}
   .day-editor-worker{font-size:14px;font-weight:600;flex:1;min-width:0;}
   .day-editor-row select{width:150px;flex-shrink:0;}
+  .bulk-row{display:grid;grid-template-columns:1fr 1fr 70px 32px;gap:6px;align-items:center;margin-bottom:8px;}
+  .bulk-row select,.bulk-row input{width:100%;padding:8px 10px;font-size:13.5px;border:1.5px solid var(--border);border-radius:8px;background:#FAFAFA;font-family:inherit;appearance:none;-webkit-appearance:none;color:var(--text);}
+  .bulk-row select{padding-right:26px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238E8E93'><path d='M7 10l5 5 5-5z'/></svg>");background-repeat:no-repeat;background-position:right 6px center;background-size:16px;}
+  .bulk-row select:focus,.bulk-row input:focus{border-color:var(--accent);background-color:#fff;}
+  .bulk-del{background:none;border:none;color:#8E8E93;font-size:18px;cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;}
+  .bulk-del:active{background:#F4F4F5;}
   @media print{body *{visibility:hidden;}.report-doc,.report-doc *{visibility:visible;}.report-doc{position:absolute;top:0;left:0;width:100%;border:none;}.naryad-doc,.naryad-doc *{visibility:visible;}.naryad-doc{position:absolute;top:0;left:0;width:100%;border:none;}}
   .toast{position:fixed;bottom:78px;left:50%;transform:translateX(-50%);background:#1C1C1E;color:#fff;padding:10px 18px;border-radius:20px;font-size:13.5px;z-index:100;opacity:0;transition:opacity .25s,bottom .25s;pointer-events:none;white-space:nowrap;max-width:90vw;text-overflow:ellipsis;overflow:hidden;}
   .toast.show{opacity:1;bottom:88px;}
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:250;align-items:center;justify-content:center;padding:16px;}
   .modal-overlay.open{display:flex;}
   .modal-card{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto;}
+  .modal-card.wide{max-width:480px;}
   .modal-title{font-size:17px;font-weight:700;margin-bottom:14px;}
   .modal-actions{display:flex;gap:10px;margin-top:16px;}
   .modal-actions .btn{flex:1;}
@@ -342,6 +355,11 @@
         <span style="color:var(--text-secondary);" id="shift-today-date">—</span>
       </div>
 
+      <div id="shift-tomorrow-bar" class="shift-bar tomorrow" style="display:none;">
+        <span><span class="shift-dot" id="shift-tomorrow-dot"></span><b id="shift-tomorrow-name">—</b></span>
+        <span style="color:var(--text-secondary);" id="shift-tomorrow-date">—</span>
+      </div>
+
       <div id="evening-reminder" class="reminder-bar" style="display:none;">
         <span>⏰ Сегодня ещё нет записей. Не забудь внести выработку!</span>
         <button id="btn-dismiss-reminder">Скрыть</button>
@@ -401,6 +419,8 @@
 
       <div class="section-title">Новая запись</div>
       <div class="card">
+        <button class="btn btn-bulk" id="btn-bulk-open" style="margin-bottom:12px;">📋 Внести несколько записей за смену</button>
+
         <button class="btn btn-repeat" id="btn-repeat-last" style="display:none;margin-bottom:12px;"><span>🔁</span><span id="btn-repeat-label">Повторить последнюю запись</span></button>
         <button class="btn btn-warning" id="btn-copy-yesterday" style="margin-bottom:12px;">📋 Скопировать вчерашнюю смену</button>
 
@@ -414,7 +434,11 @@
           <div class="select-with-btn"><select id="in-part-select"></select><button class="add-btn" id="btn-toggle-add-part" title="Добавить">+</button></div>
           <div class="add-panel" id="add-part-panel"><input type="text" id="in-new-part" placeholder="Новая деталь"><button class="save-btn" id="btn-save-part">Сохранить</button></div>
         </div>
-        <div class="field"><label>Количество, шт</label><input type="number" id="in-qty" placeholder="0" min="1" inputmode="numeric"></div>
+        <div class="field">
+          <label>Количество, шт</label>
+          <input type="number" id="in-qty" placeholder="0" min="1" inputmode="numeric">
+          <div class="qty-hint" id="in-qty-hint"></div>
+        </div>
         <button class="btn btn-primary" id="btn-add">+ Добавить запись</button>
         <details class="manage-details">
           <summary>Управлять категориями и деталями</summary>
@@ -430,6 +454,10 @@
       <div class="section-title">Мои записи за дату</div>
       <div id="entries-list"></div>
       <div class="day-total-bar"><span class="label">Итого за дату, шт</span><span class="val" id="day-total">0</span></div>
+      <div class="day-total-bar salary-today" id="salary-today-bar" style="display:none;">
+        <span class="label">≈ Заработано за сегодня</span>
+        <span class="val" id="salary-today-val">0 ₽</span>
+      </div>
     </div>
 
     <div id="tab-team" class="content" style="display:none;">
@@ -651,6 +679,25 @@
   </div>
 </div>
 
+<div id="bulk-modal" class="modal-overlay">
+  <div class="modal-card wide">
+    <div class="modal-title">📋 Внести несколько записей</div>
+    <div class="field" style="margin-bottom:12px;">
+      <label>Дата</label>
+      <input type="date" id="bulk-date">
+    </div>
+    <div style="font-size:11.5px;color:var(--text-secondary);text-transform:uppercase;font-weight:700;margin-bottom:6px;display:grid;grid-template-columns:1fr 1fr 70px 32px;gap:6px;">
+      <span>Категория</span><span>Деталь</span><span>Кол-во</span><span></span>
+    </div>
+    <div id="bulk-rows"></div>
+    <button class="btn btn-secondary btn-sm" id="btn-bulk-add-row" style="margin-top:6px;">+ Ещё строку</button>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-bulk-cancel">Отмена</button>
+      <button class="btn btn-primary" id="btn-bulk-save">Сохранить все</button>
+    </div>
+  </div>
+</div>
+
 <div id="help-salary-modal" class="modal-overlay">
   <div class="modal-card">
     <div class="modal-title">💰 Как считается зарплата</div>
@@ -689,6 +736,7 @@ function shiftMonth(monthKey,delta){const base=(monthKey||toISODate(new Date()).
 function monthTitleRu(monthKey){if(!monthKey) return '';const p=monthKey.split('-').map(Number);return new Date(p[0],p[1]-1,1).toLocaleDateString('ru-RU',{month:'long',year:'numeric'});}
 function fmtMoney(n){return (Number(n)||0).toLocaleString('ru-RU');}
 function fmtMoney2(n){return (Number(n)||0).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function vibrateSuccess(){try{if(navigator.vibrate) navigator.vibrate(50);}catch(e){}}
 
 const firebaseConfig={apiKey:"AIzaSyDXSBSd3BY3R4BqCmcO3n6D9ArsifgiK_Y",authDomain:"uchet-b8c60.firebaseapp.com",databaseURL:"https://uchet-b8c60-default-rtdb.firebaseio.com",projectId:"uchet-b8c60",storageBucket:"uchet-b8c60.firebasestorage.app"};
 const CLOUDFLARE_WORKER_URL="https://naryad-bot-relay.tema-tatarinov2013.workers.dev";
@@ -720,6 +768,7 @@ let selectedCalDate=null,ANALYTICS_PERIOD='30';
 let chartDaily=null,chartTop=null;
 let LAST_SEARCH_RESULTS=[],cyrillicFontBase64Cache=null;
 let PENDING_QUEUE=[],FAVORITES=[];
+let MY_AVG_COST=0;
 
 const DEFAULT_SHIFT_TYPES=[
   {id:'day',name:'День',color:'#3390EC'},
@@ -821,11 +870,13 @@ async function flushQueue(){
   if(!PROFILE||!firebaseReady) return;
   if(PENDING_QUEUE.length===0) return;
   const still=[];
+  let hadSuccess=false;
   for(let i=0;i<PENDING_QUEUE.length;i++){
     const item=PENDING_QUEUE[i];
     const entryData={worker:item.worker,category:item.category,part:item.part,qty:item.qty,date:item.date,time:item.time,ts:item.ts,note:item.note||null};
     const id=await fbPush(bp('entries'),entryData);
     if(id){
+      hadSuccess=true;
       await fbPush(bp('changeLog'),{action:'add_entry',by:item.worker,timestamp:Date.now(),oldValue:null,newValue:{worker:item.worker,category:item.category,part:item.part,qty:item.qty,date:item.date},entityId:id});
       const idx=ENTRIES.findIndex(function(e){return e.id===item._localId;});
       if(idx!==-1){ENTRIES[idx]=Object.assign({},ENTRIES[idx],{id:id,_pending:false});}
@@ -836,8 +887,9 @@ async function flushQueue(){
   PENDING_QUEUE=still;
   savePendingQueue();
   updateQueueBadge();
+  if(hadSuccess) vibrateSuccess();
   renderEntries();renderUsersList();renderMiniDashboard();
-  renderFrequentParts();
+  renderFrequentParts();updateSalaryToday();
   await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
 }
 
@@ -880,20 +932,15 @@ async function logChange(action,oldValue,newValue,entityId){
   updateUndoButton();
 }
 
-// ============ АВТОБЭКАП ============
 async function maybeCreateBackup(force){
   if(!isOwner()||!firebaseReady||!PROFILE) return false;
   try{
     const lastTs=await fbGet(bp('backups/_lastBackupTs'));
     const now=Date.now();
-    if(!force&&lastTs&&(now-lastTs)<BACKUP_INTERVAL_MS){
-      console.log('Бэкап не нужен, последний:',new Date(lastTs).toLocaleString('ru-RU'));
-      return false;
-    }
+    if(!force&&lastTs&&(now-lastTs)<BACKUP_INTERVAL_MS){console.log('Бэкап не нужен');return false;}
     const all=await fbGet('brigades/'+PROFILE.code);
     if(!all) return false;
-    const clean=Object.assign({},all);
-    delete clean.backups;
+    const clean=Object.assign({},all);delete clean.backups;
     const dateKey=toISODate(new Date())+'_'+now.toString(36);
     const writeOk=await fbSet(bp('backups/'+dateKey),{createdAt:now,createdBy:PROFILE.fio,data:clean});
     if(!writeOk) return false;
@@ -901,39 +948,28 @@ async function maybeCreateBackup(force){
     const backups=await fbGet(bp('backups'));
     if(backups){
       const keys=Object.keys(backups).filter(function(k){return k.indexOf('_')!==0;}).sort();
-      while(keys.length>BACKUPS_TO_KEEP){
-        const oldest=keys.shift();
-        await fbRemove(bp('backups/'+oldest));
-      }
+      while(keys.length>BACKUPS_TO_KEEP){const oldest=keys.shift();await fbRemove(bp('backups/'+oldest));}
     }
-    console.log('Бэкап создан:',dateKey);
     return true;
   }catch(e){console.error('Backup error:',e);return false;}
 }
 
-// ============ ЧАСТЫЕ ДЕТАЛИ ============
 function getFrequentParts(limit){
   if(!PROFILE) return [];
   const cutoff=Date.now()-30*86400000;
   const recent=ENTRIES.filter(function(e){return e.worker===PROFILE.fio&&!e._pending&&e.ts>cutoff;});
   const counter={};
   recent.forEach(function(e){const key=e.category+'||'+e.part;counter[key]=(counter[key]||0)+e.qty;});
-  const sorted=Object.keys(counter).map(function(k){
-    const parts=k.split('||');
-    return {category:parts[0],part:parts[1],qty:counter[k]};
-  }).sort(function(a,b){return b.qty-a.qty;});
+  const sorted=Object.keys(counter).map(function(k){const parts=k.split('||');return {category:parts[0],part:parts[1],qty:counter[k]};}).sort(function(a,b){return b.qty-a.qty;});
   return sorted.slice(0,limit||6);
 }
 function renderFrequentParts(){
-  const block=$('frequent-block');
-  const wrap=$('frequent-list');
+  const block=$('frequent-block');const wrap=$('frequent-list');
   if(!block||!wrap) return;
   const list=getFrequentParts(6);
   if(list.length===0){block.style.display='none';return;}
   block.style.display='block';
-  wrap.innerHTML=list.map(function(f,i){
-    return '<button class="frequent-btn" data-idx="'+i+'">'+escapeHtml(f.part)+' · '+fmtMoney(f.qty)+' шт</button>';
-  }).join('');
+  wrap.innerHTML=list.map(function(f,i){return '<button class="frequent-btn" data-idx="'+i+'">'+escapeHtml(f.part)+' · '+fmtMoney(f.qty)+' шт</button>';}).join('');
   wrap.querySelectorAll('.frequent-btn').forEach(function(btn){
     btn.addEventListener('click',function(){
       const idx=parseInt(btn.getAttribute('data-idx'),10);
@@ -942,6 +978,7 @@ function renderFrequentParts(){
       refreshPartSelect($('in-part-select'),f.category);
       $('in-part-select').value=f.part;
       $('in-qty').focus();
+      updateQtyHint();
       showToast('Подставлено: '+f.part);
     });
   });
@@ -984,13 +1021,37 @@ async function init(){
   updateQueueBadge();
   applyRolePermissions();
   updateShiftTodayBar();
+  updateShiftTomorrowBar();
   checkEveningReminder();
   await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
+  await updateMyAvgCost();
+  updateSalaryToday();
   flushQueue();
   maybeCreateBackup(false).catch(function(e){console.error('backup failed:',e);});
 
   showRoot('main');
   switchTab('entry');
+}
+
+async function updateMyAvgCost(){
+  try{
+    const payrollAll=(await fbGet(bp('payroll')))||{};
+    const stats=getMyClosedMonthsStats(payrollAll);
+    MY_AVG_COST=stats.avgCost||0;
+  }catch(e){MY_AVG_COST=0;}
+}
+
+function updateSalaryToday(){
+  const bar=$('salary-today-bar');
+  const val=$('salary-today-val');
+  if(!bar||!val||!PROFILE) return;
+  const dateStr=$('entry-date').value||toISODate(new Date());
+  if(MY_AVG_COST<=0){bar.style.display='none';return;}
+  const own=ENTRIES.filter(function(e){return e.worker===PROFILE.fio&&e.date===dateStr;});
+  const qty=own.reduce(function(s,e){return s+e.qty;},0);
+  if(qty<=0){bar.style.display='none';return;}
+  bar.style.display='flex';
+  val.textContent='≈ '+fmtMoney(Math.round(MY_AVG_COST*qty))+' ₽';
 }
 
 function applyRolePermissions(){
@@ -1033,7 +1094,8 @@ async function switchTab(name){
   if(name==='entry'){
     renderEntries();renderUsersList();renderMiniDashboard();renderFrequentParts();
     await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
-    updateShiftTodayBar();checkEveningReminder();
+    updateShiftTodayBar();updateShiftTomorrowBar();checkEveningReminder();
+    await updateMyAvgCost();updateSalaryToday();
     if(isOwner()) refreshPayrollSummary();
     if(PENDING_QUEUE.length>0) flushQueue();
   }
@@ -1059,6 +1121,21 @@ function updateShiftTodayBar(){
   $('shift-today-name').textContent=shift.name;
   $('shift-today-date').textContent=formatDateRu(today);
 }
+
+function updateShiftTomorrowBar(){
+  const bar=$('shift-tomorrow-bar');
+  if(!bar||!PROFILE) return;
+  const tomorrow=toISODate(new Date(Date.now()+86400000));
+  const dayShifts=SCHEDULE[tomorrow]||{};
+  const shiftId=dayShifts[PROFILE.fio];
+  const shift=shiftId?SHIFT_TYPES.find(function(t){return t.id===shiftId;}):null;
+  if(!shift){bar.style.display='none';return;}
+  bar.style.display='flex';
+  $('shift-tomorrow-dot').style.background=shift.color;
+  $('shift-tomorrow-name').textContent='Завтра: '+shift.name;
+  $('shift-tomorrow-date').textContent=formatDateRu(tomorrow);
+}
+
 function checkEveningReminder(){
   const bar=$('evening-reminder');
   if(!bar||!PROFILE) return;
@@ -1099,6 +1176,7 @@ function renderFavorites(){
       $('in-part-select').value=f.part;
       if(f.qty) $('in-qty').value=f.qty;
       $('in-qty').focus();$('in-qty').select();
+      updateQtyHint();
       showToast('Подставлено из избранного');
     });
   });
@@ -1146,6 +1224,7 @@ document.querySelectorAll('.quick-date-btn').forEach(function(btn){
     $('entry-date').value=toISODate(d);
     updateQuickDateButtons();
     renderEntries();
+    updateSalaryToday();
   });
 });
 
@@ -1168,7 +1247,8 @@ function refreshAllPartSelects(){
   refreshPartSelect($('team-part-select'),$('team-cat-select').value);
   refreshPartSelect($('edit-part'),$('edit-category').value);
 }
-if($('in-cat-select')) $('in-cat-select').addEventListener('change',function(){refreshPartSelect($('in-part-select'),$('in-cat-select').value);});
+if($('in-cat-select')) $('in-cat-select').addEventListener('change',function(){refreshPartSelect($('in-part-select'),$('in-cat-select').value);updateQtyHint();});
+if($('in-part-select')) $('in-part-select').addEventListener('change',updateQtyHint);
 if($('team-cat-select')) $('team-cat-select').addEventListener('change',function(){refreshPartSelect($('team-part-select'),$('team-cat-select').value);});
 if($('edit-category')) $('edit-category').addEventListener('change',function(){refreshPartSelect($('edit-part'),$('edit-category').value);});
 
@@ -1352,6 +1432,19 @@ async function showHelpSalary(){
 if($('btn-help-salary')) $('btn-help-salary').addEventListener('click',showHelpSalary);
 if($('btn-help-close')) $('btn-help-close').addEventListener('click',function(){$('help-salary-modal').classList.remove('open');});
 
+async function updateQtyHint(){
+  const hint=$('in-qty-hint');
+  if(!hint||!PROFILE) return;
+  const qty=parseInt($('in-qty').value,10)||0;
+  if(qty<=0){hint.style.display='none';return;}
+  if(MY_AVG_COST<=0) await updateMyAvgCost();
+  if(MY_AVG_COST<=0){hint.style.display='none';return;}
+  const cost=Math.round(MY_AVG_COST*qty);
+  hint.textContent='≈ '+fmtMoney(cost)+' ₽ за '+qty+' шт';
+  hint.style.display='block';
+}
+if($('in-qty')) $('in-qty').addEventListener('input',updateQtyHint);
+
 function getLastEntry(){
   if(!PROFILE) return null;
   const own=ENTRIES.filter(function(e){return e.worker===PROFILE.fio;});
@@ -1376,12 +1469,81 @@ if($('btn-repeat-last')) $('btn-repeat-last').addEventListener('click',function(
   refreshPartSelect($('in-part-select'),last.category);
   $('in-part-select').value=last.part;
   const todayStr=toISODate(new Date());
-  if($('entry-date').value!==todayStr){$('entry-date').value=todayStr;updateQuickDateButtons();renderEntries();}
+  if($('entry-date').value!==todayStr){$('entry-date').value=todayStr;updateQuickDateButtons();renderEntries();updateSalaryToday();}
   $('in-qty').value=last.qty;
   $('in-qty').focus();$('in-qty').select();
+  updateQtyHint();
   showToast('Подставлено: '+last.part);
 });
 if($('btn-copy-yesterday')) $('btn-copy-yesterday').addEventListener('click',copyYesterday);
+
+// ============ МАССОВЫЙ ВВОД ============
+let bulkRowId=0;
+function bulkMakeRow(category,part,qty){
+  bulkRowId++;
+  const id='bulk_'+bulkRowId+'_'+Date.now();
+  const wrap=$('bulk-rows');
+  const row=document.createElement('div');
+  row.className='bulk-row';
+  row.setAttribute('data-row',id);
+  const catOptions=CATEGORIES.map(function(c){return '<option value="'+escapeHtml(c)+'">'+escapeHtml(c)+'</option>';}).join('');
+  row.innerHTML=
+    '<select data-role="cat">'+catOptions+'</select>'+
+    '<select data-role="part"></select>'+
+    '<input type="number" data-role="qty" min="1" inputmode="numeric" placeholder="0">'+
+    '<button class="bulk-del" type="button" title="Удалить">✕</button>';
+  wrap.appendChild(row);
+  const catSel=row.querySelector('[data-role="cat"]');
+  const partSel=row.querySelector('[data-role="part"]');
+  const qtyInput=row.querySelector('[data-role="qty"]');
+  if(category&&CATEGORIES.indexOf(category)!==-1) catSel.value=category;
+  refreshPartSelect(partSel,catSel.value);
+  if(part) partSel.value=part;
+  if(qty) qtyInput.value=qty;
+  catSel.addEventListener('change',function(){refreshPartSelect(partSel,catSel.value);});
+  row.querySelector('.bulk-del').addEventListener('click',function(){row.remove();});
+}
+function openBulkModal(){
+  if(!PROFILE) return;
+  $('bulk-date').value=$('entry-date').value||toISODate(new Date());
+  $('bulk-rows').innerHTML='';
+  bulkRowId=0;
+  for(let i=0;i<5;i++) bulkMakeRow();
+  $('bulk-modal').classList.add('open');
+}
+if($('btn-bulk-open')) $('btn-bulk-open').addEventListener('click',openBulkModal);
+if($('btn-bulk-add-row')) $('btn-bulk-add-row').addEventListener('click',function(){bulkMakeRow();});
+if($('btn-bulk-cancel')) $('btn-bulk-cancel').addEventListener('click',function(){$('bulk-modal').classList.remove('open');});
+if($('btn-bulk-save')) $('btn-bulk-save').addEventListener('click',async function(){
+  const dateStr=$('bulk-date').value||toISODate(new Date());
+  const rows=$('bulk-rows').querySelectorAll('.bulk-row');
+  const toSave=[];
+  rows.forEach(function(row){
+    const cat=row.querySelector('[data-role="cat"]').value;
+    const part=row.querySelector('[data-role="part"]').value;
+    const qty=parseInt(row.querySelector('[data-role="qty"]').value,10);
+    if(cat&&part&&qty&&qty>0) toSave.push({category:cat,part:part,qty:qty});
+  });
+  if(toSave.length===0){showToast('Заполните хотя бы одну строку');return;}
+  const now=new Date();
+  const timeStr=now.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+  toSave.forEach(function(item){
+    const pendingEntry={
+      worker:PROFILE.fio,category:item.category,part:item.part,qty:item.qty,date:dateStr,
+      time:timeStr,ts:now.getTime()+Math.random(),_pending:true,
+      _localId:'local_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)
+    };
+    PENDING_QUEUE.push(pendingEntry);
+    ENTRIES.push(Object.assign({id:pendingEntry._localId},pendingEntry));
+  });
+  savePendingQueue();
+  updateQueueBadge();
+  $('bulk-modal').classList.remove('open');
+  renderEntries();renderUsersList();renderMiniDashboard();renderFrequentParts();updateSalaryToday();
+  vibrateSuccess();
+  showToast('Внесено '+toSave.length+' записей');
+  await flushQueue();
+});
 
 function renderMiniDashboard(){
   if(!PROFILE) return;
@@ -1417,6 +1579,7 @@ function renderEntries(){
   if($('day-total')) $('day-total').textContent=total;
   if(dayEntries.length===0){
     list.innerHTML='<div class="empty-state"><div class="emoji">🗂️</div><div class="msg">На эту дату записей нет.</div></div>';
+    updateSalaryToday();
     return;
   }
   list.innerHTML='';
@@ -1452,7 +1615,7 @@ function renderEntries(){
         ENTRIES=ENTRIES.filter(function(e){return e.id!==id;});
         updateQueueBadge();
         renderEntries();renderUsersList();renderMiniDashboard();
-        renderFrequentParts();
+        renderFrequentParts();updateSalaryToday();
         showToast('Запись удалена из очереди');
         return;
       }
@@ -1460,13 +1623,14 @@ function renderEntries(){
       await fbRemove(bp('entries/'+id));
       ENTRIES=ENTRIES.filter(function(e){return e.id!==id;});
       renderEntries();renderUsersList();renderMiniDashboard();
-      renderFrequentParts();
+      renderFrequentParts();updateSalaryToday();
       await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
       showToast('Запись удалена');
     });
   });
+  updateSalaryToday();
 }
-if($('entry-date')) $('entry-date').addEventListener('change',function(){updateQuickDateButtons();renderEntries();});
+if($('entry-date')) $('entry-date').addEventListener('change',function(){updateQuickDateButtons();renderEntries();updateSalaryToday();});
 
 if($('btn-add')) $('btn-add').addEventListener('click',async function(){
   const category=$('in-cat-select').value;
@@ -1488,9 +1652,12 @@ if($('btn-add')) $('btn-add').addEventListener('click',async function(){
   savePendingQueue();
   ENTRIES.push(Object.assign({id:pendingEntry._localId},pendingEntry));
   $('in-qty').value='';
+  $('in-qty-hint').style.display='none';
   updateQueueBadge();
   renderEntries();renderUsersList();renderMiniDashboard();
   refreshRepeatButton();
+  updateSalaryToday();
+  vibrateSuccess();
   showToast('Запись добавлена');
   await flushQueue();
 });
@@ -1535,9 +1702,10 @@ if($('btn-edit-save')) $('btn-edit-save').addEventListener('click',async functio
   $('edit-modal').classList.remove('open');
   editingEntryId=null;
   renderEntries();renderUsersList();renderMiniDashboard();
-  renderFrequentParts();
+  renderFrequentParts();updateSalaryToday();
   await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
   renderTeam();
+  vibrateSuccess();
   showToast('Запись изменена');
 });
 
@@ -1581,7 +1749,7 @@ if($('btn-undo')) $('btn-undo').addEventListener('click',async function(){
     await fbPush(bp('changeLog'),{action:'undo',by:PROFILE.fio,timestamp:Date.now(),oldValue:{undone:last.action},newValue:null});
     CHANGE_LOG=CHANGE_LOG.filter(function(c){return c.id!==last.id;});
     renderEntries();renderUsersList();renderMiniDashboard();
-    renderFrequentParts();
+    renderFrequentParts();updateSalaryToday();
     await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
     await refreshBrigadeData();
     renderTeam();
@@ -1670,7 +1838,8 @@ if($('btn-refresh')) $('btn-refresh').addEventListener('click',async function(){
   renderManageChips();renderWorkerChips();renderFavorites();renderFrequentParts();
   renderEntries();renderUsersList();renderMiniDashboard();renderTeam();
   await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
-  updateQueueBadge();updateShiftTodayBar();checkEveningReminder();
+  await updateMyAvgCost();updateSalaryToday();
+  updateQueueBadge();updateShiftTodayBar();updateShiftTomorrowBar();checkEveningReminder();
   if(isOwner()) refreshPayrollSummary();
   updateUndoButton();
   showToast('Обновлено');
@@ -1741,8 +1910,7 @@ function renderTeam(){
       if(target) await logChange('delete_entry',{worker:target.worker,category:target.category,part:target.part,qty:target.qty,date:target.date,time:target.time,ts:target.ts},null,id);
       await fbRemove(bp('entries/'+id));
       ENTRIES=ENTRIES.filter(function(e){return e.id!==id;});
-      renderTeam();
-      renderFrequentParts();
+      renderTeam();renderFrequentParts();updateSalaryToday();
     });
   });
 }
@@ -1762,6 +1930,7 @@ if($('btn-team-add')) $('btn-team-add').addEventListener('click',async function(
   await logChange('add_entry',null,{worker:worker,category:category,part:part,qty:qty,date:dateStr},id);
   $('in-team-qty').value='';
   renderTeam();
+  vibrateSuccess();
   showToast('Добавлено');
 });
 
@@ -1841,7 +2010,7 @@ if($('btn-apply-template')) $('btn-apply-template').addEventListener('click',asy
     }
   });
   await fbSet(bp('schedule'),SCHEDULE);
-  renderCalendar();await refreshForecast();updateShiftTodayBar();
+  renderCalendar();await refreshForecast();updateShiftTodayBar();updateShiftTomorrowBar();
 });
 if($('btn-copy-last-month')) $('btn-copy-last-month').addEventListener('click',async function(){
   if(!isOwner()) return;
@@ -1868,7 +2037,7 @@ if($('btn-copy-last-month')) $('btn-copy-last-month').addEventListener('click',a
     }
   }
   await fbSet(bp('schedule'),SCHEDULE);
-  renderCalendar();await refreshForecast();updateShiftTodayBar();
+  renderCalendar();await refreshForecast();updateShiftTodayBar();updateShiftTomorrowBar();
 });
 function refreshRotWorkerSelect(){const sel=$('rot-worker-select');if(!sel) return;const prev=sel.value;sel.innerHTML=WORKERS.length?WORKERS.map(function(w){return '<option value="'+escapeHtml(w)+'">'+escapeHtml(w)+'</option>';}).join(''):'<option value="">Нет</option>';if(WORKERS.indexOf(prev)!==-1) sel.value=prev;}
 function refreshRotShiftSelect(){
@@ -1939,7 +2108,7 @@ if($('btn-apply-rotation')) $('btn-apply-rotation').addEventListener('click',asy
     }
   }
   await fbSet(bp('schedule'),SCHEDULE);
-  renderCalendar();await refreshForecast();updateShiftTodayBar();
+  renderCalendar();await refreshForecast();updateShiftTodayBar();updateShiftTomorrowBar();
 });
 function refreshCalFilterSelect(){
   const sel=$('cal-filter-select');if(!sel) return;
@@ -2002,7 +2171,7 @@ if($('btn-save-day-schedule')) $('btn-save-day-schedule').addEventListener('clic
   if(Object.keys(dayData).length>0) SCHEDULE[selectedCalDate]=dayData;
   else delete SCHEDULE[selectedCalDate];
   await fbSet(bp('schedule'),SCHEDULE);
-  renderCalendar();await refreshForecast();updateShiftTodayBar();
+  renderCalendar();await refreshForecast();updateShiftTodayBar();updateShiftTomorrowBar();
 });
 
 function updatePayrollRowTotal(safeId){
@@ -2114,6 +2283,7 @@ if($('btn-save-payroll')) $('btn-save-payroll').addEventListener('click',async f
   PAYROLL=updated;
   await fbSet(bp('payroll/'+monthVal),PAYROLL);
   await refreshPayrollSummary();await refreshMyPayroll();await refreshMyCalc();await refreshForecast();
+  await updateMyAvgCost();updateSalaryToday();
   showToast('Сохранено');
 });
 function payrollRecordTotal(rec){if(!rec) return 0;const m=(rec.advance||0)+(rec.final||0);return m||(rec.actual||0);}
@@ -2198,6 +2368,7 @@ if($('btn-save-my-salary')) $('btn-save-my-salary').addEventListener('click',asy
   const ok=await fbUpdate(bp('payroll/'+m+'/'+PROFILE.fio),{actual:actual});
   if(ok){await logChange('set_actual_salary',{month:m,worker:PROFILE.fio,actual:oldActual},{month:m,worker:PROFILE.fio,actual:actual});showToast('Сохранено');}
   await refreshMyCalc();await refreshMyPayroll();await refreshForecast();
+  await updateMyAvgCost();updateSalaryToday();
 });
 
 let REPORT_MODE='brigade';
@@ -2346,7 +2517,6 @@ function buildPersonalReport(fromDate,toDate,periodLabel){
   Object.values(byKey).forEach(function(row){if(!byCategory[row.category]) byCategory[row.category]=[];byCategory[row.category].push(row);});
   const categories=Object.keys(byCategory).sort(function(a,b){return a.localeCompare(b,'ru');});
   const total=Object.values(byKey).reduce(function(s,r){return s+r.qty;},0);
-
   const byDate={};
   own.forEach(function(e){(byDate[e.date]=byDate[e.date]||[]).push(e);});
   const workDates=Object.keys(byDate).sort();
@@ -2363,7 +2533,6 @@ function buildPersonalReport(fromDate,toDate,periodLabel){
   } else {
     dailyHtml='<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей</td></tr>';
   }
-
   let rowsHtml='';
   categories.forEach(function(cat){
     const catTotal=byCategory[cat].reduce(function(s,r){return s+r.qty;},0);
@@ -2371,7 +2540,6 @@ function buildPersonalReport(fromDate,toDate,periodLabel){
     byCategory[cat].sort(function(a,b){return b.qty-a.qty;}).forEach(function(r){rowsHtml+='<tr><td>'+escapeHtml(r.part)+'</td><td class="qty">'+r.qty+'</td></tr>';});
   });
   if(categories.length===0) rowsHtml='<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей</td></tr>';
-
   $('report-output').innerHTML='<div class="report-doc" id="report-doc"><h2>Моя выписка</h2><div class="report-meta">Сформировано: '+new Date().toLocaleDateString('ru-RU')+'</div><div class="report-field"><span>Ф.И.О.</span><span>'+escapeHtml(PROFILE.fio)+'</span></div><div class="report-field"><span>Завод / цех</span><span>'+escapeHtml(PROFILE.factory)+'</span></div><div class="report-field"><span>Период</span><span>'+periodLabel+'</span></div><div class="report-section-title">Разбивка по дням</div><table class="report-table"><thead><tr><th>Дата / деталь</th><th style="text-align:right;">Количество</th></tr></thead><tbody>'+dailyHtml+'</tbody></table><div class="report-section-title" style="margin-top:18px;">Итого по категориям</div><table class="report-table"><thead><tr><th>Категория / деталь</th><th style="text-align:right;">Количество</th></tr></thead><tbody>'+rowsHtml+'</tbody></table><div class="report-total"><span>Итого, шт</span><span class="val">'+total+'</span></div></div>';
   if(categories.length>0){
     const actions=document.createElement('div');actions.className='report-actions';
@@ -2427,7 +2595,6 @@ function buildWorkerReport(worker,fromDate,toDate,periodLabel){
   Object.values(byKey).forEach(function(row){if(!byCategory[row.category]) byCategory[row.category]=[];byCategory[row.category].push(row);});
   const categories=Object.keys(byCategory).sort(function(a,b){return a.localeCompare(b,'ru');});
   const total=Object.values(byKey).reduce(function(s,r){return s+r.qty;},0);
-
   const byDate={};
   items.forEach(function(e){(byDate[e.date]=byDate[e.date]||[]).push(e);});
   const workDates=Object.keys(byDate).sort();
@@ -2444,7 +2611,6 @@ function buildWorkerReport(worker,fromDate,toDate,periodLabel){
   } else {
     dailyHtml='<tr><td colspan="2" style="text-align:center;color:var(--text-secondary);padding:20px 4px;">Нет записей</td></tr>';
   }
-
   let rowsHtml='';
   categories.forEach(function(cat){
     const catTotal=byCategory[cat].reduce(function(s,r){return s+r.qty;},0);
@@ -2618,14 +2784,10 @@ function buildNaryadBlankRange(worker,fromDate,toDate,label){
   }
   let sumCells='<td>Итого за день</td>';
   let grandTotal=0;
-  for(let d=1;d<=daysCount;d++){
-    grandTotal+=dayTotals[d];
-    sumCells+='<td>'+(dayTotals[d]||'')+'</td>';
-  }
+  for(let d=1;d<=daysCount;d++){grandTotal+=dayTotals[d];sumCells+='<td>'+(dayTotals[d]||'')+'</td>';}
   sumCells+='<td class="naryad-total">'+grandTotal+'</td>';
   $('report-output').innerHTML='<div class="naryad-doc" id="naryad-doc"><div class="naryad-head"><h2>Наряд на сдельную работу</h2><div class="row"><span>Ф.И.О.</span><span>'+escapeHtml(worker)+'</span></div><div class="row"><span>Завод / цех</span><span>'+escapeHtml(PROFILE.factory)+'</span></div><div class="row"><span>Период</span><span>'+label+'</span></div></div><div class="naryad-scroll"><table class="naryad-table"><thead>'+headRow+headRowNums+'</thead><tbody>'+bodyRows+'<tr class="naryad-sum-row">'+sumCells+'</tr></tbody></table></div><div class="naryad-sign"><div>Подпись работника</div><div>Подпись мастера</div></div></div>';
-  const actions=document.createElement('div');
-  actions.className='report-actions';
+  const actions=document.createElement('div');actions.className='report-actions';
   actions.innerHTML='<button class="btn btn-primary" id="btn-print-naryad">📄 Скачать PDF</button><button class="btn btn-whatsapp" id="btn-nar-wa">📤 WhatsApp</button><button class="btn btn-telegram" id="btn-nar-tg">✈️ Telegram</button>';
   $('report-output').appendChild(actions);
   const naryadTextRange=function(){
@@ -2646,9 +2808,8 @@ function buildNaryadBlankRange(worker,fromDate,toDate,label){
   $('btn-nar-wa').addEventListener('click',function(){shareToWhatsApp(naryadTextRange());});
   $('btn-nar-tg').addEventListener('click',function(){shareToTelegram(naryadTextRange());});
   $('btn-print-naryad').addEventListener('click',async function(){
-    try{
-      await downloadNaryadRangePdf({worker:worker,label:label,fromDate:fromDate,toDate:toDate,daysCount:daysCount,usedParts:usedParts,byPart:byPart,dayTotals:dayTotals,blankRowsCount:blankRowsCount});
-    }catch(e){console.error(e);showToast('Ошибка: '+(e&&e.message?e.message:'не удалось сформировать PDF'));}
+    try{await downloadNaryadRangePdf({worker:worker,label:label,fromDate:fromDate,toDate:toDate,daysCount:daysCount,usedParts:usedParts,byPart:byPart,dayTotals:dayTotals,blankRowsCount:blankRowsCount});}
+    catch(e){console.error(e);showToast('Ошибка: '+(e&&e.message?e.message:'не удалось сформировать PDF'));}
   });
 }
 
