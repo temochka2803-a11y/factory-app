@@ -276,11 +276,23 @@
   .help-row:last-child{border-bottom:none;}
   .help-row b{font-family:var(--mono);color:var(--accent-dark);}
   .help-formula{background:#FAFBFF;border:1px solid #CFE4FB;border-radius:8px;padding:10px 12px;margin:10px 0;font-size:13px;color:#2679C9;}
+  /* Пульсация для экрана загрузки */
+  @keyframes pulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.08);opacity:.85;}}
+  .loading-logo{animation:pulse 1.4s ease-in-out infinite;}
 </style>
 </head>
 <body>
 
 <div id="app">
+
+  <!-- ЭКРАН ЗАГРУЗКИ (виден сразу, пока грузится профиль/кэш) -->
+  <div id="view-loading" style="display:block;">
+    <div class="reg-wrap">
+      <div class="reg-logo loading-logo">📦</div>
+      <div class="reg-title">Учёт выработки</div>
+      <div class="reg-sub">Загружаем данные...</div>
+    </div>
+  </div>
 
   <div id="view-setup" style="display:none;">
     <div class="reg-wrap">
@@ -331,7 +343,7 @@
           <div class="topbar-sub" id="home-factory">—</div>
 <div class="topbar-code">
   <span id="home-code">Код: ——————</span>
-  <span id="home-version" style="opacity:.65;margin-left:6px;">v15</span>
+  <span id="home-version" style="opacity:.65;margin-left:6px;">v16</span>
 </div>
 <div class="topbar-updated" id="home-last-update"></div>        
         </div>
@@ -790,6 +802,16 @@ function ensureChart(){
   return libPromises.chart;
 }
 
+// Фоновый preload тяжёлых библиотек — не блокирует UI, запускается через 5 сек
+function backgroundPreloadLibs(){
+  setTimeout(function(){
+    ensureXlsx().catch(function(){});
+    ensureChart().catch(function(){});
+    // jspdf тяжелее — грузим чуть позже
+    setTimeout(function(){ ensureJspdf().catch(function(){}); }, 4000);
+  }, 5000);
+}
+
 // ========== КЭШ В LOCALSTORAGE ==========
 const CACHE_KEY_PREFIX = 'cache_v1_';
 const CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 дней
@@ -918,7 +940,12 @@ const BACKUPS_TO_KEEP=4;
 
 function showToast(msg){const t=$('toast');if(!t) return;t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2500);}
 async function sha256(text){const buf=new TextEncoder().encode(text);const hash=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(hash)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');}
-function showRoot(name){const s=$('view-setup');if(s) s.style.display=name==='setup'?'block':'none';const r=$('view-register');if(r) r.style.display=name==='register'?'block':'none';const m=$('view-main');if(m) m.style.display=name==='main'?'block':'none';}
+function showRoot(name){
+  const l=$('view-loading');if(l) l.style.display=name==='loading'?'block':'none';
+  const s=$('view-setup');if(s) s.style.display=name==='setup'?'block':'none';
+  const r=$('view-register');if(r) r.style.display=name==='register'?'block':'none';
+  const m=$('view-main');if(m) m.style.display=name==='main'?'block':'none';
+}
 function isOwner(){return !!(PROFILE&&PROFILE.isOwner);}
 
 function loadPendingQueue(){try{const raw=localStorage.getItem(QUEUE_KEY);return raw?JSON.parse(raw):[];}catch(e){return [];}}
@@ -1137,7 +1164,8 @@ function renderFrequentParts(){
 }
 
 async function init(){
-  showRoot('register');
+  // НЕ показываем register сразу — сначала попробуем кэш/профиль
+  showRoot('loading');
   const fbOk=initFirebase();
   if(!fbOk){showRoot('setup');return;}
 
@@ -1161,6 +1189,8 @@ async function init(){
       b.classList.toggle('active',b.getAttribute('data-tab')==='entry');
     });
     console.log('UI показан из кэша за',Date.now()-performanceStart,'мс');
+    // Фоновый preload тяжёлых библиотек — не блокирует
+    backgroundPreloadLibs();
   }
 
   // === ФАЗА 2: проверяем бригаду ===
@@ -1178,7 +1208,7 @@ async function init(){
 
   await saveTelegramId(PROFILE.fio);
 
-  // === ФАЗА 3: синхронизация с Firebase ===
+  // === ФАЗА 3: если кэша не было — показываем пустой UI и грузим с сервера ===
   if(!cached){
     renderTopbarAndUI();
     showRoot('main');
@@ -1188,6 +1218,7 @@ async function init(){
     document.querySelectorAll('.tab-btn').forEach(function(b){
       b.classList.toggle('active',b.getAttribute('data-tab')==='entry');
     });
+    backgroundPreloadLibs();
   }
 
   await switchTab('entry');
@@ -3001,6 +3032,7 @@ function buildNaryadBlankRange(worker,fromDate,toDate,label){
 }
 
 async function downloadNaryadRangePdf(params){
+  await ensureJspdf();
   if(!window.jspdf){showToast('PDF модуль не загрузился');return;}
   const jsPDF=window.jspdf.jsPDF;
   const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
@@ -3137,6 +3169,7 @@ async function sendPdfViaBot(blob,fileName){
   return {ok:true};
 }
 async function downloadNaryadPdf(params){
+  await ensureJspdf();
   if(!window.jspdf){showToast('PDF модуль не загрузился');return;}
   const jsPDF=window.jspdf.jsPDF;
   const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
@@ -3229,8 +3262,9 @@ function getAnalyticsRange(){
   const to=new Date();const from=new Date(Date.now()-(days-1)*86400000);
   return {from:toISODate(from),to:toISODate(to)};
 }
-function renderAnalytics(){
+async function renderAnalytics(){
   if(!PROFILE) return;
+  await ensureChart();
   const range=getAnalyticsRange();
   const own=ENTRIES.filter(function(e){return e.worker===PROFILE.fio&&e.date>=range.from&&e.date<=range.to;});
   const dailyMap={};const dates=[];
@@ -3301,7 +3335,8 @@ function renderTop3(){
     return '<div class="top3-row"><div class="top3-rank '+rc[i]+'">'+medals[i]+'</div><div class="top3-body"><div class="top3-name">'+escapeHtml(s.worker)+'</div><div class="top3-meta">'+percent+'%</div></div><div class="top3-qty">'+fmtMoney(s.qty)+' шт</div></div>';
   }).join('')+'<div class="hint" style="margin-top:8px;text-align:center;">Всего: '+fmtMoney(totalAll)+' шт</div>';
 }
-if($('btn-export-excel-full')) $('btn-export-excel-full').addEventListener('click',function(){
+if($('btn-export-excel-full')) $('btn-export-excel-full').addEventListener('click',async function(){
+  await ensureXlsx();
   if(!window.XLSX||ENTRIES.length===0) return;
   const rows=[['Дата','Работник','Категория','Деталь','Количество','Время','Примечание']];
   ENTRIES.slice().sort(function(a,b){return a.date.localeCompare(b.date)||a.ts-b.ts;}).forEach(function(e){rows.push([formatDateRu(e.date),e.worker,e.category,e.part,e.qty,e.time,e.note||'']);});
@@ -3358,7 +3393,8 @@ if($('btn-search-reset')) $('btn-search-reset').addEventListener('click',functio
   $('search-date-from').value='';$('search-date-to').value='';$('search-results').innerHTML='';
   LAST_SEARCH_RESULTS=[];
 });
-if($('btn-export-excel')) $('btn-export-excel').addEventListener('click',function(){
+if($('btn-export-excel')) $('btn-export-excel').addEventListener('click',async function(){
+  await ensureXlsx();
   if(!window.XLSX||LAST_SEARCH_RESULTS.length===0) return;
   const rows=[['Дата','Работник','Категория','Деталь','Количество','Время']];
   LAST_SEARCH_RESULTS.forEach(function(e){rows.push([formatDateRu(e.date),e.worker,e.category,e.part,e.qty,e.time]);});
