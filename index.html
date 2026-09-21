@@ -279,6 +279,33 @@
   /* Пульсация для экрана загрузки */
   @keyframes pulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.08);opacity:.85;}}
   .loading-logo{animation:pulse 1.4s ease-in-out infinite;}
+
+  /* ============ КАЛЕНДАРЬ ВЫРАБОТКИ ============ */
+  .output-cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .output-cal-month{font-size:14.5px;font-weight:700;text-transform:capitalize;color:var(--text);}
+  .cal-nav-btn{background:#F4F4F5;border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:16px;color:var(--text);display:flex;align-items:center;justify-content:center;font-family:inherit;}
+  .cal-nav-btn:active{background:#E4E5E7;}
+  .out-day{aspect-ratio:1;border-radius:9px;border:1px solid var(--border);background:#FAFAFA;cursor:pointer;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px;overflow:hidden;transition:transform .1s;}
+  .out-day:active{transform:scale(.93);}
+  .out-day.out-empty{visibility:hidden;cursor:default;}
+  .out-day.out-today{border:2px solid var(--danger);}
+  .out-day-num{font-size:11px;font-weight:700;color:var(--text);line-height:1;}
+  .out-day-qty{font-size:9px;font-family:var(--mono);font-weight:700;color:#1E40AF;margin-top:2px;line-height:1;}
+  .out-day.lvl-1{background:#F4F4F5;}
+  .out-day.lvl-2{background:#DBEAFE;}
+  .out-day.lvl-3{background:#93C5FD;}
+  .out-day.lvl-4{background:#3B82F6;}
+  .out-day.lvl-5{background:#1E40AF;}
+  .out-day.lvl-4 .out-day-num,.out-day.lvl-5 .out-day-num{color:#fff;}
+  .out-day.lvl-4 .out-day-qty,.out-day.lvl-5 .out-day-qty{color:#E0EAFB;}
+  .output-cal-legend{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:10px;font-size:10.5px;color:var(--text-secondary);}
+  .out-legend-swatch{width:12px;height:12px;border-radius:3px;display:inline-block;}
+  .output-cal-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);font-size:12.5px;color:var(--text-secondary);}
+  .output-cal-summary b{font-family:var(--mono);font-size:13px;color:var(--accent-dark);}
+  .day-detail-group{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;background:#FAFAFA;border-radius:9px;border:1px solid var(--border);margin-bottom:6px;}
+  .day-detail-group .dd-part{font-size:13.5px;font-weight:600;color:var(--text);}
+  .day-detail-group .dd-cat{font-size:11.5px;color:var(--text-secondary);margin-top:2px;}
+  .day-detail-group .dd-qty{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--accent);white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -343,7 +370,7 @@
           <div class="topbar-sub" id="home-factory">—</div>
 <div class="topbar-code">
   <span id="home-code">Код: ——————</span>
-  <span id="home-version" style="opacity:.65;margin-left:6px;">v16</span>
+  <span id="home-version" style="opacity:.65;margin-left:6px;">v17</span>
 </div>
 <div class="topbar-updated" id="home-last-update"></div>        
         </div>
@@ -419,6 +446,27 @@
           <button class="quick-date-btn" data-offset="7">−7 дней</button>
         </div>
         <input type="date" id="entry-date">
+      </div>
+
+      <!-- ============ КАЛЕНДАРЬ ВЫРАБОТКИ ============ -->
+      <div class="card" id="output-calendar-card">
+        <div class="output-cal-header">
+          <button class="cal-nav-btn" id="out-cal-prev" type="button" title="Предыдущий месяц">‹</button>
+          <div class="output-cal-month" id="out-cal-month">—</div>
+          <button class="cal-nav-btn" id="out-cal-next" type="button" title="Следующий месяц">›</button>
+        </div>
+        <div class="cal-grid" id="out-cal-weekdays"></div>
+        <div class="cal-grid" id="out-cal-grid" style="margin-top:6px;"></div>
+        <div class="output-cal-legend">
+          <span>Меньше</span>
+          <span class="out-legend-swatch" style="background:#F4F4F5;border:1px solid var(--border);"></span>
+          <span class="out-legend-swatch" style="background:#DBEAFE;"></span>
+          <span class="out-legend-swatch" style="background:#93C5FD;"></span>
+          <span class="out-legend-swatch" style="background:#3B82F6;"></span>
+          <span class="out-legend-swatch" style="background:#1E40AF;"></span>
+          <span>Больше</span>
+        </div>
+        <div class="output-cal-summary" id="out-cal-summary" style="display:none;"></div>
       </div>
 
       <div class="frequent-block" id="frequent-block" style="display:none;">
@@ -722,6 +770,18 @@
   </div>
 </div>
 
+<!-- ============ МОДАЛ ДЕТАЛЕЙ ДНЯ ============ -->
+<div id="day-detail-modal" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-title" id="day-detail-title">—</div>
+    <div id="day-detail-body"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btn-day-detail-close">Закрыть</button>
+      <button class="btn btn-primary" id="btn-day-detail-show">📅 Открыть в списке</button>
+    </div>
+  </div>
+</div>
+
 <div id="admin-pin-card" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:250;align-items:center;justify-content:center;">
   <div class="card" style="width:85%;max-width:320px;margin:0;">
     <div class="field"><label>Админ-код</label><input type="password" id="admin-pin-input" placeholder="••••" inputmode="numeric"></div>
@@ -807,7 +867,6 @@ function backgroundPreloadLibs(){
   setTimeout(function(){
     ensureXlsx().catch(function(){});
     ensureChart().catch(function(){});
-    // jspdf тяжелее — грузим чуть позже
     setTimeout(function(){ ensureJspdf().catch(function(){}); }, 4000);
   }, 5000);
 }
@@ -833,7 +892,6 @@ function saveAllCache(){
   try {
     localStorage.setItem(CACHE_KEY_PREFIX + PROFILE.code, JSON.stringify(payload));
   } catch(e){
-    // Не хватило места — чистим половину самых старых кэшей
     try {
       const keys = Object.keys(localStorage).filter(function(k){
         return k.indexOf(CACHE_KEY_PREFIX) === 0 && k !== CACHE_KEY_PREFIX + PROFILE.code;
@@ -923,6 +981,8 @@ let chartDaily=null,chartTop=null;
 let LAST_SEARCH_RESULTS=[],cyrillicFontBase64Cache=null;
 let PENDING_QUEUE=[],FAVORITES=[];
 let MY_AVG_COST=0;
+let OUT_CAL_MONTH=null;
+let DAY_DETAIL_DATE=null;
 
 const DEFAULT_SHIFT_TYPES=[
   {id:'day',name:'День',color:'#3390EC'},
@@ -1014,12 +1074,10 @@ function localRawSet(key,value){
   return Promise.resolve(true);
 }
 async function loadLocalProfile(){
-  // Сначала localStorage — мгновенно, без ожидания CloudStorage
   try {
     const raw = localStorage.getItem('profile_v2');
     if(raw) return JSON.parse(raw);
   } catch(e){}
-  // Иначе — CloudStorage Telegram (медленно, до 3.5 сек)
   const raw = await localRawGet('profile');
   if(!raw) return null;
   try {
@@ -1031,7 +1089,6 @@ async function loadLocalProfile(){
 function saveLocalProfile(p){
   const str = JSON.stringify(p);
   try { localStorage.setItem('profile_v2', str); } catch(e){}
-  // CloudStorage пишем в фоне, не ждём ответа
   localRawSet('profile', str).catch(function(){});
   return Promise.resolve();
   }
@@ -1067,7 +1124,7 @@ async function flushQueue(){
   updateQueueBadge();
   if(hadSuccess) vibrateSuccess();
   renderEntries();renderUsersList();renderMiniDashboard();
-  renderFrequentParts();updateSalaryToday();
+  renderFrequentParts();updateSalaryToday();renderOutputCalendar();
   await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
 }
 
@@ -1164,7 +1221,6 @@ function renderFrequentParts(){
 }
 
 async function init(){
-  // НЕ показываем register сразу — сначала попробуем кэш/профиль
   showRoot('loading');
   const fbOk=initFirebase();
   if(!fbOk){showRoot('setup');return;}
@@ -1175,7 +1231,6 @@ async function init(){
   PENDING_QUEUE=loadPendingQueue();
   FAVORITES=loadFavorites();
 
-  // === ФАЗА 1: мгновенно показываем UI из кэша ===
   const cached=loadAllCache(PROFILE.code);
   if(cached){
     applyCachedData(cached);
@@ -1189,11 +1244,9 @@ async function init(){
       b.classList.toggle('active',b.getAttribute('data-tab')==='entry');
     });
     console.log('UI показан из кэша за',Date.now()-performanceStart,'мс');
-    // Фоновый preload тяжёлых библиотек — не блокирует
     backgroundPreloadLibs();
   }
 
-  // === ФАЗА 2: проверяем бригаду ===
   let brigadeExists=await fbGet('brigades/'+PROFILE.code);
   if(!brigadeExists){
     await new Promise(function(r){setTimeout(r,1000);});
@@ -1208,7 +1261,6 @@ async function init(){
 
   await saveTelegramId(PROFILE.fio);
 
-  // === ФАЗА 3: если кэша не было — показываем пустой UI и грузим с сервера ===
   if(!cached){
     renderTopbarAndUI();
     showRoot('main');
@@ -1250,6 +1302,7 @@ function renderTopbarAndUI(){
   updateShiftTodayBar();
   updateShiftTomorrowBar();
   checkEveningReminder();
+  renderOutputCalendar();
   }
 async function updateMyAvgCost(){
   try{
@@ -1313,7 +1366,7 @@ async function switchTab(name){
     renderEntries();renderUsersList();renderMiniDashboard();renderFrequentParts();
     await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
     updateShiftTodayBar();updateShiftTomorrowBar();checkEveningReminder();
-    await updateMyAvgCost();updateSalaryToday();
+    await updateMyAvgCost();updateSalaryToday();renderOutputCalendar();
     if(isOwner()) refreshPayrollSummary();
     if(PENDING_QUEUE.length>0) flushQueue();
   }
@@ -1370,6 +1423,127 @@ function checkEveningReminder(){
 if($('btn-dismiss-reminder')) $('btn-dismiss-reminder').addEventListener('click',function(){
   localStorage.setItem(REMINDER_KEY,toISODate(new Date()));
   $('evening-reminder').style.display='none';
+});
+
+/* ============ КАЛЕНДАРЬ ВЫРАБОТКИ ============ */
+function renderOutputCalendar(){
+  if(!PROFILE) return;
+  if(!OUT_CAL_MONTH) OUT_CAL_MONTH = toISODate(new Date()).slice(0,7);
+  const weekdaysEl = $('out-cal-weekdays');
+  if(weekdaysEl && weekdaysEl.children.length === 0){
+    weekdaysEl.innerHTML = WEEKDAY_NAMES.map(function(w){ return '<div class="cal-weekday">'+w+'</div>'; }).join('');
+  }
+  const monthVal = OUT_CAL_MONTH;
+  const y = parseInt(monthVal.split('-')[0],10);
+  const m = parseInt(monthVal.split('-')[1],10);
+  const daysInMonth = new Date(y,m,0).getDate();
+  const firstDay = new Date(y,m-1,1);
+  const leadOffset = (firstDay.getDay()+6)%7;
+  const todayStr = toISODate(new Date());
+
+  const byDay = {};
+  ENTRIES.filter(function(e){ return e.worker===PROFILE.fio && (e.date||'').startsWith(monthVal); })
+    .forEach(function(e){ byDay[e.date] = (byDay[e.date]||0) + (Number(e.qty)||0); });
+  const maxQty = Math.max.apply(null, Object.values(byDay).concat([1]));
+
+  if($('out-cal-month')) $('out-cal-month').textContent = monthTitleRu(monthVal);
+
+  const grid = $('out-cal-grid');
+  if(!grid) return;
+  let html = '';
+  for(let i=0;i<leadOffset;i++) html += '<div class="out-day out-empty"></div>';
+  for(let d=1; d<=daysInMonth; d++){
+    const dateStr = monthVal+'-'+String(d).padStart(2,'0');
+    const qty = byDay[dateStr]||0;
+    let lvl = 1;
+    if(qty > 0){
+      const ratio = qty / maxQty;
+      if(ratio <= 0.25) lvl = 2;
+      else if(ratio <= 0.5) lvl = 3;
+      else if(ratio <= 0.8) lvl = 4;
+      else lvl = 5;
+    }
+    const isToday = dateStr === todayStr;
+    html += '<div class="out-day lvl-'+lvl+(isToday?' out-today':'')+'" data-date="'+dateStr+'">'+
+      '<div class="out-day-num">'+d+'</div>'+
+      (qty>0 ? '<div class="out-day-qty">'+qty+'</div>' : '')+
+    '</div>';
+  }
+  grid.innerHTML = html;
+  grid.querySelectorAll('.out-day:not(.out-empty)').forEach(function(cell){
+    cell.addEventListener('click', function(){ openDayDetail(cell.getAttribute('data-date')); });
+  });
+
+  // Итог по месяцу
+  const sumEl = $('out-cal-summary');
+  if(sumEl){
+    const monthQty = Object.values(byDay).reduce(function(s,v){ return s+v; }, 0);
+    const activeDays = Object.keys(byDay).filter(function(k){ return byDay[k] > 0; }).length;
+    if(monthQty > 0){
+      sumEl.style.display = 'flex';
+      let text = 'За месяц: <b>'+fmtMoney(monthQty)+' шт</b> · дней: <b>'+activeDays+'</b>';
+      if(MY_AVG_COST > 0) text += ' · ≈ <b>'+fmtMoney(Math.round(MY_AVG_COST*monthQty))+' ₽</b>';
+      sumEl.innerHTML = '<span>'+text+'</span>';
+    } else {
+      sumEl.style.display = 'none';
+    }
+  }
+}
+
+function openDayDetail(dateStr){
+  if(!PROFILE) return;
+  DAY_DETAIL_DATE = dateStr;
+  const entries = ENTRIES.filter(function(e){ return e.worker===PROFILE.fio && e.date===dateStr; }).sort(function(a,b){ return b.ts-a.ts; });
+  const totalQty = entries.reduce(function(s,e){ return s+(Number(e.qty)||0); }, 0);
+
+  const titleEl = $('day-detail-title');
+  const bodyEl = $('day-detail-body');
+  if(titleEl) titleEl.textContent = formatDateRu(dateStr);
+  if(!bodyEl) return;
+
+  if(entries.length === 0){
+    bodyEl.innerHTML = '<div class="empty-state" style="padding:16px 0;"><div class="emoji">🗂️</div><div class="msg">За этот день записей нет</div></div>';
+  } else {
+    // Группируем по категории + детали
+    const byKey = {};
+    entries.forEach(function(e){
+      const k = e.category+'||'+e.part;
+      if(!byKey[k]) byKey[k] = {category:e.category, part:e.part, qty:0};
+      byKey[k].qty += Number(e.qty)||0;
+    });
+    let html = '';
+    Object.values(byKey).sort(function(a,b){ return b.qty-a.qty; }).forEach(function(g){
+      html += '<div class="day-detail-group">'+
+        '<div style="min-width:0;">'+
+          '<div class="dd-part">'+escapeHtml(g.part)+'</div>'+
+          '<div class="dd-cat">'+escapeHtml(g.category)+'</div>'+
+        '</div>'+
+        '<div class="dd-qty">'+g.qty+' шт</div>'+
+      '</div>';
+    });
+    html += '<div class="day-total-bar" style="margin:12px 0 0;"><span class="label">Итого за день</span><span class="val">'+totalQty+' шт</span></div>';
+    if(MY_AVG_COST > 0){
+      const earned = Math.round(MY_AVG_COST * totalQty);
+      html += '<div class="day-total-bar salary-today" style="margin-top:8px;"><span class="label">≈ Заработано за день</span><span class="val">'+fmtMoney(earned)+' ₽</span></div>';
+    } else {
+      html += '<div class="hint" style="text-align:center;margin-top:10px;">Внесите фактическую зарплату за прошлый месяц, чтобы видеть заработок</div>';
+    }
+    bodyEl.innerHTML = html;
+  }
+  $('day-detail-modal').classList.add('open');
+}
+
+if($('out-cal-prev')) $('out-cal-prev').addEventListener('click', function(){ OUT_CAL_MONTH = shiftMonth(OUT_CAL_MONTH || toISODate(new Date()).slice(0,7), -1); renderOutputCalendar(); });
+if($('out-cal-next')) $('out-cal-next').addEventListener('click', function(){ OUT_CAL_MONTH = shiftMonth(OUT_CAL_MONTH || toISODate(new Date()).slice(0,7), 1); renderOutputCalendar(); });
+if($('btn-day-detail-close')) $('btn-day-detail-close').addEventListener('click', function(){ $('day-detail-modal').classList.remove('open'); });
+if($('day-detail-modal')) $('day-detail-modal').addEventListener('click', function(e){ if(e.target === $('day-detail-modal')) $('day-detail-modal').classList.remove('open'); });
+if($('btn-day-detail-show')) $('btn-day-detail-show').addEventListener('click', function(){
+  if(!DAY_DETAIL_DATE) return;
+  $('entry-date').value = DAY_DETAIL_DATE;
+  updateQuickDateButtons();
+  renderEntries();
+  updateSalaryToday();
+  $('day-detail-modal').classList.remove('open');
 });
 
 function isFavorite(category,part){return FAVORITES.some(function(f){return f.category===category&&f.part===part;});}
@@ -1757,7 +1931,7 @@ if($('btn-bulk-save')) $('btn-bulk-save').addEventListener('click',async functio
   savePendingQueue();
   updateQueueBadge();
   $('bulk-modal').classList.remove('open');
-  renderEntries();renderUsersList();renderMiniDashboard();renderFrequentParts();updateSalaryToday();
+  renderEntries();renderUsersList();renderMiniDashboard();renderFrequentParts();updateSalaryToday();renderOutputCalendar();
   vibrateSuccess();
   showToast('Внесено '+toSave.length+' записей');
   await flushQueue();
@@ -1798,6 +1972,7 @@ function renderEntries(){
   if(dayEntries.length===0){
     list.innerHTML='<div class="empty-state"><div class="emoji">🗂️</div><div class="msg">На эту дату записей нет.</div></div>';
     updateSalaryToday();
+    renderOutputCalendar();
     return;
   }
   list.innerHTML='';
@@ -1833,7 +2008,7 @@ function renderEntries(){
         ENTRIES=ENTRIES.filter(function(e){return e.id!==id;});
         updateQueueBadge();
         renderEntries();renderUsersList();renderMiniDashboard();
-        renderFrequentParts();updateSalaryToday();
+        renderFrequentParts();updateSalaryToday();renderOutputCalendar();
         showToast('Запись удалена из очереди');
         return;
       }
@@ -1847,6 +2022,7 @@ function renderEntries(){
     });
   });
   updateSalaryToday();
+  renderOutputCalendar();
 }
 if($('entry-date')) $('entry-date').addEventListener('change',function(){updateQuickDateButtons();renderEntries();updateSalaryToday();});
 
@@ -1875,6 +2051,7 @@ if($('btn-add')) $('btn-add').addEventListener('click',async function(){
   renderEntries();renderUsersList();renderMiniDashboard();
   refreshRepeatButton();
   updateSalaryToday();
+  renderOutputCalendar();
   vibrateSuccess();
   showToast('Запись добавлена');
   await flushQueue();
@@ -1920,7 +2097,7 @@ if($('btn-edit-save')) $('btn-edit-save').addEventListener('click',async functio
   $('edit-modal').classList.remove('open');
   editingEntryId=null;
   renderEntries();renderUsersList();renderMiniDashboard();
-  renderFrequentParts();updateSalaryToday();
+  renderFrequentParts();updateSalaryToday();renderOutputCalendar();
   await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
   renderTeam();
   vibrateSuccess();
@@ -1967,7 +2144,7 @@ if($('btn-undo')) $('btn-undo').addEventListener('click',async function(){
     await fbPush(bp('changeLog'),{action:'undo',by:PROFILE.fio,timestamp:Date.now(),oldValue:{undone:last.action},newValue:null});
     CHANGE_LOG=CHANGE_LOG.filter(function(c){return c.id!==last.id;});
     renderEntries();renderUsersList();renderMiniDashboard();
-    renderFrequentParts();updateSalaryToday();
+    renderFrequentParts();updateSalaryToday();renderOutputCalendar();
     await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
     await refreshBrigadeData();
     renderTeam();
@@ -2056,7 +2233,7 @@ if($('btn-refresh')) $('btn-refresh').addEventListener('click',async function(){
   renderManageChips();renderWorkerChips();renderFavorites();renderFrequentParts();
   renderEntries();renderUsersList();renderMiniDashboard();renderTeam();
   await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
-  await updateMyAvgCost();updateSalaryToday();
+  await updateMyAvgCost();updateSalaryToday();renderOutputCalendar();
   updateQueueBadge();updateShiftTodayBar();updateShiftTomorrowBar();checkEveningReminder();
   if(isOwner()) refreshPayrollSummary();
   updateUndoButton();
@@ -2128,7 +2305,7 @@ function renderTeam(){
       if(target) await logChange('delete_entry',{worker:target.worker,category:target.category,part:target.part,qty:target.qty,date:target.date,time:target.time,ts:target.ts},null,id);
       await fbRemove(bp('entries/'+id));
       ENTRIES=ENTRIES.filter(function(e){return e.id!==id;});
-      renderTeam();renderFrequentParts();updateSalaryToday();
+      renderTeam();renderFrequentParts();updateSalaryToday();renderOutputCalendar();
     });
   });
 }
@@ -2501,7 +2678,7 @@ if($('btn-save-payroll')) $('btn-save-payroll').addEventListener('click',async f
   PAYROLL=updated;
   await fbSet(bp('payroll/'+monthVal),PAYROLL);
   await refreshPayrollSummary();await refreshMyPayroll();await refreshMyCalc();await refreshForecast();
-  await updateMyAvgCost();updateSalaryToday();
+  await updateMyAvgCost();updateSalaryToday();renderOutputCalendar();
   showToast('Сохранено');
 });
 function payrollRecordTotal(rec){if(!rec) return 0;const m=(rec.advance||0)+(rec.final||0);return m||(rec.actual||0);}
@@ -2586,7 +2763,7 @@ if($('btn-save-my-salary')) $('btn-save-my-salary').addEventListener('click',asy
   const ok=await fbUpdate(bp('payroll/'+m+'/'+PROFILE.fio),{actual:actual});
   if(ok){await logChange('set_actual_salary',{month:m,worker:PROFILE.fio,actual:oldActual},{month:m,worker:PROFILE.fio,actual:actual});showToast('Сохранено');}
   await refreshMyCalc();await refreshMyPayroll();await refreshForecast();
-  await updateMyAvgCost();updateSalaryToday();
+  await updateMyAvgCost();updateSalaryToday();renderOutputCalendar();
 });
 
 let REPORT_MODE='brigade';
