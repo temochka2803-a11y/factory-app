@@ -745,6 +745,136 @@ const CLOUDFLARE_WORKER_URL="https://naryad-bot-relay.tema-tatarinov2013.workers
 const APP_SHARED_SECRET="naryad2026xyz";
 const ADMIN_SECRET_HASH="9eadf697db31eb58eae0b4a3481879563846da3512d9f164c3851f14a88b97e0";
 
+// ========== ЛЕНИВАЯ ЗАГРУЗКА БИБЛИОТЕК ==========
+const LIB_URLS = {
+  jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  jspdfAutotable: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
+  xlsx: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  chart: 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
+};
+const libPromises = {};
+
+function loadScriptOnce(src){
+  return new Promise(function(resolve, reject){
+    const existing = document.querySelector('script[src="' + src + '"]');
+    if(existing){ resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = true;
+    s.onload = function(){ resolve(); };
+    s.onerror = function(){ reject(new Error('Не удалось загрузить ' + src)); };
+    document.head.appendChild(s);
+  });
+}
+
+function ensureJspdf(){
+  if(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable) return Promise.resolve();
+  if(!libPromises.jspdf){
+    libPromises.jspdf = (async function(){
+      if(!window.jspdf || !window.jspdf.jsPDF) await loadScriptOnce(LIB_URLS.jspdf);
+      if(!window.jspdf.jsPDF.API.autoTable) await loadScriptOnce(LIB_URLS.jspdfAutotable);
+    })();
+  }
+  return libPromises.jspdf;
+}
+
+function ensureXlsx(){
+  if(window.XLSX) return Promise.resolve();
+  if(!libPromises.xlsx) libPromises.xlsx = loadScriptOnce(LIB_URLS.xlsx);
+  return libPromises.xlsx;
+}
+
+function ensureChart(){
+  if(window.Chart) return Promise.resolve();
+  if(!libPromises.chart) libPromises.chart = loadScriptOnce(LIB_URLS.chart);
+  return libPromises.chart;
+}
+
+// ========== КЭШ В LOCALSTORAGE ==========
+const CACHE_KEY_PREFIX = 'cache_v1_';
+const CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 дней
+
+function saveAllCache(){
+  if(!PROFILE || !PROFILE.code) return;
+  const payload = {
+    ts: Date.now(),
+    categories: CATEGORIES,
+    catalog: CATALOG,
+    workers: WORKERS,
+    entries: ENTRIES.filter(function(e){ return !e._pending; }),
+    shiftTypes: SHIFT_TYPES,
+    schedule: SCHEDULE,
+    excludedCategories: EXCLUDED_CATEGORIES,
+    changeLog: CHANGE_LOG.slice(0, 100),
+    scheduleTemplates: SCHEDULE_TEMPLATES,
+  };
+  try {
+    localStorage.setItem(CACHE_KEY_PREFIX + PROFILE.code, JSON.stringify(payload));
+  } catch(e){
+    // Не хватило места — чистим половину самых старых кэшей
+    try {
+      const keys = Object.keys(localStorage).filter(function(k){
+        return k.indexOf(CACHE_KEY_PREFIX) === 0 && k !== CACHE_KEY_PREFIX + PROFILE.code;
+      });
+      const items = keys.map(function(k){
+        try { return { k: k, ts: JSON.parse(localStorage.getItem(k)).ts || 0 }; }
+        catch(e2){ return { k: k, ts: 0 }; }
+      });
+      items.sort(function(a,b){ return a.ts - b.ts; });
+      items.slice(0, Math.ceil(items.length / 2)).forEach(function(it){ localStorage.removeItem(it.k); });
+      localStorage.setItem(CACHE_KEY_PREFIX + PROFILE.code, JSON.stringify(payload));
+    } catch(e2){ console.warn('Не удалось сохранить кэш:', e2); }
+  }
+}
+
+function loadAllCache(code){
+  try {
+    const raw = localStorage.getItem(CACHE_KEY_PREFIX + code);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    if(!parsed || !parsed.ts) return null;
+    if(Date.now() - parsed.ts > CACHE_MAX_AGE_MS) return null;
+    return parsed;
+  } catch(e){ return null; }
+}
+
+function applyCachedData(c){
+  if(!c) return;
+  CATEGORIES = c.categories || [];
+  CATALOG = c.catalog || [];
+  WORKERS = c.workers || [];
+  ENTRIES = c.entries || [];
+  PENDING_QUEUE.forEach(function(p){
+    const exists = ENTRIES.some(function(e){ return e.id === p._localId; });
+    if(!exists) ENTRIES.push(Object.assign({ id: p._localId, _pending: true }, p));
+  });
+  SHIFT_TYPES = c.shiftTypes || [];
+  SCHEDULE = c.schedule || {};
+  EXCLUDED_CATEGORIES = c.excludedCategories || [];
+  CHANGE_LOG = c.changeLog || [];
+  SCHEDULE_TEMPLATES = c.scheduleTemplates || {};
+}
+
+let cacheSaveTimer = null;
+function scheduleCacheSave(){
+  if(cacheSaveTimer) clearTimeout(cacheSaveTimer);
+  cacheSaveTimer = setTimeout(function(){ saveAllCache(); }, 2000);
+}
+
+function updateLastUpdateTime(ts){
+  const el = $('home-last-update');
+  if(!el) return;
+  if(!ts){ el.textContent = 'Обновлено: —'; return; }
+  const d = new Date(ts);
+  const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  const today = toISODate(new Date());
+  const day = toISODate(d);
+  if(day === today){
+    el.textContent = 'Обновлено: ' + time;
+  } else {
+    el.textContent = 'Обновлено: ' + formatDateRu(day) + ' ' + time;
+  }
+  }
 window.addEventListener('error',function(e){
   console.error('Global error:',e.message,'line',e.lineno);
   try{if(document.body&&!document.getElementById('global-error-box')){
@@ -856,9 +986,28 @@ function localRawSet(key,value){
   memoryFallback[key]=value;
   return Promise.resolve(true);
 }
-async function loadLocalProfile(){const raw=await localRawGet('profile');if(!raw) return null;try{return JSON.parse(raw);}catch(e){return null;}}
-async function saveLocalProfile(p){await localRawSet('profile',JSON.stringify(p));}
-
+async function loadLocalProfile(){
+  // Сначала localStorage — мгновенно, без ожидания CloudStorage
+  try {
+    const raw = localStorage.getItem('profile_v2');
+    if(raw) return JSON.parse(raw);
+  } catch(e){}
+  // Иначе — CloudStorage Telegram (медленно, до 3.5 сек)
+  const raw = await localRawGet('profile');
+  if(!raw) return null;
+  try {
+    const p = JSON.parse(raw);
+    try { localStorage.setItem('profile_v2', JSON.stringify(p)); } catch(e){}
+    return p;
+  } catch(e){ return null; }
+}
+function saveLocalProfile(p){
+  const str = JSON.stringify(p);
+  try { localStorage.setItem('profile_v2', str); } catch(e){}
+  // CloudStorage пишем в фоне, не ждём ответа
+  localRawSet('profile', str).catch(function(){});
+  return Promise.resolve();
+  }
 function updateQueueBadge(){
   const badge=$('queue-badge');
   if(!badge) return;
@@ -912,10 +1061,11 @@ async function refreshBrigadeData(){
   SHIFT_TYPES=results[4]||[];SCHEDULE=results[5]||{};EXCLUDED_CATEGORIES=results[6]||[];
   const logObj=results[7];
   CHANGE_LOG=logObj?Object.keys(logObj).map(function(id){return Object.assign({id:id},logObj[id]);}).sort(function(a,b){return b.timestamp-a.timestamp;}):[];
-  SCHEDULE_TEMPLATES=results[8]||{};
+  SCHEDULE_TEMPLATES = results[8] || {};
+  saveAllCache();
+  updateLastUpdateTime(Date.now());
 }
-async function ensureInRoster(name){
-  const current=(await fbGet(bp('workers')))||[];
+async function ensureInRoster(name){  const current=(await fbGet(bp('workers')))||[];
   if(current.indexOf(name)===-1){current.push(name);await fbSet(bp('workers'),current);}
 }
 async function saveTelegramId(fio){
@@ -932,8 +1082,8 @@ async function logChange(action,oldValue,newValue,entityId){
   const id=await fbPush(bp('changeLog'),entry);
   if(id){CHANGE_LOG.unshift(Object.assign({id:id},entry));if(CHANGE_LOG.length>500) CHANGE_LOG=CHANGE_LOG.slice(0,500);}
   updateUndoButton();
-}
-
+  scheduleCacheSave();
+  }
 async function maybeCreateBackup(force){
   if(!isOwner()||!firebaseReady||!PROFILE) return false;
   try{
@@ -990,32 +1140,76 @@ async function init(){
   showRoot('register');
   const fbOk=initFirebase();
   if(!fbOk){showRoot('setup');return;}
+
   PROFILE=await loadLocalProfile();
   if(!PROFILE||!PROFILE.code){showRoot('register');return;}
-  let brigadeExists=await fbGet('brigades/'+PROFILE.code);
-  if(!brigadeExists){await new Promise(function(r){setTimeout(r,1500);});brigadeExists=await fbGet('brigades/'+PROFILE.code);}
-  if(!brigadeExists){console.error('Бригада не найдена:',PROFILE.code);showToast('⚠️ Бригада не найдена в базе.');showRoot('register');return;}
 
   PENDING_QUEUE=loadPendingQueue();
   FAVORITES=loadFavorites();
 
-  await refreshBrigadeData();
+  // === ФАЗА 1: мгновенно показываем UI из кэша ===
+  const cached=loadAllCache(PROFILE.code);
+  if(cached){
+    applyCachedData(cached);
+    renderTopbarAndUI();
+    updateLastUpdateTime(cached.ts);
+    showRoot('main');
+    ['entry','team','schedule','payroll','report','search','analytics'].forEach(function(t){
+      const el=$('tab-'+t);if(el) el.style.display=(t==='entry')?'block':'none';
+    });
+    document.querySelectorAll('.tab-btn').forEach(function(b){
+      b.classList.toggle('active',b.getAttribute('data-tab')==='entry');
+    });
+    console.log('UI показан из кэша за',Date.now()-performanceStart,'мс');
+  }
+
+  // === ФАЗА 2: проверяем бригаду ===
+  let brigadeExists=await fbGet('brigades/'+PROFILE.code);
+  if(!brigadeExists){
+    await new Promise(function(r){setTimeout(r,1000);});
+    brigadeExists=await fbGet('brigades/'+PROFILE.code);
+  }
+  if(!brigadeExists){
+    console.error('Бригада не найдена:',PROFILE.code);
+    showToast('⚠️ Бригада не найдена в базе.');
+    showRoot('register');
+    return;
+  }
+
   await saveTelegramId(PROFILE.fio);
 
+  // === ФАЗА 3: синхронизация с Firebase ===
+  if(!cached){
+    renderTopbarAndUI();
+    showRoot('main');
+    ['entry','team','schedule','payroll','report','search','analytics'].forEach(function(t){
+      const el=$('tab-'+t);if(el) el.style.display=(t==='entry')?'block':'none';
+    });
+    document.querySelectorAll('.tab-btn').forEach(function(b){
+      b.classList.toggle('active',b.getAttribute('data-tab')==='entry');
+    });
+  }
+
+  await switchTab('entry');
+
+  maybeCreateBackup(false).catch(function(e){console.error('backup failed:',e);});
+}
+
+function renderTopbarAndUI(){
   if($('home-fio')) $('home-fio').textContent=PROFILE.fio;
   if($('home-factory')) $('home-factory').textContent=PROFILE.factory;
   if($('home-code')) $('home-code').textContent='Код: '+PROFILE.code;
 
   const todayISO=toISODate(new Date());
   const monthISO=todayISO.slice(0,7);
-  if($('entry-date')) $('entry-date').value=todayISO;
-  if($('team-date')) $('team-date').value=todayISO;
-  if($('rep-date')) $('rep-date').value=todayISO;
-  if($('rep-month')) $('rep-month').value=monthISO;
-  if($('sched-month')) $('sched-month').value=monthISO;
-  if($('payroll-month')) $('payroll-month').value=monthISO;
-  if($('naryad-date-from')) $('naryad-date-from').value=todayISO;
-  if($('naryad-date-to')) $('naryad-date-to').value=todayISO;
+  if($('entry-date')&&!$('entry-date').value) $('entry-date').value=todayISO;
+  if($('team-date')&&!$('team-date').value) $('team-date').value=todayISO;
+  if($('rep-date')&&!$('rep-date').value) $('rep-date').value=todayISO;
+  if($('rep-month')&&!$('rep-month').value) $('rep-month').value=monthISO;
+  if($('sched-month')&&!$('sched-month').value) $('sched-month').value=monthISO;
+  if($('payroll-month')&&!$('payroll-month').value) $('payroll-month').value=monthISO;
+  if($('naryad-date-from')&&!$('naryad-date-from').value) $('naryad-date-from').value=todayISO;
+  if($('naryad-date-to')&&!$('naryad-date-to').value) $('naryad-date-to').value=todayISO;
 
   refreshAllCategorySelects();refreshAllPartSelects();refreshWorkerSelect();
   renderManageChips();renderWorkerChips();renderFavorites();renderFrequentParts();
@@ -1025,16 +1219,7 @@ async function init(){
   updateShiftTodayBar();
   updateShiftTomorrowBar();
   checkEveningReminder();
-  await refreshMyPayroll();await refreshForecast();refreshRepeatButton();
-  await updateMyAvgCost();
-  updateSalaryToday();
-  flushQueue();
-  maybeCreateBackup(false).catch(function(e){console.error('backup failed:',e);});
-
-  showRoot('main');
-  switchTab('entry');
-}
-
+  }
 async function updateMyAvgCost(){
   try{
     const payrollAll=(await fbGet(bp('payroll')))||{};
@@ -3287,9 +3472,9 @@ function initTelegramEnv(){
     try{wa.setBackgroundColor('#F0F1F3');}catch(e){}
   }
 }
+const performanceStart = Date.now();
 console.log('=== Учёт деталей, старт ===');
 initTelegramEnv();
-
 setInterval(function(){if(PENDING_QUEUE.length>0) flushQueue();},30000);
 window.addEventListener('online',function(){if(PENDING_QUEUE.length>0) flushQueue();});
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&PENDING_QUEUE.length>0) flushQueue();});
