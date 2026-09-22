@@ -231,7 +231,6 @@
   .frequent-btn{padding:8px 12px;border-radius:8px;border:1px solid #BFDBFE;background:#fff;font-size:13px;cursor:pointer;font-family:inherit;color:var(--accent-dark);margin:0 6px 6px 0;font-weight:600;transition:all .15s;}
   .frequent-btn:active{background:var(--accent-light);transform:scale(.96);}
 
-  /* ⭐ НОВЫЙ: Панель последних записей */
   .recent-block{padding:11px 13px;background:linear-gradient(135deg,#F1F5F9,#F8FAFC);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;box-shadow:var(--shadow-xs);}
   .recent-block .manage-block-title{color:var(--text-secondary);margin-bottom:8px;}
   #recent-list{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
@@ -246,7 +245,6 @@
   .recent-part{font-size:12.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;display:block;line-height:1.2;}
   .recent-meta{font-size:10.5px;color:var(--text-tertiary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;display:block;}
 
-  /* ⭐ НОВЫЙ: Плитки деталей */
   .tile-picker{margin-bottom:12px;}
   .tile-picker-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;gap:8px;}
   .tile-picker-actions{display:flex;gap:5px;}
@@ -473,7 +471,6 @@
   .day-detail-group .dd-cat{font-size:11px;color:var(--text-secondary);margin-top:2px;font-weight:500;}
   .day-detail-group .dd-qty{font-family:var(--mono);font-size:14px;font-weight:800;background:linear-gradient(135deg,var(--accent-dark),var(--accent-2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap;align-self:center;}
 
-  /* ============ УДОБСТВА ДЛЯ РАБОЧИХ ============ */
   #in-qty{
     font-size:24px !important;
     font-weight:800 !important;
@@ -539,8 +536,8 @@
     --bg-grad-2:#0B1220;
     --card:#1E293B;
     --text:#F1F5F9;
-    --text-secondary:#94A3B8;
-    --text-tertiary:#64748B;
+    --text-secondary:#A8B5C7;
+    --text-tertiary:#7E8C9E;
     --border:#334155;
     --border-strong:#475569;
     --accent-light:#1E3A8A;
@@ -552,13 +549,28 @@
   html[data-theme="dark"] body{background:linear-gradient(180deg,var(--bg-grad-1) 0%,var(--bg-grad-2) 100%);}
   html[data-theme="dark"] #app{background:linear-gradient(180deg,var(--bg-grad-1) 0%,var(--bg-grad-2) 100%);}
 
+  /* ✅ ФИКС: разделили select от input/textarea, чтобы не терять background-image стрелки */
   html[data-theme="dark"] .field input,
-  html[data-theme="dark"] .field select,
   html[data-theme="dark"] .field textarea{background:#0F172A;border-color:#334155;color:var(--text);}
+  html[data-theme="dark"] .field select{
+    background-color:#0F172A;
+    border-color:#334155;
+    color:var(--text);
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23A8B5C7'><path d='M7 10l5 5 5-5z'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 10px center;
+    background-size:18px;
+  }
   html[data-theme="dark"] .field input:focus,
-  html[data-theme="dark"] .field select:focus,
   html[data-theme="dark"] .field textarea:focus{background:#1E293B;border-color:var(--accent);}
-  html[data-theme="dark"] .field select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394A3B8'><path d='M7 10l5 5 5-5z'/></svg>");}
+  html[data-theme="dark"] .field select:focus{
+    background-color:#1E293B;
+    border-color:var(--accent);
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23A8B5C7'><path d='M7 10l5 5 5-5z'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 10px center;
+    background-size:18px;
+  }
   html[data-theme="dark"] #in-qty{background:#0F172A;}
   html[data-theme="dark"] #in-qty:focus{background:#1E293B;}
 
@@ -567,7 +579,7 @@
   html[data-theme="dark"] .tile-add-btn{background:#1E293B;color:#93C5FD;}
 
   html[data-theme="dark"] .recent-block{background:linear-gradient(135deg,#0F172A,#1E293B);border-color:#334155;}
-  html[data-theme="dark"] .recent-block .manage-block-title{color:#94A3B8;}
+  html[data-theme="dark"] .recent-block .manage-block-title{color:#A8B5C7;}
   html[data-theme="dark"] .recent-btn{background:#1E293B;border-color:#334155;color:#E2E8F0;}
   html[data-theme="dark"] .recent-btn:active{background:#1E3A5F;border-color:#3B82F6;}
   html[data-theme="dark"] .recent-part{color:#E2E8F0;}
@@ -578,6 +590,7 @@
   html[data-theme="dark"] .tabbar{background:rgba(30,41,59,.92);border-top-color:rgba(51,65,85,.8);}
   html[data-theme="dark"] .toast{background:rgba(241,245,249,.94);color:#0F172A;}
   html[data-theme="dark"] .chip{background:#334155;border-color:#475569;color:#E2E8F0;}
+  html[data-theme="dark"] .chip button{background:rgba(255,255,255,.06);color:#A8B5C7;}
   html[data-theme="dark"] .quick-date-btn{background:#1E293B;color:var(--text);border-color:#334155;}
   html[data-theme="dark"] .quick-date-btn.active{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;}
   html[data-theme="dark"] .seg-control{background:#0F172A;}
@@ -594,10 +607,10 @@
   html[data-theme="dark"] .forecast-card{background:linear-gradient(135deg,#1E293B,#1E1B4B);border-color:#4F46E5;}
   html[data-theme="dark"] .forecast-title{color:#A5B4FC;}
   html[data-theme="dark"] .forecast-title .badge{background:#1E293B;color:#A5B4FC;}
-  html[data-theme="dark"] .forecast-sub{color:#94A3B8;}
-  html[data-theme="dark"] .forecast-bar-row .lbl{color:#94A3B8;}
+  html[data-theme="dark"] .forecast-sub{color:#A8B5C7;}
+  html[data-theme="dark"] .forecast-bar-row .lbl{color:#A8B5C7;}
   html[data-theme="dark"] .forecast-bar-row .val{color:#E2E8F0;}
-  html[data-theme="dark"] .forecast-hint{color:#94A3B8;}
+  html[data-theme="dark"] .forecast-hint{color:#A8B5C7;}
   html[data-theme="dark"] .forecast-progress{background:#334155;}
   html[data-theme="dark"] .frequent-block{background:linear-gradient(135deg,#1E3A5F,#1E293B);border-color:#3B82F6;}
   html[data-theme="dark"] .frequent-block .manage-block-title{color:#BFDBFE;}
@@ -616,11 +629,11 @@
   html[data-theme="dark"] .btn-bulk{background:linear-gradient(135deg,#064E3B,#052E1F);color:#6EE7B7;border-color:#10B981;}
   html[data-theme="dark"] .qty-quick-btn{background:linear-gradient(135deg,#1E293B,#0F172A);color:#93C5FD;border-color:#334155;}
   html[data-theme="dark"] .qty-quick-btn:active{background:#1E3A5F;border-color:#3B82F6;}
-  html[data-theme="dark"] .qty-quick-btn.qqb-clear{color:#64748B;}
+  html[data-theme="dark"] .qty-quick-btn.qqb-clear{color:#7E8C9E;}
   html[data-theme="dark"] .qty-hint{background:#064E3B;color:#6EE7B7;border-color:#10B981;}
   html[data-theme="dark"] .quick-tip{background:linear-gradient(135deg,#1E3A5F,#1E293B);border-color:#3B82F6;color:#BFDBFE;}
-  html[data-theme="dark"] .add-panel input{background:#0F172A;color:var(--text);}
-  html[data-theme="dark"] .add-btn{background:#1E293B;color:#93C5FD;}
+  html[data-theme="dark"] .add-panel input{background:#0F172A;color:var(--text);border-color:#334155;}
+  html[data-theme="dark"] .add-btn{background:#1E293B;color:#93C5FD;border-color:#3B82F6;}
   html[data-theme="dark"] .log-item{background:linear-gradient(135deg,#1E293B,#0F172A);}
   html[data-theme="dark"] .day-detail-group{background:linear-gradient(135deg,#1E293B,#0F172A);}
   html[data-theme="dark"] .out-day.lvl-1{background:#1E293B;}
@@ -629,7 +642,7 @@
   html[data-theme="dark"] .cal-day-num{background:rgba(15,23,42,.85);color:#F1F5F9;}
   html[data-theme="dark"] .cal-day.today{border-color:#F87171;box-shadow:0 0 0 3px rgba(248,113,113,.15);}
   html[data-theme="dark"] .code-reveal{background:linear-gradient(135deg,#1E3A5F,#1E1B4B);border-color:#3B82F6;}
-  html[data-theme="dark"] .cal-nav-btn{background:linear-gradient(135deg,#1E293B,#0F172A);color:#E2E8F0;}
+  html[data-theme="dark"] .cal-nav-btn{background:linear-gradient(135deg,#1E293B,#0F172A);color:#E2E8F0;border-color:#334155;}
   html[data-theme="dark"] .cal-nav-btn:active{background:#334155;}
   html[data-theme="dark"] .payroll-calc{background:linear-gradient(135deg,#1E3A5F,#1E293B);border-color:#3B82F6;}
   html[data-theme="dark"] .payroll-calc summary{color:#BFDBFE;}
@@ -644,9 +657,28 @@
   html[data-theme="dark"] .archive-month-btn{background:#1E293B;color:var(--text);border-color:#334155;}
   html[data-theme="dark"] .archive-month-btn.active{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;}
   html[data-theme="dark"] .filters-card{background:var(--card);}
-  html[data-theme="dark"] .bulk-row select,
+
+  /* ✅ ФИКС: bulk-row select тоже страдал от того же бага */
   html[data-theme="dark"] .bulk-row input{background:#0F172A;color:var(--text);border-color:#334155;}
-  html[data-theme="dark"] .bulk-row select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394A3B8'><path d='M7 10l5 5 5-5z'/></svg>");}
+  html[data-theme="dark"] .bulk-row select{
+    background-color:#0F172A;
+    color:var(--text);
+    border-color:#334155;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23A8B5C7'><path d='M7 10l5 5 5-5z'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 6px center;
+    background-size:15px;
+  }
+  html[data-theme="dark"] .bulk-row input:focus{background:#1E293B;border-color:var(--accent);}
+  html[data-theme="dark"] .bulk-row select:focus{
+    background-color:#1E293B;
+    border-color:var(--accent);
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23A8B5C7'><path d='M7 10l5 5 5-5z'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 6px center;
+    background-size:15px;
+  }
+
   html[data-theme="dark"] .report-doc,
   html[data-theme="dark"] .naryad-doc{background:#fff;color:#0F172A;}
   html[data-theme="dark"] .report-doc h2,
@@ -729,7 +761,7 @@
           <div class="topbar-sub" id="home-factory">—</div>
 <div class="topbar-code">
   <span id="home-code">Код: ——————</span>
-  <span id="home-version" style="opacity:.65;margin-left:6px;">v21</span>
+  <span id="home-version" style="opacity:.65;margin-left:6px;">v22</span>
 </div>
 <div class="topbar-updated" id="home-last-update"></div>        
         </div>
@@ -828,7 +860,6 @@
         <div class="output-cal-summary" id="out-cal-summary" style="display:none;"></div>
       </div>
 
-      <!-- ⭐ НОВЫЙ: Панель «Последние записи» -->
       <div class="recent-block" id="recent-block" style="display:none;">
         <div class="manage-block-title">🕐 Последние записи — тапни для повтора</div>
         <div id="recent-list"></div>
@@ -856,7 +887,6 @@
         <button class="btn btn-repeat" id="btn-repeat-last" style="display:none;margin-bottom:9px;"><span>🔁</span><span id="btn-repeat-label">Повторить последнюю запись</span></button>
         <button class="btn btn-warning" id="btn-copy-yesterday" style="margin-bottom:9px;">📋 Скопировать вчерашнюю смену</button>
 
-        <!-- ⭐ НОВЫЙ: Плитки выбора детали -->
         <div class="tile-picker" id="tile-picker">
           <div class="tile-picker-head">
             <div class="manage-block-title" style="margin:0;">🔧 Выберите деталь</div>
@@ -869,7 +899,6 @@
           <div class="add-panel" id="add-cat-panel"><input type="text" id="in-new-cat" placeholder="Новая категория"><button class="save-btn" id="btn-save-cat">Сохранить</button></div>
           <div class="tile-grid tile-grid-parts" id="tile-part-grid"></div>
           <div class="add-panel" id="add-part-panel"><input type="text" id="in-new-part" placeholder="Новая деталь"><button class="save-btn" id="btn-save-part">Сохранить</button></div>
-          <!-- Скрытые селекты для совместимости с остальной логикой -->
           <select id="in-cat-select" style="display:none;"></select>
           <select id="in-part-select" style="display:none;"></select>
         </div>
@@ -1337,7 +1366,6 @@ function showRoot(name){
 }
 function isOwner(){return !!(PROFILE&&PROFILE.isOwner);}
 
-/* ============ 🌙 ТЕМА ============ */
 function applyTheme(theme){
   if(theme === 'dark') document.documentElement.setAttribute('data-theme','dark');
   else document.documentElement.removeAttribute('data-theme');
@@ -1568,7 +1596,6 @@ function renderFrequentParts(){
   renderRecentEntries();
 }
 
-/* ⭐ НОВОЕ: Последние записи */
 function getRecentUniqueEntries(limit){
   if(!PROFILE) return [];
   const own = ENTRIES.filter(function(e){ return e.worker === PROFILE.fio; })
@@ -1615,7 +1642,6 @@ function renderRecentEntries(){
   });
 }
 
-/* ⭐ НОВОЕ: Плитки категорий и деталей */
 function renderTilePickers(){
   const catGrid = $('tile-cat-grid');
   const partGrid = $('tile-part-grid');
@@ -1937,7 +1963,6 @@ if($('btn-dismiss-reminder')) $('btn-dismiss-reminder').addEventListener('click'
   $('evening-reminder').style.display='none';
 });
 
-/* ============ КАЛЕНДАРЬ ВЫРАБОТКИ ============ */
 function renderOutputCalendar(){
   if(!PROFILE) return;
   if(!OUT_CAL_MONTH) OUT_CAL_MONTH = toISODate(new Date()).slice(0,7);
@@ -2381,7 +2406,6 @@ if($('btn-repeat-last')) $('btn-repeat-last').addEventListener('click',function(
 });
 if($('btn-copy-yesterday')) $('btn-copy-yesterday').addEventListener('click',copyYesterday);
 
-// ============ МАССОВЫЙ ВВОД ============
 let bulkRowId=0;
 function bulkMakeRow(category,part,qty){
   bulkRowId++;
